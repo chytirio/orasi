@@ -1,0 +1,160 @@
+[package]
+name = "examples"
+version = "0.1.0"
+edition = "2021"
+description = "Examples for the Orasi project"
+license = "Apache-2.0"
+repository = "https://github.com/chytirio/orasi"
+keywords = ["examples", "orasi", "opentelemetry", "data-lake"]
+categories = ["examples"]
+
+[dependencies]
+# Workspace dependencies
+bridge-core = { path = "../crates/bridge-core" }
+ingestion = { path = "../crates/ingestion" }
+bridge-auth = { path = "../crates/bridge-auth" }
+streaming-processor = { path = "../crates/streaming-processor" }
+schema-registry = { path = "../crates/schema-registry" }
+bridge-api = { path = "../crates/bridge-api" }
+# query-engine = { path = "../crates/query-engine" }  # Temporarily disabled due to compilation issues
+
+# Connectors (temporarily disabled - directories don't exist)
+# deltalake-connector = { path = "../crates/connectors/deltalake" }
+# lakehouse-iceberg = { path = "../crates/connectors/iceberg" }
+# lakehouse-hudi = { path = "../crates/connectors/hudi" }
+# lakehouse-snowflake = { path = "../crates/connectors/snowflake" }
+# lakehouse-s3-parquet = { path = "../crates/connectors/s3-parquet" }
+# kafka-connector = { path = "../crates/connectors/kafka" }
+
+# Runtime
+orasi-agent = { path = "../app/orasi-agent" }
+orasi-gateway = { path = "../app/orasi-gateway" }
+
+# Workspace dependencies
+tokio = { workspace = true, features = ["full"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+tonic = { workspace = true }
+hyper = { workspace = true }
+axum = { workspace = true }
+reqwest = { workspace = true, features = ["json"] }
+arrow = { workspace = true }
+arrow-array = { workspace = true }
+arrow-schema = { workspace = true }
+arrow-ipc = { workspace = true }
+arrow-json = { workspace = true }
+otel-arrow-rust = { workspace = true }
+
+[[example]]
+name = "otap_example"
+path = "ingestion/otap_example.rs"
+
+[[example]]
+name = "otap_receiver_example"
+path = "ingestion/otap_receiver_example.rs"
+
+[[example]]
+name = "minimal_otap_example"
+path = "ingestion/minimal_otap_example.rs"
+
+[[example]]
+name = "basic_usage"
+path = "core/basic_usage.rs"
+
+[[example]]
+name = "auth_example"
+path = "auth/auth_example.rs"
+
+[[example]]
+name = "bridge_api_example"
+path = "bridge-api/bridge_api_example.rs"
+
+[[example]]
+name = "datafusion_query_example"
+path = "query-engine/datafusion_query_example.rs"
+
+[[example]]
+name = "delta_lake_example"
+path = "connectors/delta_lake_example.rs"
+
+[[example]]
+name = "http_server_example"
+path = "bridge-api/http_server_example.rs"
+
+[[example]]
+name = "hudi_example"
+path = "connectors/hudi_example.rs"
+
+[[example]]
+name = "iceberg_example"
+path = "connectors/iceberg_example.rs"
+
+# [[example]]
+# name = "kafka_connector_example"
+# path = "connectors/kafka_connector_example.rs"
+
+# [[example]]
+# name = "kafka_example"
+# path = "connectors/kafka_example.rs"
+
+[[example]]
+name = "query_engine_example"
+path = "query-engine/query_engine_example.rs"
+
+[[example]]
+name = "real_delta_lake_example"
+path = "connectors/real_delta_lake_example.rs"
+
+[[example]]
+name = "receiver_example"
+path = "ingestion/receiver_example.rs"
+
+[[example]]
+name = "s3_parquet_example"
+path = "connectors/s3_parquet_example.rs"
+
+[[example]]
+name = "schema_registry_shutdown_example"
+path = "bridge-api/schema_registry_shutdown_example.rs"
+
+[[example]]
+name = "simple_receiver_example"
+path = "ingestion/simple_receiver_example.rs"
+
+[[example]]
+name = "snowflake_example"
+path = "connectors/snowflake_example.rs"
+
+[[example]]
+name = "streaming_processor_example"
+path = "streaming/streaming_processor_example.rs"
+
+[[example]]
+name = "streaming_processor_integration"
+path = "streaming/streaming_processor_integration.rs"
+
+[[example]]
+name = "batch_compression_example"
+path = "streaming/batch_compression_example.rs"
+
+[[example]]
+name = "config_management_example"
+path = "core/config_management_example.rs"
+
+[[example]]
+name = "streaming_exporter_example"
+path = "ingestion/streaming_exporter_example.rs"
+
+[[example]]
+name = "phase3_advanced_ingestion"
+path = "ingestion/phase3_advanced_ingestion.rs"
+
+[[example]]
+name = "phase4_production_ready"
+path = "ingestion/phase4_production_ready.rs"

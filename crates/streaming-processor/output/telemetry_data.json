@@ -1,0 +1,58 @@
+{
+  "id": "a71571e9-c53f-4d92-bf27-580ec67e5f65",
+  "timestamp": "2025-08-15T18:31:37.708784Z",
+  "source": "file_sink_example",
+  "size": 2,
+  "records": [
+    {
+      "id": "2b40ae25-79b1-4e28-9aee-7e04576c85f3",
+      "timestamp": "2025-08-15T18:31:37.708755Z",
+      "record_type": "Log",
+      "data": {
+        "Log": {
+          "timestamp": "2025-08-15T18:31:37.708775Z",
+          "level": "Info",
+          "message": "Application started",
+          "attributes": {},
+          "body": null,
+          "severity_number": 9,
+          "severity_text": "INFO"
+        }
+      },
+      "attributes": {
+        "component": "main",
+        "version": "1.0.0"
+      },
+      "tags": {},
+      "resource": null,
+      "service": null
+    },
+    {
+      "id": "9743edbd-722d-4386-8c15-fd4230c2347b",
+      "timestamp": "2025-08-15T18:31:37.708780Z",
+      "record_type": "Log",
+      "data": {
+        "Log": {
+          "timestamp": "2025-08-15T18:31:37.708780Z",
+          "level": "Info",
+          "message": "Processing data",
+          "attributes": {},
+          "body": null,
+          "severity_number": 9,
+          "severity_text": "INFO"
+        }
+      },
+      "attributes": {
+        "component": "processor",
+        "operation": "data_processing"
+      },
+      "tags": {},
+      "resource": null,
+      "service": null
+    }
+  ],
+  "metadata": {
+    "format": "json",
+    "example": "true"
+  }
+}

@@ -1,0 +1,324 @@
+syntax = "proto3";
+
+package bridge.grpc;
+
+// Bridge gRPC service for telemetry queries and management
+service BridgeService {
+  // Query telemetry data with filters and time range
+  rpc QueryTelemetry(QueryTelemetryRequest) returns (QueryTelemetryResponse);
+  
+  // Get bridge system status
+  rpc GetStatus(GetStatusRequest) returns (GetStatusResponse);
+  
+  // Update bridge configuration
+  rpc UpdateConfig(UpdateConfigRequest) returns (UpdateConfigResponse);
+  
+  // Get bridge metrics
+  rpc GetMetrics(GetMetricsRequest) returns (GetMetricsResponse);
+  
+  // Stream telemetry data
+  // rpc StreamTelemetry(StreamTelemetryRequest) returns (stream StreamTelemetryResponse);
+}
+
+// Request for querying telemetry data
+message QueryTelemetryRequest {
+  // Query type (traces, metrics, logs)
+  string query_type = 1;
+  
+  // Time range for the query
+  TimeRange time_range = 2;
+  
+  // Query filters
+  repeated Filter filters = 3;
+  
+  // Maximum number of results to return
+  int32 limit = 4;
+  
+  // Offset for pagination
+  int32 offset = 5;
+  
+  // Sort order
+  string sort_by = 6;
+  string sort_order = 7;
+}
+
+// Response for telemetry queries
+message QueryTelemetryResponse {
+  // Query results
+  repeated TelemetryRecord records = 1;
+  
+  // Total count of matching records
+  int64 total_count = 2;
+  
+  // Query execution time in milliseconds
+  int64 execution_time_ms = 3;
+  
+  // Query status
+  QueryStatus status = 4;
+  
+  // Error message if query failed
+  string error_message = 5;
+}
+
+// Request for getting bridge status
+message GetStatusRequest {
+  // Include detailed component status
+  bool include_components = 1;
+  
+  // Include metrics
+  bool include_metrics = 2;
+}
+
+// Response for bridge status
+message GetStatusResponse {
+  // Overall bridge status
+  BridgeStatus status = 1;
+  
+  // Bridge uptime in seconds
+  int64 uptime_seconds = 2;
+  
+  // Component statuses
+  repeated ComponentStatus components = 3;
+  
+  // System metrics
+  SystemMetrics metrics = 4;
+  
+  // Version information
+  VersionInfo version = 5;
+}
+
+// Request for updating bridge configuration
+message UpdateConfigRequest {
+  // Configuration updates as JSON
+  string config_json = 1;
+  
+  // Whether to restart components after update
+  bool restart_components = 2;
+  
+  // Whether to validate config before applying
+  bool validate_only = 3;
+}
+
+// Response for configuration updates
+message UpdateConfigResponse {
+  // Whether the update was successful
+  bool success = 1;
+  
+  // Error message if update failed
+  string error_message = 2;
+  
+  // Components that were restarted
+  repeated string restarted_components = 3;
+  
+  // Validation errors
+  repeated string validation_errors = 4;
+}
+
+// Request for getting bridge metrics
+message GetMetricsRequest {
+  // Metric types to include
+  repeated string metric_types = 1;
+  
+  // Time range for metrics
+  TimeRange time_range = 2;
+}
+
+// Response for bridge metrics
+message GetMetricsResponse {
+  // System metrics
+  SystemMetrics system_metrics = 1;
+  
+  // API metrics
+  ApiMetrics api_metrics = 2;
+  
+  // Component metrics
+  repeated ComponentMetrics component_metrics = 3;
+}
+
+// Request for streaming telemetry data
+message StreamTelemetryRequest {
+  // Query type (traces, metrics, logs)
+  string query_type = 1;
+  
+  // Time range for the query
+  TimeRange time_range = 2;
+  
+  // Query filters
+  repeated Filter filters = 3;
+  
+  // Batch size for streaming
+  int32 batch_size = 4;
+}
+
+// Response for streaming telemetry data
+message StreamTelemetryResponse {
+  // Telemetry records in this batch
+  repeated TelemetryRecord records = 1;
+  
+  // Whether this is the last batch
+  bool is_last_batch = 2;
+  
+  // Total records processed so far
+  int64 total_processed = 3;
+}
+
+// Time range for queries
+message TimeRange {
+  // Start time (Unix timestamp in seconds)
+  int64 start_time = 1;
+  
+  // End time (Unix timestamp in seconds)
+  int64 end_time = 2;
+}
+
+// Filter for queries
+message Filter {
+  // Field name to filter on
+  string field = 1;
+  
+  // Filter operator (eq, ne, gt, lt, gte, lte, contains, regex)
+  string operator = 2;
+  
+  // Filter value
+  string value = 3;
+}
+
+// Telemetry record
+message TelemetryRecord {
+  // Record ID
+  string id = 1;
+  
+  // Record type (trace, metric, log)
+  string type = 2;
+  
+  // Timestamp (Unix timestamp in seconds)
+  int64 timestamp = 3;
+  
+  // Record data as JSON
+  string data = 4;
+  
+  // Record metadata
+  map<string, string> metadata = 5;
+}
+
+// Query status
+enum QueryStatus {
+  QUERY_STATUS_UNSPECIFIED = 0;
+  QUERY_STATUS_SUCCESS = 1;
+  QUERY_STATUS_ERROR = 2;
+  QUERY_STATUS_TIMEOUT = 3;
+  QUERY_STATUS_PARTIAL = 4;
+}
+
+// Bridge status
+enum BridgeStatus {
+  BRIDGE_STATUS_UNSPECIFIED = 0;
+  BRIDGE_STATUS_HEALTHY = 1;
+  BRIDGE_STATUS_DEGRADED = 2;
+  BRIDGE_STATUS_UNHEALTHY = 3;
+  BRIDGE_STATUS_STARTING = 4;
+  BRIDGE_STATUS_STOPPING = 5;
+}
+
+// Component status
+message ComponentStatus {
+  // Component name
+  string name = 1;
+  
+  // Component status
+  ComponentState state = 2;
+  
+  // Component uptime in seconds
+  int64 uptime_seconds = 3;
+  
+  // Component error message if any
+  string error_message = 4;
+  
+  // Component metrics
+  map<string, double> metrics = 5;
+}
+
+// Component state
+enum ComponentState {
+  COMPONENT_STATE_UNSPECIFIED = 0;
+  COMPONENT_STATE_RUNNING = 1;
+  COMPONENT_STATE_STOPPED = 2;
+  COMPONENT_STATE_ERROR = 3;
+  COMPONENT_STATE_STARTING = 4;
+  COMPONENT_STATE_STOPPING = 5;
+}
+
+// System metrics
+message SystemMetrics {
+  // CPU usage percentage
+  double cpu_usage_percent = 1;
+  
+  // Memory usage in bytes
+  int64 memory_usage_bytes = 2;
+  
+  // Disk usage in bytes
+  int64 disk_usage_bytes = 3;
+  
+  // Network bytes received
+  int64 network_bytes_received = 4;
+  
+  // Network bytes sent
+  int64 network_bytes_sent = 5;
+  
+  // Number of active connections
+  int32 active_connections = 6;
+  
+  // Request rate (requests per second)
+  double request_rate = 7;
+  
+  // Error rate (errors per second)
+  double error_rate = 8;
+}
+
+// API metrics
+message ApiMetrics {
+  // Total requests
+  int64 total_requests = 1;
+  
+  // Successful requests
+  int64 successful_requests = 2;
+  
+  // Failed requests
+  int64 failed_requests = 3;
+  
+  // Average response time in milliseconds
+  double avg_response_time_ms = 4;
+  
+  // Requests per endpoint
+  map<string, int64> requests_by_endpoint = 5;
+  
+  // Error codes
+  map<string, int64> error_codes = 6;
+}
+
+// Component metrics
+message ComponentMetrics {
+  // Component name
+  string name = 1;
+  
+  // Component-specific metrics
+  map<string, double> metrics = 2;
+  
+  // Timestamp of metrics collection
+  int64 timestamp = 3;
+}
+
+// Version information
+message VersionInfo {
+  // Bridge version
+  string version = 1;
+  
+  // Git commit hash
+  string commit_hash = 2;
+  
+  // Build timestamp
+  string build_timestamp = 3;
+  
+  // Rust version used for compilation
+  string rust_version = 4;
+}

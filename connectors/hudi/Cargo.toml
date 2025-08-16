@@ -1,0 +1,57 @@
+[package]
+name = "lakehouse-hudi"
+version = "0.1.0"
+edition = "2021"
+description = "Apache Hudi connector for OpenTelemetry Data Lake Bridge"
+license = "Apache-2.0"
+repository = "https://github.com/chytirio/orasi"
+keywords = ["hudi", "lakehouse", "opentelemetry", "connector"]
+categories = ["observability", "data-processing"]
+
+[dependencies]
+# Workspace dependencies
+bridge-core = { path = "../../crates/bridge-core" }
+tokio = { workspace = true, features = ["full"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+chrono = { workspace = true }
+uuid = { version = "1.0", features = ["v4"] }
+config = { workspace = true }
+validator = { workspace = true }
+
+# Hudi specific dependencies (using Parquet as base format)
+arrow = { workspace = true }
+parquet = { workspace = true }
+avro-rs = "0.13"
+
+# Async and networking
+tonic = { workspace = true }
+hyper = { workspace = true }
+reqwest = { workspace = true }
+
+# Metrics and monitoring
+metrics = { workspace = true }
+prometheus = { workspace = true }
+
+# Time handling
+time = { workspace = true }
+
+# Additional dependencies
+dashmap = "5.5"
+crossbeam-channel = "0.5"
+parking_lot = "0.12"
+async-trait = "0.1"
+futures = "0.3"
+bytes = "1.5"
+url = "2.5"
+pathdiff = "0.2"
+num_cpus = "1.16"
+rand = "0.8"
+
+[dev-dependencies]
+tokio-test = "0.4"
+mockall = { workspace = true }
+tempfile = "3.8"

@@ -1,0 +1,14 @@
+apiVersion: orasi.io/v1alpha1
+kind: Document
+metadata:
+  name: hidden-doc
+  namespace: default
+spec:
+  content: "This is a hidden document that should not be visible."
+  hidden: true
+  metadata:
+    title: "Hidden Document"
+    author: "Orasi Controller"
+    tags:
+      - "hidden"
+      - "secret"

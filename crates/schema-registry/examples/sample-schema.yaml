@@ -1,0 +1,319 @@
+metadata:
+  name: web-application-schema
+  description: Schema for a web application telemetry
+  author: "Web Team"
+  contact: "web-team@example.com"
+  license: "Apache-2.0"
+  tags:
+    - "web"
+    - "http"
+    - "application"
+
+version:
+  major: 1
+  minor: 0
+  patch: 0
+
+imports:
+  - name: opentelemetry-semantic-conventions
+    version:
+      major: 1
+      minor: 0
+      patch: 0
+    uri: "https://opentelemetry.io/schemas/1.0.0"
+    description: "Standard OpenTelemetry semantic conventions"
+
+resources:
+  - name: service
+    description: Service resource information
+    attributes:
+      - name: service.name
+        attribute_type: String
+        required: true
+        description: "Service name"
+        examples:
+          - String: "web-api"
+      - name: service.version
+        attribute_type: String
+        required: false
+        description: "Service version"
+        examples:
+          - String: "1.0.0"
+      - name: service.namespace
+        attribute_type: String
+        required: false
+        description: "Service namespace"
+        examples:
+          - String: "production"
+
+  - name: host
+    description: Host resource information
+    attributes:
+      - name: host.name
+        attribute_type: String
+        required: true
+        description: "Host name"
+      - name: host.type
+        attribute_type: String
+        required: false
+        description: "Host type"
+        examples:
+          - String: "ec2"
+          - String: "kubernetes"
+
+instrumentation_libraries:
+  - name: web-framework
+    version: "1.0.0"
+    description: "Web framework instrumentation"
+    attributes:
+      - name: framework.name
+        attribute_type: String
+        required: true
+        description: "Framework name"
+        examples:
+          - String: "express"
+          - String: "fastapi"
+      - name: framework.version
+        attribute_type: String
+        required: false
+        description: "Framework version"
+
+signals:
+  - signal_type: Metric
+    name: http_requests_total
+    description: "Total HTTP requests"
+    data:
+      Metric:
+        name: http_requests_total
+        description: "Total number of HTTP requests"
+        unit: "requests"
+        metric_type: Counter
+        attributes:
+          - name: method
+            attribute_type: String
+            required: true
+            description: "HTTP method"
+            examples:
+              - String: "GET"
+              - String: "POST"
+              - String: "PUT"
+              - String: "DELETE"
+          - name: status_code
+            attribute_type: Integer
+            required: true
+            description: "HTTP status code"
+            examples:
+              - Integer: 200
+              - Integer: 404
+              - Integer: 500
+          - name: endpoint
+            attribute_type: String
+            required: true
+            description: "API endpoint"
+            examples:
+              - String: "/api/users"
+              - String: "/api/products"
+        examples:
+          - name: "successful_request"
+            description: "Successful HTTP request"
+            value:
+              Counter: 1.0
+            attributes:
+              method: "GET"
+              status_code: 200
+              endpoint: "/api/health"
+
+  - signal_type: Metric
+    name: http_request_duration_seconds
+    description: "HTTP request duration"
+    data:
+      Metric:
+        name: http_request_duration_seconds
+        description: "HTTP request duration in seconds"
+        unit: "seconds"
+        metric_type: Histogram
+        attributes:
+          - name: method
+            attribute_type: String
+            required: true
+            description: "HTTP method"
+          - name: endpoint
+            attribute_type: String
+            required: true
+            description: "API endpoint"
+        examples:
+          - name: "request_duration"
+            description: "HTTP request duration"
+            value:
+              Histogram:
+                buckets:
+                  - upper_bound: 0.1
+                    count: 10
+                  - upper_bound: 0.5
+                    count: 50
+                  - upper_bound: 1.0
+                    count: 100
+                sum: 45.5
+                count: 160
+            attributes:
+              method: "GET"
+              endpoint: "/api/users"
+
+  - signal_type: Span
+    name: http_request
+    description: "HTTP request span"
+    data:
+      Span:
+        name: "http_request"
+        description: "HTTP request processing"
+        kind: Server
+        attributes:
+          - name: http.method
+            attribute_type: String
+            required: true
+            description: "HTTP method"
+          - name: http.url
+            attribute_type: String
+            required: true
+            description: "HTTP URL"
+          - name: http.status_code
+            attribute_type: Integer
+            required: true
+            description: "HTTP status code"
+          - name: http.request_id
+            attribute_type: String
+            required: false
+            description: "Request ID for tracing"
+        events:
+          - name: "request.received"
+            description: "Request received event"
+            attributes:
+              - name: timestamp
+                attribute_type: Timestamp
+                required: true
+                description: "Request received timestamp"
+          - name: "request.processed"
+            description: "Request processed event"
+            attributes:
+              - name: timestamp
+                attribute_type: Timestamp
+                required: true
+                description: "Request processed timestamp"
+              - name: processing_time_ms
+                attribute_type: Double
+                required: false
+                description: "Processing time in milliseconds"
+        examples:
+          - name: "successful_request"
+            description: "Successful HTTP request"
+            attributes:
+              http.method: "GET"
+              http.url: "https://api.example.com/users"
+              http.status_code: 200
+              http.request_id: "req-123"
+            events:
+              - name: "request.received"
+                attributes:
+                  timestamp: "2024-01-01T12:00:00Z"
+              - name: "request.processed"
+                attributes:
+                  timestamp: "2024-01-01T12:00:00.050Z"
+                  processing_time_ms: 50.0
+
+  - signal_type: Log
+    name: application_log
+    description: "Application logs"
+    data:
+      Log:
+        name: "application_log"
+        description: "Application log entries"
+        level: Info
+        attributes:
+          - name: log.level
+            attribute_type: String
+            required: true
+            description: "Log level"
+            examples:
+              - String: "INFO"
+              - String: "WARN"
+              - String: "ERROR"
+          - name: log.source
+            attribute_type: String
+            required: false
+            description: "Log source"
+            examples:
+              - String: "web-server"
+              - String: "database"
+              - String: "auth-service"
+          - name: user.id
+            attribute_type: String
+            required: false
+            description: "User ID"
+        body_schema:
+          String
+        examples:
+          - name: "info_log"
+            description: "Information log entry"
+            message: "User login successful"
+            level: Info
+            attributes:
+              log.level: "INFO"
+              log.source: "auth-service"
+              user.id: "user-123"
+            body: "User user-123 logged in successfully"
+
+  - signal_type: Event
+    name: user_action
+    description: "User action events"
+    data:
+      Event:
+        name: "user_action"
+        description: "User action events"
+        attributes:
+          - name: user.id
+            attribute_type: String
+            required: true
+            description: "User ID"
+          - name: action.type
+            attribute_type: String
+            required: true
+            description: "Action type"
+            examples:
+              - String: "login"
+              - String: "logout"
+              - String: "purchase"
+              - String: "view"
+          - name: action.target
+            attribute_type: String
+            required: false
+            description: "Action target"
+            examples:
+              - String: "product"
+              - String: "page"
+              - String: "feature"
+        data_schema:
+          Struct:
+            - name: "metadata"
+              attribute_type:
+                Map:
+                  - String
+                  - String
+              required: false
+              description: "Additional metadata"
+        examples:
+          - name: "user_login"
+            description: "User login event"
+            attributes:
+              user.id: "user-123"
+              action.type: "login"
+              action.target: "web-app"
+            data:
+              metadata:
+                ip_address: "192.168.1.1"
+                user_agent: "Mozilla/5.0..."
+
+annotations:
+  schema.type: "application"
+  schema.category: "web"
+  schema.environment: "production"
+  schema.team: "web-team"

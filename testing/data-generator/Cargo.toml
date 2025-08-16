@@ -1,0 +1,72 @@
+[package]
+name = "test-data-generator"
+version = "0.1.0"
+edition = "2021"
+description = "Comprehensive test data generation framework for OpenTelemetry Data Lake Bridge"
+license = "Apache-2.0"
+repository = "https://github.com/chytirio/orasi"
+
+[dependencies]
+# Core dependencies
+bridge-core = { path = "../../crates/bridge-core" }
+
+# Data generation and randomization
+rand = "0.8"
+rand_distr = "0.4"
+fake = { version = "2.9", features = ["derive", "chrono", "uuid"] }
+faker_rand = "0.1"
+
+# Time and date handling
+chrono = { version = "0.4", features = ["serde"] }
+time = "0.3"
+
+# Serialization and configuration
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.9"
+toml = "0.8"
+
+# Async runtime
+tokio = { version = "1.36", features = ["full"] }
+
+# Error handling
+anyhow = "1.0"
+thiserror = "1.0"
+
+# Logging and tracing
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# UUID generation
+uuid = { version = "1.7", features = ["v4", "serde"] }
+
+# OpenTelemetry
+opentelemetry = "0.22"
+opentelemetry-semantic-conventions = "0.14"
+
+# Data structures
+indexmap = "2.2"
+
+# CLI framework
+clap = { version = "4.5", features = ["derive"] }
+
+# Progress reporting
+indicatif = "0.17"
+
+# Statistical distributions
+statrs = "0.16"
+
+# Markov chains for workflow modeling
+markov = "1.0"
+
+# Graph algorithms for dependency modeling
+petgraph = "0.6"
+
+# Testing
+criterion = "0.5"
+
+[dev-dependencies]
+tempfile = "3.8"
+tokio-test = "0.4"
+
+

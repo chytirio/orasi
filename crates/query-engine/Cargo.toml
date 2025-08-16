@@ -1,0 +1,59 @@
+[package]
+name = "query-engine"
+version = "0.1.0"
+edition = "2021"
+description = "Query engine for the bridge"
+license = "Apache-2.0"
+repository = "https://github.com/chytirio/orasi"
+keywords = ["query", "engine", "sql", "observability", "bridge"]
+categories = ["observability", "data-processing"]
+
+[dependencies]
+# Workspace dependencies
+bridge-core = { path = "../bridge-core" }
+tokio = { workspace = true, features = ["full"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+
+# OpenTelemetry dependencies
+opentelemetry = { workspace = true }
+opentelemetry-http = { workspace = true }
+opentelemetry-otlp = { workspace = true }
+opentelemetry-semantic-conventions = { workspace = true }
+opentelemetry-proto = { workspace = true }
+
+# Async and networking
+tonic = { workspace = true }
+hyper = { workspace = true }
+axum = { workspace = true }
+tower = { workspace = true }
+
+# Data processing
+bytes = "1.5"
+futures = "0.3"
+async-trait = "0.1"
+
+# DataFusion and Arrow ecosystem
+datafusion = { version = "49.0", default-features = false, features = ["parquet"] }
+arrow = { workspace = true, default-features = false, features = [] }
+arrow-array = { workspace = true }
+arrow-schema = { workspace = true }
+arrow-cast = { workspace = true }
+# arrow-compute = { workspace = true }
+arrow-ipc = { workspace = true }
+arrow-json = { workspace = true }
+parquet = { workspace = true }
+
+# Additional dependencies
+dashmap = "5.5"
+crossbeam-channel = "0.5"
+parking_lot = "0.12"
+
+[dev-dependencies]
+tokio-test = "0.4"
+mockall = { workspace = true }

@@ -1,0 +1,57 @@
+[package]
+name = "lakehouse-snowflake"
+version = "0.1.0"
+edition = "2021"
+description = "Snowflake connector for OpenTelemetry Data Lake Bridge"
+license = "Apache-2.0"
+repository = "https://github.com/chytirio/orasi"
+keywords = ["snowflake", "lakehouse", "opentelemetry", "connector"]
+categories = ["observability", "data-processing"]
+
+[dependencies]
+# Workspace dependencies
+bridge-core = { path = "../../crates/bridge-core" }
+tokio = { workspace = true, features = ["full"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+config = { workspace = true }
+validator = { workspace = true }
+
+# Snowflake specific dependencies
+sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "postgres"] }
+arrow = { workspace = true }
+parquet = { workspace = true }
+
+# Async and networking
+tonic = { workspace = true }
+hyper = { workspace = true }
+reqwest = { workspace = true }
+
+# Metrics and monitoring
+metrics = { workspace = true }
+prometheus = { workspace = true }
+
+# Time handling
+time = { workspace = true }
+
+# Additional dependencies
+dashmap = "5.5"
+crossbeam-channel = "0.5"
+parking_lot = "0.12"
+async-trait = "0.1"
+futures = "0.3"
+bytes = "1.5"
+url = "2.5"
+pathdiff = "0.2"
+toml = "0.8"
+num_cpus = "1.16"
+
+[dev-dependencies]
+tokio-test = "0.4"
+mockall = { workspace = true }
+tempfile = "3.8"

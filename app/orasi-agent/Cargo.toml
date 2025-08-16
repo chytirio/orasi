@@ -1,0 +1,77 @@
+[package]
+name = "orasi-agent"
+version = "0.1.0"
+edition = "2021"
+description = "Orasi Agent for distributed ingestion, indexing, and processing"
+license = "Apache-2.0"
+repository = "https://github.com/chytirio/orasi"
+keywords = ["orasi", "agent", "ingestion", "indexing", "distributed", "telemetry"]
+categories = ["asynchronous", "network-programming", "data-processing"]
+
+[dependencies]
+# Core dependencies
+bridge-core = { path = "../../crates/bridge-core" }
+ingestion = { path = "../../crates/ingestion" }
+streaming-processor = { path = "../../crates/streaming-processor" }
+schema-registry = { path = "../../crates/schema-registry" }
+
+# HTTP and gRPC dependencies
+axum = "0.7"
+tonic = "0.11"
+prost = "0.12"
+hyper = { version = "1.1", features = ["full"] }
+tower = "0.5"
+tower-http = { version = "0.5", features = ["cors", "trace", "compression-br"] }
+
+# Async runtime
+tokio = { version = "1.0", features = ["full"] }
+async-trait = "0.1"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+# Logging
+tracing = "0.1"
+
+# Configuration
+config = "0.13"
+toml = "0.8"
+
+# Utilities
+uuid = { version = "1.0", features = ["v4"] }
+chrono = { version = "0.4", features = ["serde"] }
+futures = "0.3"
+
+# Metrics and monitoring
+prometheus = "0.13"
+metrics = "0.21"
+metrics-exporter-prometheus = "0.12"
+
+# Cluster coordination
+etcd-client = "0.12"
+consul = "0.4"
+
+# Health checks and service discovery
+health = "0.2"
+tonic-health = "0.11"
+
+# Data processing
+arrow = "56.0"
+parquet = "56.0"
+
+# Database for local state
+sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "sqlite"] }
+
+# Time and scheduling
+tokio-cron-scheduler = "0.9"
+
+[dev-dependencies]
+tokio-test = "0.4"
+tempfile = "3.8"
+test-log = "0.2"
+mockall = "0.12"

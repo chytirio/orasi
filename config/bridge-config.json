@@ -1,0 +1,106 @@
+{
+  "api": {
+    "host": "0.0.0.0",
+    "port": 8080
+  },
+  "bridge": {
+    "advanced": {
+      "circuit_breaker": {
+        "failure_threshold": 5,
+        "half_open_timeout_ms": 30000,
+        "success_threshold": 2,
+        "timeout_ms": 5000
+      },
+      "connection_pooling": {
+        "connection_timeout_secs": 30,
+        "idle_timeout_secs": 300,
+        "max_lifetime_secs": 3600,
+        "max_pool_size": 20,
+        "min_pool_size": 5
+      },
+      "enable_experimental_features": true,
+      "performance_tuning": {
+        "enable_custom_allocators": true,
+        "enable_pgo": true,
+        "enable_simd": true
+      },
+      "retry": {
+        "backoff_multiplier": 2.0,
+        "enable_exponential_backoff": true,
+        "enable_jitter": true,
+        "initial_backoff_ms": 1000,
+        "max_attempts": 3,
+        "max_backoff_ms": 30000
+      }
+    },
+    "environment": "development",
+    "ingestion": {
+      "backpressure_threshold": 90,
+      "batch_size": 3000,
+      "buffer_size": 20000,
+      "compression_level": 8,
+      "enable_backpressure": true,
+      "enable_persistence": true,
+      "flush_interval_ms": 2000,
+      "otlp_endpoint": "http://localhost:4317"
+    },
+    "lakehouses": {},
+    "monitoring": {
+      "enable_distributed_tracing": true,
+      "enable_health_checks": true,
+      "enable_metrics": true,
+      "enable_performance_profiling": true,
+      "enable_structured_logging": true,
+      "health_endpoint": "http://localhost:8080",
+      "log_format": "json",
+      "log_level": "trace",
+      "metrics_endpoint": "http://localhost:9090"
+    },
+    "name": "restarted-bridge",
+    "plugin": {
+      "enable_ide_plugin": true,
+      "features": {
+        "enable_agent_analytics": true,
+        "enable_data_visualization": true,
+        "enable_interactive_querying": true,
+        "enable_multi_repo_analytics": true,
+        "enable_real_time_alerting": true,
+        "enable_workflow_analytics": true
+      },
+      "plugin_endpoint": "http://localhost:8081"
+    },
+    "processing": {
+      "cache_size": 419430400,
+      "cache_ttl_secs": 1200,
+      "enable_aggregation": true,
+      "enable_anomaly_detection": true,
+      "enable_filtering": true,
+      "enable_query_caching": true,
+      "enable_streaming": true,
+      "enable_transformation": true,
+      "query_timeout_secs": 120,
+      "stream_window_ms": 15000,
+      "worker_threads": 16
+    },
+    "security": {
+      "authentication_methods": [
+        "None"
+      ],
+      "data_retention_days": 90,
+      "enable_audit_logging": false,
+      "enable_authentication": false,
+      "enable_authorization": false,
+      "enable_encryption_at_rest": false,
+      "enable_pii_scrubbing": false,
+      "enable_tls": false
+    }
+  },
+  "grpc": {
+    "host": "0.0.0.0",
+    "port": 9090
+  },
+  "metrics": {
+    "enabled": true,
+    "port": 9091
+  }
+}

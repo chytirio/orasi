@@ -1,0 +1,118 @@
+//! SPDX-FileCopyrightText: © 2025 Cory Parent <goedelsoup+orasi@goedelsoup.io>
+//! SPDX-License-Identifier: Apache-2.0
+//!
+
+//! File sink example
+//! 
+//! This example demonstrates how to use the file sink to write telemetry data to files.
+
+use streaming_processor::sinks::{FileSink, StreamSink};
+use streaming_processor::sinks::file_sink::{FileSinkConfig, FileFormat, WriteMode};
+use bridge_core::{BridgeResult, TelemetryBatch};
+use bridge_core::types::{TelemetryRecord, TelemetryData, TelemetryType, LogData, LogLevel};
+use std::collections::HashMap;
+use uuid::Uuid;
+use chrono::Utc;
+
+#[tokio::main]
+async fn main() -> BridgeResult<()> {
+    // Initialize logging
+    tracing_subscriber::fmt::init();
+    
+    println!("File Sink Example");
+    println!("=================");
+    
+    // Create file sink configuration
+    let config = FileSinkConfig::new(
+        "output/telemetry_data.json".to_string(),
+        FileFormat::Json
+    );
+    
+    // Create file sink
+    let mut sink = FileSink::new(&config).await?;
+    
+    // Initialize and start the sink
+    sink.init().await?;
+    sink.start().await?;
+    
+    println!("File sink initialized and started");
+    
+    // Create sample telemetry records
+    let records = vec![
+        TelemetryRecord {
+            id: Uuid::new_v4(),
+            timestamp: Utc::now(),
+            record_type: TelemetryType::Log,
+            data: TelemetryData::Log(LogData {
+                timestamp: Utc::now(),
+                level: LogLevel::Info,
+                message: "Application started".to_string(),
+                attributes: HashMap::new(),
+                body: None,
+                severity_number: Some(9),
+                severity_text: Some("INFO".to_string()),
+            }),
+            attributes: HashMap::from([
+                ("component".to_string(), "main".to_string()),
+                ("version".to_string(), "1.0.0".to_string()),
+            ]),
+            tags: HashMap::new(),
+            resource: None,
+            service: None,
+        },
+        TelemetryRecord {
+            id: Uuid::new_v4(),
+            timestamp: Utc::now(),
+            record_type: TelemetryType::Log,
+            data: TelemetryData::Log(LogData {
+                timestamp: Utc::now(),
+                level: LogLevel::Info,
+                message: "Processing data".to_string(),
+                attributes: HashMap::new(),
+                body: None,
+                severity_number: Some(9),
+                severity_text: Some("INFO".to_string()),
+            }),
+            attributes: HashMap::from([
+                ("component".to_string(), "processor".to_string()),
+                ("operation".to_string(), "data_processing".to_string()),
+            ]),
+            tags: HashMap::new(),
+            resource: None,
+            service: None,
+        },
+    ];
+    
+    // Create telemetry batch
+    let batch = TelemetryBatch {
+        id: Uuid::new_v4(),
+        timestamp: Utc::now(),
+        source: "file_sink_example".to_string(),
+        size: records.len(),
+        records,
+        metadata: HashMap::from([
+            ("example".to_string(), "true".to_string()),
+            ("format".to_string(), "json".to_string()),
+        ]),
+    };
+    
+    // Send batch to file sink
+    println!("Sending batch to file sink...");
+    sink.send(batch).await?;
+    
+    // Get statistics
+    let stats = sink.get_stats().await?;
+    println!("Sink statistics:");
+    println!("  Total batches: {}", stats.total_batches);
+    println!("  Total records: {}", stats.total_records);
+    println!("  Total bytes: {}", stats.total_bytes);
+    println!("  Is connected: {}", stats.is_connected);
+    
+    // Stop the sink
+    sink.stop().await?;
+    println!("File sink stopped");
+    
+    println!("Check the output/telemetry_data.json file for the written data");
+    
+    Ok(())
+}

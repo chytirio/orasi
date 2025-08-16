@@ -1,0 +1,15 @@
+apiVersion: orasi.io/v1alpha1
+kind: Document
+metadata:
+  name: lorem
+  namespace: default
+spec:
+  content: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+  hidden: false
+  metadata:
+    title: "Sample Document"
+    author: "Orasi Controller"
+    tags:
+      - "sample"
+      - "lorem"
+      - "test"

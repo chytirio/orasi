@@ -1,0 +1,40 @@
+[package]
+name = "deltalake-connector"
+version = "0.1.0"
+edition = "2021"
+description = "Delta Lake connector for OpenTelemetry Data Lake Bridge"
+license = "Apache-2.0"
+repository = "https://github.com/chytirio/orasi"
+keywords = ["opentelemetry", "deltalake", "lakehouse", "connector", "telemetry"]
+categories = ["database", "asynchronous", "data-structures"]
+
+[dependencies]
+# Core dependencies
+bridge-core = { path = "../../crates/bridge-core" }
+async-trait = "0.1"
+tracing = "0.1"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.0", features = ["full"] }
+chrono = { version = "0.4", features = ["serde"] }
+
+# Delta Lake specific dependencies - using compatible versions with proper features
+deltalake = { version = "0.27", default-features = false, features = ["datafusion-ext", "rustls"] }
+datafusion = { version = "49.0", default-features = false, features = ["parquet"] }
+
+# Error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+# Configuration
+config = "0.13"
+toml = "0.8"
+
+# Utilities
+uuid = { version = "1.0", features = ["v4"] }
+futures = "0.3"
+
+[dev-dependencies]
+tokio-test = "0.4"
+tempfile = "3.8"
+test-log = "0.2"

@@ -1,0 +1,3 @@
+id,timestamp,record_type,source,attributes
+220a3277-733d-4271-9556-eca5b4559c79,2025-08-15 18:32:52.399 UTC,Log,file_sink_csv_example,"{""test_id"":""1"",""component"":""csv_test""}"
+e4a98f91-51bc-4e2b-b7de-c2ece91e9f90,2025-08-15 18:32:52.399 UTC,Log,file_sink_csv_example,"{""component"":""csv_test"",""test_id"":""2""}"

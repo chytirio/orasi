@@ -1,0 +1,48 @@
+[package]
+name = "orasi-controller"
+version = "0.1.0"
+edition = "2021"
+description = "Kubernetes controller for Orasi OpenTelemetry Data Lakehouse"
+license = "Apache-2.0"
+repository = "https://github.com/chytirio/orasi"
+keywords = ["kubernetes", "controller", "opentelemetry", "data-lake"]
+categories = ["observability", "web-programming"]
+
+[dependencies]
+# Workspace dependencies
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+axum = { workspace = true }
+tower = { workspace = true }
+hyper = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+metrics = { workspace = true }
+metrics-exporter-prometheus = { workspace = true }
+
+# HTTP and networking dependencies
+futures = "0.3"
+tower-http = { version = "0.5", features = ["cors", "trace"] }
+
+# Additional dependencies for controller
+async-trait = "0.1"
+bytes = "1.5"
+schemars = "0.8"
+serde_yaml = "0.9"
+
+[dev-dependencies]
+tokio-test = "0.4"
+tempfile = "3.8"
+
+[[bin]]
+name = "crdgen"
+path = "src/bin/crdgen.rs"
+
+[[bin]]
+name = "controller"
+path = "src/bin/controller.rs"

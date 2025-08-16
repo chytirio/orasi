@@ -1,0 +1,45 @@
+[package]
+name = "bridge-auth"
+version = "0.1.0"
+edition = "2021"
+description = "Authentication and authorization for the bridge"
+license = "Apache-2.0"
+repository = "https://github.com/chytirio/orasi"
+keywords = ["authentication", "authorization", "security", "jwt", "oauth", "bridge"]
+categories = ["authentication", "security"]
+
+[dependencies]
+# Workspace dependencies
+# bridge-core = { path = "../bridge-core" }  # Removed to avoid circular dependency
+tokio = { workspace = true, features = ["full"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+
+# Authentication and security
+jsonwebtoken = "9.2"
+argon2 = "0.5"
+rand = "0.8"
+base64 = "0.21"
+hmac = "0.12"
+sha2 = "0.10"
+
+# HTTP and web
+axum = { workspace = true }
+tower = { workspace = true }
+tower-http = { version = "0.5", features = ["cors", "auth"] }
+http = "0.2"
+hyper = { workspace = true }
+
+# Async and utilities
+async-trait = "0.1"
+futures = "0.3"
+dashmap = "5.5"
+
+[dev-dependencies]
+tokio-test = "0.4"
+mockall = { workspace = true }

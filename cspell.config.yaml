@@ -1,0 +1,30 @@
+version: "0.2"
+ignorePaths: []
+dictionaryDefinitions: []
+dictionaries: []
+words:
+  - cdylib
+  - chrono
+  - clippy
+  - datafusion
+  - deltalake
+  - healthcheck
+  - hudi
+  - ipynb
+  - jdbc
+  - jovyan
+  - justfile
+  - lakehouse
+  - lakehouses
+  - Leptos
+  - nocapture
+  - orasi
+  - OTAP
+  - prost
+  - reqwest
+  - rlib
+  - rustc
+  - rustup
+  - trino
+ignoreWords: []
+import: []

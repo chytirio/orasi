@@ -1,0 +1,285 @@
+# OpenTelemetry Data Lake Bridge Configuration
+# This is a comprehensive example configuration file
+
+name = "orasi"
+version = "0.1.0"
+environment = "production"
+
+# Ingestion Configuration
+[ingestion]
+otlp_endpoint = "0.0.0.0:4317"
+http_endpoint = "0.0.0.0:4318"
+otap_endpoint = "0.0.0.0:4319"
+batch_size = 1000
+flush_interval_ms = 5000
+buffer_size = 10000
+compression_level = 6
+enable_persistence = true
+persistence_path = "/app/data/persistence"
+max_persistence_size = 1073741824  # 1GB
+enable_backpressure = true
+backpressure_threshold = 80
+
+# OTAP Configuration
+[ingestion.otap]
+enabled = true
+endpoint = "0.0.0.0:4319"
+batch_size = 1000
+buffer_size = 10000
+enable_compression = true
+enable_otlp_fallback = true
+schema_reset_interval = 1000
+timeout_secs = 30
+max_concurrent_requests = 100
+
+# Lakehouse Configurations
+[lakehouses.delta_lake]
+type = "DeltaLake"
+storage_path = "s3://my-telemetry-bucket/delta-lake"
+catalog = "hive"
+table_format_version = 2
+enable_transactions = true
+partition_columns = ["service_name", "date", "hour"]
+compression = "zstd"
+
+[lakehouses.iceberg]
+type = "Iceberg"
+catalog_uri = "thrift://iceberg-catalog:9083"
+warehouse = "s3://my-telemetry-bucket/warehouse"
+table_format_version = 2
+enable_schema_evolution = true
+partition_columns = ["service_name", "date", "hour"]
+compression = "zstd"
+
+[lakehouses.snowflake]
+type = "Snowflake"
+account = "your-account"
+database = "telemetry_db"
+schema = "public"
+warehouse = "compute_wh"
+role = "telemetry_role"
+enable_bulk_loading = true
+authentication = { method = "OAuth", client_id = "your-client-id", client_secret = "your-client-secret" }
+
+[lakehouses.s3_parquet]
+type = "S3Parquet"
+bucket = "my-telemetry-bucket"
+prefix = "parquet"
+region = "us-west-2"
+enable_partitioning = true
+partition_columns = ["service_name", "date", "hour"]
+compression = "zstd"
+authentication = { method = "ApiKey", api_key = "your-api-key" }
+
+# Processing Configuration
+[processing]
+worker_threads = 8
+enable_streaming = true
+stream_window_ms = 60000
+enable_transformation = true
+enable_filtering = true
+enable_aggregation = true
+enable_anomaly_detection = true
+query_timeout_secs = 30
+max_query_memory = 1073741824  # 1GB
+enable_query_caching = true
+cache_size = 104857600  # 100MB
+cache_ttl_secs = 300
+
+# Transformation Rules
+[[processing.transformation_rules]]
+name = "service_name_normalization"
+description = "Normalize service names to lowercase"
+source_field = "service.name"
+target_field = "service_name_normalized"
+transformation_type = "Custom"
+parameters = { function = "lowercase" }
+
+[[processing.transformation_rules]]
+name = "duration_conversion"
+description = "Convert duration to milliseconds"
+source_field = "duration"
+target_field = "duration_ms"
+transformation_type = "Convert"
+parameters = { unit = "milliseconds" }
+
+# Filter Rules
+[[processing.filter_rules]]
+name = "exclude_health_checks"
+description = "Exclude health check endpoints"
+field = "http.url"
+operator = "Contains"
+value = "/health"
+action = "Exclude"
+
+[[processing.filter_rules]]
+name = "include_production_services"
+description = "Only include production services"
+field = "environment"
+operator = "Equals"
+value = "production"
+action = "Include"
+
+# Aggregation Rules
+[[processing.aggregation_rules]]
+name = "service_latency_avg"
+description = "Average latency by service"
+source_field = "duration_ms"
+target_field = "avg_latency_ms"
+function = "Average"
+time_window_ms = 60000
+group_by = ["service_name"]
+
+[[processing.aggregation_rules]]
+name = "error_rate"
+description = "Error rate by service"
+source_field = "status_code"
+target_field = "error_rate"
+function = "Custom"
+time_window_ms = 60000
+group_by = ["service_name"]
+parameters = { error_threshold = 400 }
+
+# Anomaly Detection
+[processing.anomaly_detection]
+enable_statistical = true
+statistical_threshold = 3.0
+enable_ml = true
+ml_model_path = "/app/models/anomaly_detection.onnx"
+ml_parameters = { window_size = 100, sensitivity = 0.8 }
+
+[processing.anomaly_detection.alerting]
+enable_email_alerts = true
+email_recipients = ["alerts@company.com"]
+enable_webhook_alerts = true
+webhook_url = "https://hooks.slack.com/services/your-webhook"
+alert_threshold = 5
+
+# Plugin Configuration
+[plugin]
+enable_ide_plugin = true
+plugin_endpoint = "0.0.0.0:8081"
+authentication = { method = "ApiKey", api_key = "your-plugin-api-key" }
+
+[plugin.features]
+enable_workflow_analytics = true
+enable_agent_analytics = true
+enable_multi_repo_analytics = true
+enable_real_time_alerting = true
+enable_interactive_querying = true
+enable_data_visualization = true
+
+[plugin.rate_limiting]
+requests_per_second = 100
+burst_size = 50
+enable_per_user_limiting = true
+
+# Security Configuration
+[security]
+enable_tls = true
+tls_cert_path = "/app/certs/cert.pem"
+tls_key_path = "/app/certs/key.pem"
+enable_authentication = true
+authentication_methods = ["ApiKey", "OAuth", "Certificate"]
+enable_authorization = true
+enable_audit_logging = true
+audit_log_path = "/app/logs/audit.log"
+enable_pii_scrubbing = true
+data_retention_days = 90
+enable_encryption_at_rest = true
+
+# Authorization Policies
+[[security.authorization_policies]]
+name = "read_policy"
+description = "Allow read access to telemetry data"
+allowed_roles = ["reader", "admin"]
+allowed_actions = ["read"]
+allowed_resources = ["metrics", "traces", "logs"]
+
+[[security.authorization_policies]]
+name = "write_policy"
+description = "Allow write access to telemetry data"
+allowed_roles = ["writer", "admin"]
+allowed_actions = ["write"]
+allowed_resources = ["metrics", "traces", "logs"]
+
+[[security.authorization_policies]]
+name = "admin_policy"
+description = "Full administrative access"
+allowed_roles = ["admin"]
+allowed_actions = ["read", "write", "delete", "configure"]
+allowed_resources = ["*"]
+
+# PII Scrubbing Rules
+[[security.pii_scrubbing_rules]]
+name = "email_scrubbing"
+field_pattern = ".*email.*"
+scrubbing_method = "Hash"
+replacement = "[EMAIL_HASHED]"
+
+[[security.pii_scrubbing_rules]]
+name = "password_scrubbing"
+field_pattern = ".*password.*"
+scrubbing_method = "Redact"
+replacement = "[PASSWORD_REDACTED]"
+
+[[security.pii_scrubbing_rules]]
+name = "credit_card_scrubbing"
+field_pattern = ".*credit_card.*"
+scrubbing_method = "Mask"
+replacement = "****-****-****-****"
+
+# Encryption Configuration
+[security.encryption_key]
+key_id = "primary-key"
+key_material = "your-base64-encoded-key-material"
+algorithm = "AES-256-GCM"
+rotation_interval_days = 90
+
+# Monitoring Configuration
+[monitoring]
+enable_metrics = true
+metrics_endpoint = "0.0.0.0:9090"
+enable_health_checks = true
+health_endpoint = "0.0.0.0:8080"
+enable_structured_logging = true
+log_level = "info"
+log_format = "json"
+log_file_path = "/app/logs/bridge.log"
+enable_distributed_tracing = true
+tracing_endpoint = "http://jaeger:14268/api/traces"
+enable_performance_profiling = true
+profiling_interval_secs = 300
+
+# Advanced Configuration
+[advanced]
+enable_experimental_features = false
+custom_config = { feature_flag_analytics = true, feature_flag_streaming = true }
+
+[advanced.performance_tuning]
+enable_simd = true
+enable_custom_allocators = true
+memory_pool_size = 1073741824  # 1GB
+enable_pgo = false
+pgo_profile_path = "/app/profiles/pgo.prof"
+
+[advanced.circuit_breaker]
+failure_threshold = 5
+success_threshold = 2
+timeout_ms = 5000
+half_open_timeout_ms = 30000
+
+[advanced.retry]
+max_attempts = 3
+initial_backoff_ms = 1000
+max_backoff_ms = 30000
+backoff_multiplier = 2.0
+enable_exponential_backoff = true
+enable_jitter = true
+
+[advanced.connection_pooling]
+min_pool_size = 5
+max_pool_size = 20
+connection_timeout_secs = 30
+idle_timeout_secs = 300
+max_lifetime_secs = 3600

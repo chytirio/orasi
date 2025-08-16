@@ -1,0 +1,88 @@
+[package]
+name = "ingestion"
+version = "0.1.0"
+edition = "2021"
+description = "OpenTelemetry data ingestion for the bridge"
+license = "Apache-2.0"
+repository = "https://github.com/chytirio/orasi"
+keywords = ["opentelemetry", "ingestion", "observability", "bridge"]
+categories = ["observability", "data-processing"]
+
+[dependencies]
+# Workspace dependencies
+bridge-core = { path = "../bridge-core" }
+tokio = { workspace = true, features = ["full"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+
+# OpenTelemetry dependencies
+opentelemetry = { workspace = true }
+opentelemetry-http = { workspace = true }
+opentelemetry-otlp = { workspace = true }
+opentelemetry-semantic-conventions = { workspace = true }
+opentelemetry-proto = { workspace = true, features = ["gen-tonic-messages", "gen-tonic", "trace", "metrics", "logs"] }
+
+# OTel-Arrow dependencies
+otel-arrow-rust = { workspace = true }
+
+# Arrow dependencies
+arrow-array = { workspace = true }
+arrow-schema = { workspace = true }
+arrow-ipc = { workspace = true }
+arrow-cast = { workspace = true }
+parquet = { workspace = true }
+
+# Async and networking
+tonic = { workspace = true }
+hyper = { workspace = true }
+axum = { workspace = true }
+tower = { workspace = true }
+reqwest = { workspace = true, features = ["json"] }
+
+# Data processing
+bytes = "1.5"
+futures = "0.3"
+async-trait = "0.1"
+regex = "1.10"
+prost = { workspace = true }
+
+# Kafka client (optional for now)
+rdkafka = { version = "0.36", features = ["cmake-build", "ssl", "gssapi-vendored"], optional = true }
+
+# Avro support
+avro-rs = { workspace = true }
+
+# Additional dependencies
+dashmap = "5.5"
+crossbeam-channel = "0.5"
+parking_lot = "0.12"
+tracing-subscriber = { workspace = true }
+zstd = { workspace = true }
+rand = "0.8"
+hostname = "0.3"
+prometheus = "0.13"
+prometheus-client = "0.22"
+jsonwebtoken = "9.2"
+hmac = "0.12"
+sha2 = "0.10"
+hex = "0.4"
+aes-gcm = "0.10"
+notify = "6.1"
+yaml-rust = "0.4"
+toml = "0.8"
+tower-http = { version = "0.5", features = ["cors"] }
+hyper-tls = "0.5"
+bridge-auth = { path = "../bridge-auth" }
+
+[features]
+default = []
+kafka = ["rdkafka"]
+
+[dev-dependencies]
+tokio-test = "0.4"
+mockall = { workspace = true }

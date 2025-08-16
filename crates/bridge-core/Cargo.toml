@@ -1,3 +1,5 @@
+lints.workspace = true
+
 [package]
 name = "bridge-core"
 version = "0.1.0"
@@ -90,32 +92,16 @@ tempfile = "3.8"
 
 [[example]]
 name = "basic_usage"
-path = "../../examples/basic_usage.rs"
-
-[[example]]
-name = "simple_receiver_example"
-path = "../../examples/simple_receiver_example.rs"
-
-[[example]]
-name = "delta_lake_example"
-path = "../../examples/delta_lake_example.rs"
-
-[[example]]
-name = "streaming_processor_example"
-path = "../../examples/streaming_processor_example.rs"
+path = "../../examples/core/basic_usage.rs"
 
 [[example]]
 name = "http_server_example"
-path = "../../examples/http_server_example.rs"
+path = "../../examples/bridge-api/http_server_example.rs"
 
 [[example]]
 name = "real_delta_lake_example"
-path = "../../examples/real_delta_lake_example.rs"
-
-[[example]]
-name = "query_engine_example"
-path = "../../examples/query_engine_example.rs"
+path = "../../examples/connectors/real_delta_lake_example.rs"
 
 [[example]]
 name = "auth_example"
-path = "../../examples/auth_example.rs"
+path = "../../examples/auth/auth_example.rs"

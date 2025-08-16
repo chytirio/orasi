@@ -60,7 +60,8 @@ impl SchemaCache {
         }
 
         let now = chrono::Utc::now();
-        self.resolved_schemas.insert(fingerprint, (resolved_schema, now));
+        self.resolved_schemas
+            .insert(fingerprint, (resolved_schema, now));
     }
 
     /// Remove a schema from cache

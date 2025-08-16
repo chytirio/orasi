@@ -7,7 +7,7 @@
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
-use tracing::{debug, error, info, warn};
+use tracing::info;
 
 use crate::error::{BridgeError, BridgeResult};
 
@@ -16,16 +16,16 @@ use crate::error::{BridgeError, BridgeResult};
 pub struct CircuitBreakerConfig {
     /// Failure threshold
     pub failure_threshold: u32,
-    
+
     /// Success threshold
     pub success_threshold: u32,
-    
+
     /// Timeout in milliseconds
     pub timeout_ms: u64,
-    
+
     /// Half-open timeout in milliseconds
     pub half_open_timeout_ms: u64,
-    
+
     /// Enable monitoring
     pub enable_monitoring: bool,
 }
@@ -65,22 +65,22 @@ pub struct CircuitBreaker {
 pub struct CircuitBreakerStats {
     /// Current state
     pub state: CircuitBreakerState,
-    
+
     /// Total requests
     pub total_requests: u64,
-    
+
     /// Successful requests
     pub successful_requests: u64,
-    
+
     /// Failed requests
     pub failed_requests: u64,
-    
+
     /// Success rate
     pub success_rate: f64,
-    
+
     /// Last state change timestamp
     pub last_state_change: Option<chrono::DateTime<chrono::Utc>>,
-    
+
     /// Last request timestamp
     pub last_request_time: Option<chrono::DateTime<chrono::Utc>>,
 }
@@ -134,7 +134,7 @@ impl CircuitBreaker {
         Fut: std::future::Future<Output = BridgeResult<T>> + Send,
     {
         let current_state = self.state.read().await.clone();
-        
+
         match current_state {
             CircuitBreakerState::Open => {
                 if self.should_attempt_reset().await {
@@ -153,9 +153,9 @@ impl CircuitBreaker {
 
         let start_time = Instant::now();
         let result = operation().await;
-        
+
         self.update_stats(result.is_ok()).await;
-        
+
         match result {
             Ok(value) => {
                 self.record_success().await;
@@ -172,12 +172,12 @@ impl CircuitBreaker {
     pub async fn record_success(&self) -> BridgeResult<()> {
         let mut success_count = self.success_count.write().await;
         *success_count += 1;
-        
+
         let mut failure_count = self.failure_count.write().await;
         *failure_count = 0;
-        
+
         let current_state = self.state.read().await.clone();
-        
+
         match current_state {
             CircuitBreakerState::HalfOpen => {
                 if *success_count >= self.config.success_threshold {
@@ -192,7 +192,7 @@ impl CircuitBreaker {
                 self.transition_to_half_open().await;
             }
         }
-        
+
         Ok(())
     }
 
@@ -200,15 +200,15 @@ impl CircuitBreaker {
     pub async fn record_failure(&self) -> BridgeResult<()> {
         let mut failure_count = self.failure_count.write().await;
         *failure_count += 1;
-        
+
         let mut success_count = self.success_count.write().await;
         *success_count = 0;
-        
+
         let mut last_failure_time = self.last_failure_time.write().await;
         *last_failure_time = Some(Instant::now());
-        
+
         let current_state = self.state.read().await.clone();
-        
+
         match current_state {
             CircuitBreakerState::Closed => {
                 if *failure_count >= self.config.failure_threshold {
@@ -222,7 +222,7 @@ impl CircuitBreaker {
                 // Stay open
             }
         }
-        
+
         Ok(())
     }
 
@@ -241,11 +241,11 @@ impl CircuitBreaker {
     async fn transition_to_open(&self) {
         let mut state = self.state.write().await;
         *state = CircuitBreakerState::Open;
-        
+
         let mut stats = self.stats.write().await;
         stats.state = CircuitBreakerState::Open;
         stats.last_state_change = Some(chrono::Utc::now());
-        
+
         info!("Circuit breaker transitioned to OPEN state");
     }
 
@@ -253,11 +253,11 @@ impl CircuitBreaker {
     async fn transition_to_half_open(&self) {
         let mut state = self.state.write().await;
         *state = CircuitBreakerState::HalfOpen;
-        
+
         let mut stats = self.stats.write().await;
         stats.state = CircuitBreakerState::HalfOpen;
         stats.last_state_change = Some(chrono::Utc::now());
-        
+
         info!("Circuit breaker transitioned to HALF-OPEN state");
     }
 
@@ -265,11 +265,11 @@ impl CircuitBreaker {
     async fn transition_to_closed(&self) {
         let mut state = self.state.write().await;
         *state = CircuitBreakerState::Closed;
-        
+
         let mut stats = self.stats.write().await;
         stats.state = CircuitBreakerState::Closed;
         stats.last_state_change = Some(chrono::Utc::now());
-        
+
         info!("Circuit breaker transitioned to CLOSED state");
     }
 
@@ -278,13 +278,13 @@ impl CircuitBreaker {
         let mut stats = self.stats.write().await;
         stats.total_requests += 1;
         stats.last_request_time = Some(chrono::Utc::now());
-        
+
         if success {
             stats.successful_requests += 1;
         } else {
             stats.failed_requests += 1;
         }
-        
+
         if stats.total_requests > 0 {
             stats.success_rate = stats.successful_requests as f64 / stats.total_requests as f64;
         }
@@ -299,20 +299,20 @@ impl CircuitBreaker {
     pub async fn reset(&self) -> BridgeResult<()> {
         let mut state = self.state.write().await;
         *state = CircuitBreakerState::Closed;
-        
+
         let mut failure_count = self.failure_count.write().await;
         *failure_count = 0;
-        
+
         let mut success_count = self.success_count.write().await;
         *success_count = 0;
-        
+
         let mut last_failure_time = self.last_failure_time.write().await;
         *last_failure_time = None;
-        
+
         let mut stats = self.stats.write().await;
         stats.state = CircuitBreakerState::Closed;
         stats.last_state_change = Some(chrono::Utc::now());
-        
+
         info!("Circuit breaker reset to CLOSED state");
         Ok(())
     }
@@ -333,8 +333,10 @@ mod tests {
     async fn test_successful_operation() {
         let config = CircuitBreakerConfig::default();
         let breaker = CircuitBreaker::new(config);
-        
-        let result = breaker.execute(|| async { Ok::<i32, BridgeError>(42) }).await;
+
+        let result = breaker
+            .execute(|| async { Ok::<i32, BridgeError>(42) })
+            .await;
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), 42);
     }
@@ -346,14 +348,18 @@ mod tests {
             ..Default::default()
         };
         let breaker = CircuitBreaker::new(config);
-        
+
         // First failure
-        let result = breaker.execute(|| async { Err::<i32, BridgeError>(BridgeError::internal("test error")) }).await;
+        let result = breaker
+            .execute(|| async { Err::<i32, BridgeError>(BridgeError::internal("test error")) })
+            .await;
         assert!(result.is_err());
         assert!(breaker.is_closed().await);
-        
+
         // Second failure - should open circuit
-        let result = breaker.execute(|| async { Err::<i32, BridgeError>(BridgeError::internal("test error")) }).await;
+        let result = breaker
+            .execute(|| async { Err::<i32, BridgeError>(BridgeError::internal("test error")) })
+            .await;
         assert!(result.is_err());
         assert!(breaker.is_open().await);
     }

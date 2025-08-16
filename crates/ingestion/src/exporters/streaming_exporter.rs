@@ -10,16 +10,15 @@
 use async_trait::async_trait;
 use bridge_core::{
     traits::LakehouseExporter as BridgeTelemetryExporter, BridgeResult, ExportResult,
-    ProcessedBatch, TelemetryBatch,
+    ProcessedBatch,
 };
 use chrono::{DateTime, Utc};
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{error, info, warn};
-use uuid::Uuid;
-use reqwest::Client;
 
 use super::{BaseExporter, ExporterConfig};
 
@@ -177,13 +176,15 @@ impl StreamingExporter {
         let start_time = std::time::Instant::now();
         let url = self.config.destination_url.clone();
 
-        let mut request_builder = self.http_client
+        let mut request_builder = self
+            .http_client
             .post(&url)
             .header("Content-Type", "application/json")
             .header("Accept", "application/json");
 
         if let Some(auth_token) = &self.config.auth_token {
-            request_builder = request_builder.header("Authorization", format!("Bearer {}", auth_token));
+            request_builder =
+                request_builder.header("Authorization", format!("Bearer {}", auth_token));
         }
 
         for (key, value) in &self.config.headers {
@@ -207,7 +208,8 @@ impl StreamingExporter {
         }
 
         let export_time = start_time.elapsed().as_millis() as f64;
-        self.update_success_stats(batch.records.len(), export_time).await;
+        self.update_success_stats(batch.records.len(), export_time)
+            .await;
 
         info!(
             "Successfully streamed processed batch {} with {} records to {} in {:.2}ms",
@@ -236,7 +238,8 @@ impl StreamingExporter {
         }
 
         // Update average export time
-        stats.avg_export_time_ms = stats.export_times.iter().sum::<f64>() / stats.export_times.len() as f64;
+        stats.avg_export_time_ms =
+            stats.export_times.iter().sum::<f64>() / stats.export_times.len() as f64;
 
         // Update per-minute statistics
         stats.last_minute_batches.push(now);
@@ -246,8 +249,12 @@ impl StreamingExporter {
 
         // Remove entries older than 1 minute
         let one_minute_ago = now - chrono::Duration::minutes(1);
-        stats.last_minute_batches.retain(|&time| time > one_minute_ago);
-        stats.last_minute_records.retain(|&time| time > one_minute_ago);
+        stats
+            .last_minute_batches
+            .retain(|&time| time > one_minute_ago);
+        stats
+            .last_minute_records
+            .retain(|&time| time > one_minute_ago);
 
         stats.batches_per_minute = stats.last_minute_batches.len() as u64;
         stats.records_per_minute = stats.last_minute_records.len() as u64;
@@ -376,12 +383,16 @@ impl BridgeTelemetryExporter for StreamingExporter {
     async fn health_check(&self) -> BridgeResult<bool> {
         let url = self.config.destination_url.clone();
 
-        let mut request_builder = self.http_client
-            .head(&url)
-            .timeout(tokio::time::Duration::from_secs(self.config.stream_timeout_secs));
+        let mut request_builder =
+            self.http_client
+                .head(&url)
+                .timeout(tokio::time::Duration::from_secs(
+                    self.config.stream_timeout_secs,
+                ));
 
         if let Some(auth_token) = &self.config.auth_token {
-            request_builder = request_builder.header("Authorization", format!("Bearer {}", auth_token));
+            request_builder =
+                request_builder.header("Authorization", format!("Bearer {}", auth_token));
         }
 
         for (key, value) in &self.config.headers {
@@ -390,11 +401,16 @@ impl BridgeTelemetryExporter for StreamingExporter {
 
         match request_builder.send().await {
             Ok(response) => {
-                let is_healthy = response.status().is_success() || response.status().as_u16() == 405; // 405 Method Not Allowed is acceptable for HEAD
+                let is_healthy =
+                    response.status().is_success() || response.status().as_u16() == 405; // 405 Method Not Allowed is acceptable for HEAD
                 if is_healthy {
                     info!("Streaming exporter health check passed for {}", url);
                 } else {
-                    warn!("Streaming exporter health check failed for {} with status {}", url, response.status());
+                    warn!(
+                        "Streaming exporter health check failed for {} with status {}",
+                        url,
+                        response.status()
+                    );
                 }
                 Ok(is_healthy)
             }
@@ -477,27 +493,22 @@ impl StreamingExporter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bridge_core::types::{ProcessedRecord, ProcessingStatus, ProcessingError};
+    use bridge_core::types::{ProcessedRecord, ProcessingError, ProcessingStatus};
+    use uuid::Uuid;
 
     fn create_test_batch() -> ProcessedBatch {
         ProcessedBatch {
             original_batch_id: Uuid::new_v4(),
             timestamp: Utc::now(),
             status: ProcessingStatus::Success,
-            records: vec![
-                ProcessedRecord {
-                    original_id: Uuid::new_v4(),
-                    status: ProcessingStatus::Success,
-                    transformed_data: None,
-                    metadata: HashMap::from([
-                        ("test_key".to_string(), "test_value".to_string()),
-                    ]),
-                    errors: vec![],
-                },
-            ],
-            metadata: HashMap::from([
-                ("source".to_string(), "test".to_string()),
-            ]),
+            records: vec![ProcessedRecord {
+                original_id: Uuid::new_v4(),
+                status: ProcessingStatus::Success,
+                transformed_data: None,
+                metadata: HashMap::from([("test_key".to_string(), "test_value".to_string())]),
+                errors: vec![],
+            }],
+            metadata: HashMap::from([("source".to_string(), "test".to_string())]),
             errors: vec![],
         }
     }
@@ -562,7 +573,10 @@ mod tests {
 
         // Test configuration access
         let exporter_config = exporter.get_config();
-        assert_eq!(exporter_config.destination_url, "http://localhost:8080/test");
+        assert_eq!(
+            exporter_config.destination_url,
+            "http://localhost:8080/test"
+        );
         assert_eq!(exporter_config.buffer_size, 100);
     }
 
@@ -598,7 +612,10 @@ mod tests {
 
         let export_result = result.unwrap();
         // The export should succeed initially (buffer operation)
-        assert_eq!(export_result.status, bridge_core::types::ExportStatus::Success);
+        assert_eq!(
+            export_result.status,
+            bridge_core::types::ExportStatus::Success
+        );
         assert_eq!(export_result.records_exported, 1);
         assert_eq!(export_result.records_failed, 0);
     }

@@ -17,7 +17,7 @@ pub mod metrics;
 pub mod pipeline;
 pub mod traits;
 pub mod types;
-pub mod utils; 
+pub mod utils;
 
 // Re-export commonly used types
 pub use config::{BridgeConfig, IngestionConfig, LakehouseConfig, ProcessingConfig};

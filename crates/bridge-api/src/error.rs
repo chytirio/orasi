@@ -9,9 +9,9 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
+use bridge_auth;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use bridge_auth;
 
 /// API error types
 #[derive(Error, Debug)]
@@ -144,16 +144,16 @@ impl ApiError {
 pub struct ErrorResponse {
     /// Error code
     pub code: String,
-    
+
     /// Error message
     pub message: String,
-    
+
     /// Error details (optional)
     pub details: Option<serde_json::Value>,
-    
+
     /// Request ID for tracking
     pub request_id: Option<String>,
-    
+
     /// Timestamp
     pub timestamp: chrono::DateTime<chrono::Utc>,
 }
@@ -190,7 +190,7 @@ impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         let status_code = self.status_code();
         let error_response = ErrorResponse::new(&self, None);
-        
+
         (status_code, Json(error_response)).into_response()
     }
 }
@@ -227,7 +227,9 @@ impl From<tonic::Status> for ApiError {
             tonic::Code::AlreadyExists => ApiError::Conflict(err.message().to_string()),
             tonic::Code::PermissionDenied => ApiError::Forbidden(err.message().to_string()),
             tonic::Code::Unauthenticated => ApiError::Unauthorized(err.message().to_string()),
-            tonic::Code::ResourceExhausted => ApiError::RateLimitExceeded(err.message().to_string()),
+            tonic::Code::ResourceExhausted => {
+                ApiError::RateLimitExceeded(err.message().to_string())
+            }
             tonic::Code::Unavailable => ApiError::ServiceUnavailable(err.message().to_string()),
             tonic::Code::DeadlineExceeded => ApiError::Timeout(err.message().to_string()),
             _ => ApiError::Internal(format!("gRPC error: {}", err)),
@@ -238,23 +240,43 @@ impl From<tonic::Status> for ApiError {
 impl From<bridge_core::error::BridgeError> for ApiError {
     fn from(err: bridge_core::error::BridgeError) -> Self {
         match err {
-            bridge_core::error::BridgeError::Configuration { message, .. } => ApiError::Configuration(message),
-            bridge_core::error::BridgeError::Validation { message, .. } => ApiError::Validation(message),
-            bridge_core::error::BridgeError::Authentication { message, .. } => ApiError::Authentication(message),
-            bridge_core::error::BridgeError::Serialization { message, .. } => ApiError::Serialization(message),
+            bridge_core::error::BridgeError::Configuration { message, .. } => {
+                ApiError::Configuration(message)
+            }
+            bridge_core::error::BridgeError::Validation { message, .. } => {
+                ApiError::Validation(message)
+            }
+            bridge_core::error::BridgeError::Authentication { message, .. } => {
+                ApiError::Authentication(message)
+            }
+            bridge_core::error::BridgeError::Serialization { message, .. } => {
+                ApiError::Serialization(message)
+            }
             bridge_core::error::BridgeError::Network { message, .. } => ApiError::Network(message),
             bridge_core::error::BridgeError::Timeout { message, .. } => ApiError::Timeout(message),
-            bridge_core::error::BridgeError::Internal { message, .. } => ApiError::Internal(message),
-            bridge_core::error::BridgeError::Ingestion { message, .. } => ApiError::Internal(message),
-            bridge_core::error::BridgeError::Lakehouse { message, .. } => ApiError::Internal(message),
+            bridge_core::error::BridgeError::Internal { message, .. } => {
+                ApiError::Internal(message)
+            }
+            bridge_core::error::BridgeError::Ingestion { message, .. } => {
+                ApiError::Internal(message)
+            }
+            bridge_core::error::BridgeError::Lakehouse { message, .. } => {
+                ApiError::Internal(message)
+            }
             bridge_core::error::BridgeError::Export { message, .. } => ApiError::Internal(message),
             bridge_core::error::BridgeError::Query { message, .. } => ApiError::Internal(message),
             bridge_core::error::BridgeError::Stream { message, .. } => ApiError::Internal(message),
-            bridge_core::error::BridgeError::Processing { message, .. } => ApiError::Internal(message),
+            bridge_core::error::BridgeError::Processing { message, .. } => {
+                ApiError::Internal(message)
+            }
             bridge_core::error::BridgeError::Schema { message, .. } => ApiError::Internal(message),
             bridge_core::error::BridgeError::Plugin { message, .. } => ApiError::Internal(message),
-            bridge_core::error::BridgeError::ResourceExhaustion { message, .. } => ApiError::Internal(message),
-            bridge_core::error::BridgeError::CircuitBreaker { message, .. } => ApiError::Internal(message),
+            bridge_core::error::BridgeError::ResourceExhaustion { message, .. } => {
+                ApiError::Internal(message)
+            }
+            bridge_core::error::BridgeError::CircuitBreaker { message, .. } => {
+                ApiError::Internal(message)
+            }
             bridge_core::error::BridgeError::Unknown { message, .. } => ApiError::Internal(message),
         }
     }
@@ -266,7 +288,9 @@ impl From<bridge_auth::AuthError> for ApiError {
             bridge_auth::AuthError::InvalidCredentials(message) => ApiError::Unauthorized(message),
             bridge_auth::AuthError::AccountLocked(message) => ApiError::Forbidden(message),
             bridge_auth::AuthError::UserNotFound(message) => ApiError::NotFound(message),
-            bridge_auth::AuthError::AuthenticationFailed(message) => ApiError::Unauthorized(message),
+            bridge_auth::AuthError::AuthenticationFailed(message) => {
+                ApiError::Unauthorized(message)
+            }
             bridge_auth::AuthError::AuthorizationFailed(message) => ApiError::Forbidden(message),
             bridge_auth::AuthError::TokenExpired(message) => ApiError::Unauthorized(message),
             bridge_auth::AuthError::TokenValidation(message) => ApiError::Unauthorized(message),
@@ -274,7 +298,9 @@ impl From<bridge_auth::AuthError> for ApiError {
             bridge_auth::AuthError::TokenNotYetValid(message) => ApiError::Unauthorized(message),
             bridge_auth::AuthError::TokenBlacklisted(message) => ApiError::Unauthorized(message),
             bridge_auth::AuthError::RefreshDisabled(message) => ApiError::Forbidden(message),
-            bridge_auth::AuthError::RateLimitExceeded(message) => ApiError::RateLimitExceeded(message),
+            bridge_auth::AuthError::RateLimitExceeded(message) => {
+                ApiError::RateLimitExceeded(message)
+            }
             bridge_auth::AuthError::Internal(message) => ApiError::Internal(message),
         }
     }
@@ -285,25 +311,25 @@ impl From<bridge_auth::AuthError> for ApiError {
 pub struct EnhancedErrorResponse {
     /// Error code
     pub code: String,
-    
+
     /// Error message
     pub message: String,
-    
+
     /// Error details (optional)
     pub details: Option<serde_json::Value>,
-    
+
     /// Request ID for tracking
     pub request_id: Option<String>,
-    
+
     /// Timestamp
     pub timestamp: chrono::DateTime<chrono::Utc>,
-    
+
     /// Error category
     pub category: String,
-    
+
     /// Suggested action (optional)
     pub suggested_action: Option<String>,
-    
+
     /// Error severity
     pub severity: ErrorSeverity,
 }
@@ -321,23 +347,91 @@ impl EnhancedErrorResponse {
     /// Create a new enhanced error response
     pub fn new(error: &ApiError, request_id: Option<String>) -> Self {
         let (category, severity, suggested_action) = match error {
-            ApiError::Internal(_) => ("system", ErrorSeverity::High, Some("Contact support".to_string())),
-            ApiError::BadRequest(_) => ("client", ErrorSeverity::Low, Some("Check request format".to_string())),
-            ApiError::Unauthorized(_) => ("auth", ErrorSeverity::Medium, Some("Provide valid credentials".to_string())),
-            ApiError::Forbidden(_) => ("auth", ErrorSeverity::Medium, Some("Check permissions".to_string())),
-            ApiError::NotFound(_) => ("client", ErrorSeverity::Low, Some("Check resource path".to_string())),
-            ApiError::Conflict(_) => ("client", ErrorSeverity::Medium, Some("Resolve conflict".to_string())),
-            ApiError::Validation(_) => ("client", ErrorSeverity::Low, Some("Fix validation errors".to_string())),
-            ApiError::RateLimitExceeded(_) => ("client", ErrorSeverity::Medium, Some("Wait and retry".to_string())),
-            ApiError::ServiceUnavailable(_) => ("system", ErrorSeverity::High, Some("Retry later".to_string())),
-            ApiError::Configuration(_) => ("system", ErrorSeverity::Critical, Some("Contact administrator".to_string())),
-            ApiError::Authentication(_) => ("auth", ErrorSeverity::Medium, Some("Check credentials".to_string())),
-            ApiError::Authorization(_) => ("auth", ErrorSeverity::Medium, Some("Check permissions".to_string())),
-            ApiError::Serialization(_) => ("client", ErrorSeverity::Low, Some("Check data format".to_string())),
-            ApiError::Deserialization(_) => ("client", ErrorSeverity::Low, Some("Check data format".to_string())),
-            ApiError::Database(_) => ("system", ErrorSeverity::High, Some("Contact support".to_string())),
-            ApiError::Network(_) => ("system", ErrorSeverity::Medium, Some("Check connectivity".to_string())),
-            ApiError::Timeout(_) => ("system", ErrorSeverity::Medium, Some("Retry with longer timeout".to_string())),
+            ApiError::Internal(_) => (
+                "system",
+                ErrorSeverity::High,
+                Some("Contact support".to_string()),
+            ),
+            ApiError::BadRequest(_) => (
+                "client",
+                ErrorSeverity::Low,
+                Some("Check request format".to_string()),
+            ),
+            ApiError::Unauthorized(_) => (
+                "auth",
+                ErrorSeverity::Medium,
+                Some("Provide valid credentials".to_string()),
+            ),
+            ApiError::Forbidden(_) => (
+                "auth",
+                ErrorSeverity::Medium,
+                Some("Check permissions".to_string()),
+            ),
+            ApiError::NotFound(_) => (
+                "client",
+                ErrorSeverity::Low,
+                Some("Check resource path".to_string()),
+            ),
+            ApiError::Conflict(_) => (
+                "client",
+                ErrorSeverity::Medium,
+                Some("Resolve conflict".to_string()),
+            ),
+            ApiError::Validation(_) => (
+                "client",
+                ErrorSeverity::Low,
+                Some("Fix validation errors".to_string()),
+            ),
+            ApiError::RateLimitExceeded(_) => (
+                "client",
+                ErrorSeverity::Medium,
+                Some("Wait and retry".to_string()),
+            ),
+            ApiError::ServiceUnavailable(_) => (
+                "system",
+                ErrorSeverity::High,
+                Some("Retry later".to_string()),
+            ),
+            ApiError::Configuration(_) => (
+                "system",
+                ErrorSeverity::Critical,
+                Some("Contact administrator".to_string()),
+            ),
+            ApiError::Authentication(_) => (
+                "auth",
+                ErrorSeverity::Medium,
+                Some("Check credentials".to_string()),
+            ),
+            ApiError::Authorization(_) => (
+                "auth",
+                ErrorSeverity::Medium,
+                Some("Check permissions".to_string()),
+            ),
+            ApiError::Serialization(_) => (
+                "client",
+                ErrorSeverity::Low,
+                Some("Check data format".to_string()),
+            ),
+            ApiError::Deserialization(_) => (
+                "client",
+                ErrorSeverity::Low,
+                Some("Check data format".to_string()),
+            ),
+            ApiError::Database(_) => (
+                "system",
+                ErrorSeverity::High,
+                Some("Contact support".to_string()),
+            ),
+            ApiError::Network(_) => (
+                "system",
+                ErrorSeverity::Medium,
+                Some("Check connectivity".to_string()),
+            ),
+            ApiError::Timeout(_) => (
+                "system",
+                ErrorSeverity::Medium,
+                Some("Retry with longer timeout".to_string()),
+            ),
         };
 
         Self {

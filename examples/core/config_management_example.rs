@@ -6,49 +6,41 @@
 use std::path::PathBuf;
 use std::time::Duration;
 use tokio::time::sleep;
-use tracing::{info, warn, error};
+use tracing::{error, info, warn};
 
 use bridge_api::{
-    config_service::ConfigService,
-    component_handlers::create_default_component_handlers,
-    config::BridgeAPIConfig,
-    metrics::ApiMetrics,
+    component_handlers::create_default_component_handlers, config::BridgeAPIConfig,
+    config_service::ConfigService, metrics::ApiMetrics,
 };
 use bridge_core::BridgeConfig;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize tracing
-    tracing_subscriber::fmt()
-        .with_env_filter("info")
-        .init();
+    tracing_subscriber::fmt().with_env_filter("info").init();
 
     info!("Starting Configuration Management Example");
 
     // Create default bridge configuration
     let bridge_config = BridgeConfig::default();
-    
+
     // Create default API configuration
     let api_config = BridgeAPIConfig::default();
-    
+
     // Create metrics
     let metrics = ApiMetrics::new();
-    
+
     // Create configuration file path
     let config_path = PathBuf::from("config/bridge-config.json");
-    
+
     // Ensure config directory exists
     if let Some(parent) = config_path.parent() {
         std::fs::create_dir_all(parent)?;
     }
 
     // Create configuration service
-    let config_service = ConfigService::new(
-        api_config,
-        bridge_config,
-        config_path.clone(),
-        metrics,
-    );
+    let config_service =
+        ConfigService::new(api_config, bridge_config, config_path.clone(), metrics);
 
     // Register component handlers
     let handlers = create_default_component_handlers();
@@ -176,7 +168,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if validation_response.success {
         info!("✅ Configuration validation successful");
     } else {
-        error!("❌ Configuration validation failed: {}", validation_response.error_message);
+        error!(
+            "❌ Configuration validation failed: {}",
+            validation_response.error_message
+        );
         for error in &validation_response.validation_errors {
             error!("  - {}", error);
         }
@@ -298,14 +293,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let update_response = config_service.update_config(&update_request).await?;
     if update_response.success {
         info!("✅ Configuration updated successfully");
-        
+
         // Get current configuration
         let current_config = config_service.get_current_config().await?;
         info!("Current bridge name: {}", current_config.name);
-        info!("Current batch size: {}", current_config.ingestion.batch_size);
-        info!("Current worker threads: {}", current_config.processing.worker_threads);
+        info!(
+            "Current batch size: {}",
+            current_config.ingestion.batch_size
+        );
+        info!(
+            "Current worker threads: {}",
+            current_config.processing.worker_threads
+        );
     } else {
-        error!("❌ Configuration update failed: {}", update_response.error_message);
+        error!(
+            "❌ Configuration update failed: {}",
+            update_response.error_message
+        );
     }
 
     // Example 3: Update configuration with component restart
@@ -424,33 +428,38 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let restart_response = config_service.update_config(&restart_request).await?;
     if restart_response.success {
         info!("✅ Configuration updated and components restarted successfully");
-        info!("Restarted components: {:?}", restart_response.restarted_components);
-        
+        info!(
+            "Restarted components: {:?}",
+            restart_response.restarted_components
+        );
+
         // Wait a bit for components to stabilize
         sleep(Duration::from_millis(500)).await;
-        
+
         // Get component status
         let component_statuses = config_service.get_component_status().await?;
         info!("Component statuses:");
         for status in component_statuses {
-            info!("  - {}: {:?} (restarts: {})", 
-                status.name, 
-                status.status, 
-                status.restart_count
+            info!(
+                "  - {}: {:?} (restarts: {})",
+                status.name, status.status, status.restart_count
             );
             if let Some(error) = &status.error_message {
                 warn!("    Error: {}", error);
             }
         }
     } else {
-        error!("❌ Configuration update with restart failed: {}", restart_response.error_message);
+        error!(
+            "❌ Configuration update with restart failed: {}",
+            restart_response.error_message
+        );
     }
 
     // Example 4: Check configuration changes
     info!("=== Example 4: Configuration Change Detection ===");
     let has_changed = config_service.has_config_changed().await?;
     info!("Configuration has changed: {}", has_changed);
-    
+
     let config_hash = config_service.get_config_hash().await;
     info!("Current configuration hash: {}", config_hash);
 

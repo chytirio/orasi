@@ -72,13 +72,15 @@ impl CompatibilityChecker {
         new: &Schema,
     ) -> SchemaRegistryResult<bool> {
         // Parse both schemas
-        let existing_json: serde_json::Value = serde_json::from_str(&existing.content)
-            .map_err(|e| SchemaRegistryError::Validation {
-                message: format!("Invalid existing schema JSON: {}", e),
+        let existing_json: serde_json::Value =
+            serde_json::from_str(&existing.content).map_err(|e| {
+                SchemaRegistryError::Validation {
+                    message: format!("Invalid existing schema JSON: {}", e),
+                }
             })?;
 
-        let new_json: serde_json::Value = serde_json::from_str(&new.content)
-            .map_err(|e| SchemaRegistryError::Validation {
+        let new_json: serde_json::Value =
+            serde_json::from_str(&new.content).map_err(|e| SchemaRegistryError::Validation {
                 message: format!("Invalid new schema JSON: {}", e),
             })?;
 
@@ -114,13 +116,15 @@ impl CompatibilityChecker {
         new: &Schema,
     ) -> SchemaRegistryResult<bool> {
         // Parse both schemas
-        let existing_json: serde_json::Value = serde_json::from_str(&existing.content)
-            .map_err(|e| SchemaRegistryError::Validation {
-                message: format!("Invalid existing schema JSON: {}", e),
+        let existing_json: serde_json::Value =
+            serde_json::from_str(&existing.content).map_err(|e| {
+                SchemaRegistryError::Validation {
+                    message: format!("Invalid existing schema JSON: {}", e),
+                }
             })?;
 
-        let new_json: serde_json::Value = serde_json::from_str(&new.content)
-            .map_err(|e| SchemaRegistryError::Validation {
+        let new_json: serde_json::Value =
+            serde_json::from_str(&new.content).map_err(|e| SchemaRegistryError::Validation {
                 message: format!("Invalid new schema JSON: {}", e),
             })?;
 

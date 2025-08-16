@@ -257,6 +257,10 @@ impl TelemetryReceiver for RealDeltaLakeReceiver {
             bytes_per_minute: (received_data_count * 100) as u64 / 60,
             error_count: 0,
             last_receive_time: Some(Utc::now()),
+            protocol_stats: Some(HashMap::from([
+                ("protocol".to_string(), "delta_lake".to_string()),
+                ("receiver_name".to_string(), self.name.clone()),
+            ])),
         })
     }
 

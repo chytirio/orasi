@@ -12,16 +12,16 @@ use std::time::{Duration, Instant};
 pub struct ApiMetrics {
     /// Request counter
     pub request_counter: RequestCounter,
-    
+
     /// Response time histogram
     pub response_time: ResponseTimeHistogram,
-    
+
     /// Error counter
     pub error_counter: ErrorCounter,
-    
+
     /// Active connections gauge
     pub active_connections: ActiveConnectionsGauge,
-    
+
     /// Processing metrics
     pub processing_metrics: ProcessingMetrics,
 }
@@ -188,7 +188,7 @@ impl RequestTimer {
     /// Finish timing and record metrics
     pub fn finish(self, metrics: &ApiMetrics, status_code: u16) {
         let duration = self.start_time.elapsed();
-        
+
         metrics.record_request(&self.method, &self.path, status_code);
         metrics.record_response_time(&self.method, &self.path, duration);
     }
@@ -199,13 +199,13 @@ impl RequestTimer {
 pub struct TelemetryMetrics {
     /// Ingestion counter
     pub ingestion_counter: IngestionCounter,
-    
+
     /// Batch size histogram
     pub batch_size: BatchSizeHistogram,
-    
+
     /// Processing time histogram
     pub processing_time: ProcessingTimeHistogram,
-    
+
     /// Validation errors counter
     pub validation_errors: ValidationErrorsCounter,
 }
@@ -317,13 +317,13 @@ impl ValidationErrorsCounter {
 pub struct QueryMetrics {
     /// Query counter
     pub query_counter: QueryCounter,
-    
+
     /// Query execution time histogram
     pub execution_time: QueryExecutionTimeHistogram,
-    
+
     /// Cache hit rate gauge
     pub cache_hit_rate: CacheHitRateGauge,
-    
+
     /// Result count histogram
     pub result_count: ResultCountHistogram,
 }
@@ -346,7 +346,13 @@ impl QueryMetrics {
     }
 
     /// Record query execution
-    pub fn record_query(&self, query_type: &str, duration: Duration, cache_hit: bool, result_count: usize) {
+    pub fn record_query(
+        &self,
+        query_type: &str,
+        duration: Duration,
+        cache_hit: bool,
+        result_count: usize,
+    ) {
         self.query_counter.record(query_type, cache_hit);
         self.execution_time.record(query_type, duration);
         self.cache_hit_rate.record(query_type, cache_hit);
@@ -427,11 +433,11 @@ impl ResultCountHistogram {
 pub fn init_metrics() {
     // Initialize Prometheus metrics exporter
     let builder = metrics_exporter_prometheus::PrometheusBuilder::new();
-    
+
     if let Err(e) = builder.install() {
         tracing::error!("Failed to install Prometheus metrics exporter: {}", e);
     }
-    
+
     tracing::info!("Metrics initialized");
 }
 
@@ -439,41 +445,42 @@ pub fn init_metrics() {
 pub fn get_metrics() -> String {
     // Implement proper metrics rendering using Prometheus format
     let mut metrics_text = String::new();
-    
+
     // Add request metrics
     metrics_text.push_str("# HELP bridge_api_requests_total Total number of requests\n");
     metrics_text.push_str("# TYPE bridge_api_requests_total counter\n");
     metrics_text.push_str("bridge_api_requests_total 0\n");
-    
+
     // Add response time metrics
     metrics_text.push_str("# HELP bridge_api_response_time_seconds Response time in seconds\n");
     metrics_text.push_str("# TYPE bridge_api_response_time_seconds histogram\n");
     metrics_text.push_str("bridge_api_response_time_seconds 0.0\n");
-    
+
     // Add active connections metric
-    metrics_text.push_str("# HELP bridge_api_active_connections Current number of active connections\n");
+    metrics_text
+        .push_str("# HELP bridge_api_active_connections Current number of active connections\n");
     metrics_text.push_str("# TYPE bridge_api_active_connections gauge\n");
     metrics_text.push_str("bridge_api_active_connections 0\n");
-    
+
     // Add error metrics
     metrics_text.push_str("# HELP bridge_api_errors_total Total number of errors\n");
     metrics_text.push_str("# TYPE bridge_api_errors_total counter\n");
     metrics_text.push_str("bridge_api_errors_total 0\n");
-    
+
     // Add system metrics
     metrics_text.push_str("# HELP bridge_api_system_uptime_seconds System uptime in seconds\n");
     metrics_text.push_str("# TYPE bridge_api_system_uptime_seconds gauge\n");
     metrics_text.push_str("bridge_api_system_uptime_seconds 0\n");
-    
+
     // Add query metrics
     metrics_text.push_str("# HELP bridge_api_query_total Total number of queries\n");
     metrics_text.push_str("# TYPE bridge_api_query_total counter\n");
     metrics_text.push_str("bridge_api_query_total 0\n");
-    
+
     // Add cache metrics
     metrics_text.push_str("# HELP bridge_api_cache_hit_rate Cache hit rate\n");
     metrics_text.push_str("# TYPE bridge_api_cache_hit_rate gauge\n");
     metrics_text.push_str("bridge_api_cache_hit_rate 0.0\n");
-    
+
     metrics_text
 }

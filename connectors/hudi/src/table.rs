@@ -3,14 +3,14 @@
 //!
 
 //! Apache Hudi table management
-//! 
+//!
 //! This module provides table management capabilities for Apache Hudi,
 //! including table creation, configuration, and maintenance operations.
 
-use serde::{Deserialize, Serialize};
-use tracing::{debug, error, info, warn};
-use crate::error::{HudiError, HudiResult};
 use crate::config::HudiConfig;
+use crate::error::HudiResult;
+use serde::{Deserialize, Serialize};
+use tracing::{debug, info};
 
 /// Apache Hudi table configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -88,65 +88,77 @@ impl HudiTable {
     /// Initialize the table
     pub async fn initialize(&mut self) -> HudiResult<()> {
         debug!("Initializing Hudi table: {}", self.config.table_name);
-        
+
         // This would typically involve:
         // 1. Checking if table exists
         // 2. Creating table if it doesn't exist
         // 3. Loading table metadata
         // 4. Validating configuration
-        
-        info!("Hudi table initialized successfully: {}", self.config.table_name);
+
+        info!(
+            "Hudi table initialized successfully: {}",
+            self.config.table_name
+        );
         Ok(())
     }
 
     /// Check if table exists
     pub async fn exists(&self) -> HudiResult<bool> {
         debug!("Checking if Hudi table exists: {}", self.config.table_name);
-        
+
         // This would typically involve:
         // 1. Checking the base path
         // 2. Looking for table metadata files
         // 3. Validating table structure
-        
+
         Ok(true) // Placeholder
     }
 
     /// Create the table
     pub async fn create(&mut self) -> HudiResult<()> {
         debug!("Creating Hudi table: {}", self.config.table_name);
-        
+
         // This would typically involve:
         // 1. Creating the base path
         // 2. Initializing table metadata
         // 3. Setting up partitions
         // 4. Creating initial commit
-        
-        info!("Hudi table created successfully: {}", self.config.table_name);
+
+        info!(
+            "Hudi table created successfully: {}",
+            self.config.table_name
+        );
         Ok(())
     }
 
     /// Delete the table
     pub async fn delete(&self) -> HudiResult<()> {
         debug!("Deleting Hudi table: {}", self.config.table_name);
-        
+
         // This would typically involve:
         // 1. Validating table exists
         // 2. Cleaning up all files
         // 3. Removing metadata
-        
-        info!("Hudi table deleted successfully: {}", self.config.table_name);
+
+        info!(
+            "Hudi table deleted successfully: {}",
+            self.config.table_name
+        );
         Ok(())
     }
 
     /// Get table statistics
     pub async fn get_statistics(&self) -> HudiResult<HudiTableMetadata> {
-        debug!("Getting statistics for Hudi table: {}", self.config.table_name);
-        
+        debug!(
+            "Getting statistics for Hudi table: {}",
+            self.config.table_name
+        );
+
         // This would typically involve:
         // 1. Reading table metadata
         // 2. Calculating statistics
         // 3. Returning metadata
-        
+
         Ok(HudiTableMetadata {
             table_name: self.config.table_name.clone(),
             table_type: self.config.table_type.clone(),
@@ -191,7 +203,7 @@ impl HudiTableManager {
 
         let mut table = HudiTable::new(table_config);
         table.initialize().await?;
-        
+
         self.tables.insert(table.config().table_name.clone(), table);
         Ok(())
     }

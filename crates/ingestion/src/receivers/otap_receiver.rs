@@ -16,7 +16,7 @@ use bridge_core::{
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use tracing::{info, error};
+use tracing::{error, info};
 use uuid::Uuid;
 
 use super::{BaseReceiver, ReceiverConfig};
@@ -185,35 +185,33 @@ impl OtapReceiver {
                     // No data available, create a placeholder batch for now
                     // In a real implementation, this might block or return an error
                     info!("No OTAP data available, creating placeholder batch");
-                    
-                    let records = vec![
-                        TelemetryRecord {
-                            id: Uuid::new_v4(),
-                            timestamp: Utc::now(),
-                            record_type: TelemetryType::Metric,
-                            data: TelemetryData::Metric(MetricData {
-                                name: "otap_placeholder_metric".to_string(),
-                                description: Some("Placeholder metric - no data available".to_string()),
-                                unit: Some("count".to_string()),
-                                metric_type: bridge_core::types::MetricType::Counter,
-                                value: MetricValue::Counter(0.0),
-                                labels: HashMap::from([
-                                    ("source".to_string(), "otap_receiver".to_string()),
-                                    ("protocol".to_string(), "otap".to_string()),
-                                    ("status".to_string(), "no_data".to_string()),
-                                ]),
-                                timestamp: Utc::now(),
-                            }),
-                            attributes: HashMap::from([
+
+                    let records = vec![TelemetryRecord {
+                        id: Uuid::new_v4(),
+                        timestamp: Utc::now(),
+                        record_type: TelemetryType::Metric,
+                        data: TelemetryData::Metric(MetricData {
+                            name: "otap_placeholder_metric".to_string(),
+                            description: Some("Placeholder metric - no data available".to_string()),
+                            unit: Some("count".to_string()),
+                            metric_type: bridge_core::types::MetricType::Counter,
+                            value: MetricValue::Counter(0.0),
+                            labels: HashMap::from([
+                                ("source".to_string(), "otap_receiver".to_string()),
                                 ("protocol".to_string(), "otap".to_string()),
-                                ("receiver".to_string(), "otap_receiver".to_string()),
-                                ("data_status".to_string(), "placeholder".to_string()),
+                                ("status".to_string(), "no_data".to_string()),
                             ]),
-                            tags: HashMap::new(),
-                            resource: None,
-                            service: None,
-                        },
-                    ];
+                            timestamp: Utc::now(),
+                        }),
+                        attributes: HashMap::from([
+                            ("protocol".to_string(), "otap".to_string()),
+                            ("receiver".to_string(), "otap_receiver".to_string()),
+                            ("data_status".to_string(), "placeholder".to_string()),
+                        ]),
+                        tags: HashMap::new(),
+                        resource: None,
+                        service: None,
+                    }];
 
                     Ok(TelemetryBatch {
                         id: Uuid::new_v4(),
@@ -223,8 +221,14 @@ impl OtapReceiver {
                         records,
                         metadata: HashMap::from([
                             ("protocol".to_string(), "otap".to_string()),
-                            ("compression".to_string(), self.config.enable_compression.to_string()),
-                            ("fallback_enabled".to_string(), self.config.enable_otlp_fallback.to_string()),
+                            (
+                                "compression".to_string(),
+                                self.config.enable_compression.to_string(),
+                            ),
+                            (
+                                "fallback_enabled".to_string(),
+                                self.config.enable_otlp_fallback.to_string(),
+                            ),
                             ("data_status".to_string(), "placeholder".to_string()),
                         ]),
                     })
@@ -236,7 +240,9 @@ impl OtapReceiver {
             }
         } else {
             // No protocol handler available
-            Err(bridge_core::BridgeError::internal("OTAP protocol handler not initialized"))
+            Err(bridge_core::BridgeError::internal(
+                "OTAP protocol handler not initialized",
+            ))
         }
     }
 }
@@ -245,7 +251,7 @@ impl OtapReceiver {
 impl BridgeTelemetryReceiver for OtapReceiver {
     async fn receive(&self) -> BridgeResult<TelemetryBatch> {
         self.base.record_receive_attempt().await;
-        
+
         match self.receive_data().await {
             Ok(batch) => {
                 self.base.record_receive_success(batch.size).await;
@@ -269,17 +275,21 @@ impl BridgeTelemetryReceiver for OtapReceiver {
 
     async fn get_stats(&self) -> BridgeResult<ReceiverStats> {
         let base_stats = self.base.get_stats().await?;
-        
+
         // Get protocol-specific stats
         let protocol_stats = if let Some(handler) = &self.protocol_handler {
             match handler.get_stats().await {
                 Ok(stats) => {
                     let mut protocol_stats = HashMap::new();
                     protocol_stats.insert("protocol".to_string(), stats.protocol);
-                    protocol_stats.insert("total_messages".to_string(), stats.total_messages.to_string());
+                    protocol_stats.insert(
+                        "total_messages".to_string(),
+                        stats.total_messages.to_string(),
+                    );
                     protocol_stats.insert("total_bytes".to_string(), stats.total_bytes.to_string());
                     protocol_stats.insert("error_count".to_string(), stats.error_count.to_string());
-                    protocol_stats.insert("is_connected".to_string(), stats.is_connected.to_string());
+                    protocol_stats
+                        .insert("is_connected".to_string(), stats.is_connected.to_string());
                     Some(protocol_stats)
                 }
                 Err(_) => None,
@@ -301,11 +311,11 @@ impl BridgeTelemetryReceiver for OtapReceiver {
 
     async fn shutdown(&self) -> BridgeResult<()> {
         info!("Shutting down OTAP receiver");
-        
+
         // Note: We can't call stop_protocol_handler here because it requires &mut self
         // In a real implementation, we would need to handle this differently
         // For now, just log the shutdown
-        
+
         info!("OTAP receiver shutdown complete");
         Ok(())
     }
@@ -367,13 +377,13 @@ mod tests {
     async fn test_otap_receiver_lifecycle() {
         let config = OtapReceiverConfig::new("localhost".to_string(), 8080);
         let mut receiver = OtapReceiver::new(&config).await.unwrap();
-        
+
         // Test initialization
         assert!(receiver.init().await.is_ok());
-        
+
         // Test starting
         assert!(receiver.start().await.is_ok());
-        
+
         // Test stopping
         assert!(receiver.stop().await.is_ok());
     }
@@ -382,27 +392,27 @@ mod tests {
     async fn test_otap_receiver_data_reception() {
         let config = OtapReceiverConfig::new("localhost".to_string(), 8080);
         let mut receiver = OtapReceiver::new(&config).await.unwrap();
-        
+
         // Initialize and start the receiver
         receiver.init().await.unwrap();
         receiver.start().await.unwrap();
-        
+
         // Get the protocol handler and simulate data
         if let Some(handler) = receiver.get_protocol_handler() {
             if let Some(otap_handler) = handler.as_any().downcast_ref::<OtapProtocol>() {
                 // Simulate incoming data
                 assert!(otap_handler.simulate_incoming_data().await.is_ok());
-                
+
                 // Try to receive data
                 let result = receiver.receive().await;
                 assert!(result.is_ok());
-                
+
                 let batch = result.unwrap();
                 assert_eq!(batch.source, "otap-simulator");
                 assert!(!batch.records.is_empty());
             }
         }
-        
+
         // Clean up
         receiver.stop().await.unwrap();
     }
@@ -411,15 +421,15 @@ mod tests {
     async fn test_otap_receiver_stats() {
         let config = OtapReceiverConfig::new("localhost".to_string(), 8080);
         let mut receiver = OtapReceiver::new(&config).await.unwrap();
-        
+
         // Initialize and start the receiver
         receiver.init().await.unwrap();
         receiver.start().await.unwrap();
-        
+
         // Get stats
         let stats = receiver.get_stats().await;
         assert!(stats.is_ok());
-        
+
         // Clean up
         receiver.stop().await.unwrap();
     }
@@ -428,15 +438,15 @@ mod tests {
     async fn test_otap_receiver_health_check() {
         let config = OtapReceiverConfig::new("localhost".to_string(), 8080);
         let mut receiver = OtapReceiver::new(&config).await.unwrap();
-        
+
         // Initialize and start the receiver
         receiver.init().await.unwrap();
         receiver.start().await.unwrap();
-        
+
         // Check health
         let health = receiver.health_check().await;
         assert!(health.is_ok());
-        
+
         // Clean up
         receiver.stop().await.unwrap();
     }

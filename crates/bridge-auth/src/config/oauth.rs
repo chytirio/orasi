@@ -121,7 +121,7 @@ pub struct BridgeApiOAuthConfig {
 pub trait OAuthConfigConverter {
     /// Convert to bridge-api OAuth configuration format
     fn to_bridge_api_format(&self) -> BridgeApiOAuthConfig;
-    
+
     /// Convert from bridge-api OAuth configuration format
     fn from_bridge_api_format(config: &BridgeApiOAuthConfig) -> Self;
 }
@@ -129,16 +129,19 @@ pub trait OAuthConfigConverter {
 impl OAuthConfigConverter for OAuthConfig {
     fn to_bridge_api_format(&self) -> BridgeApiOAuthConfig {
         // For now, we'll use the first provider or create a default one
-        let provider = self.providers.values().next().cloned().unwrap_or_else(|| {
-            OAuthProviderConfig {
-                client_id: "".to_string(),
-                client_secret: "".to_string(),
-                auth_url: "".to_string(),
-                token_url: "".to_string(),
-                user_info_url: "".to_string(),
-                scopes: vec![],
-            }
-        });
+        let provider =
+            self.providers
+                .values()
+                .next()
+                .cloned()
+                .unwrap_or_else(|| OAuthProviderConfig {
+                    client_id: "".to_string(),
+                    client_secret: "".to_string(),
+                    auth_url: "".to_string(),
+                    token_url: "".to_string(),
+                    user_info_url: "".to_string(),
+                    scopes: vec![],
+                });
 
         BridgeApiOAuthConfig {
             client_id: provider.client_id,
@@ -159,7 +162,11 @@ impl OAuthConfigConverter for OAuthConfig {
                 auth_url: config.authorization_url.clone(),
                 token_url: config.token_url.clone(),
                 user_info_url: config.user_info_url.clone().unwrap_or_default(),
-                scopes: vec!["openid".to_string(), "profile".to_string(), "email".to_string()],
+                scopes: vec![
+                    "openid".to_string(),
+                    "profile".to_string(),
+                    "email".to_string(),
+                ],
             },
         );
 

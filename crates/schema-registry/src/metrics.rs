@@ -194,8 +194,8 @@ pub struct MetricsServer {
 impl MetricsServer {
     /// Create a new metrics server
     pub fn new(config: MetricsConfig, collector: Arc<MetricsCollector>) -> Self {
-        Self { 
-            config, 
+        Self {
+            config,
             collector,
             task_handle: None,
         }
@@ -222,7 +222,7 @@ impl MetricsServer {
             handle.abort();
             let _ = handle.await; // Wait for the task to finish
         }
-        
+
         tracing::debug!("Metrics server shutdown completed");
         Ok(())
     }

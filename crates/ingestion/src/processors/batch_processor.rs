@@ -9,18 +9,19 @@
 
 use async_trait::async_trait;
 use bridge_core::{
-    traits::ProcessorStats, types::{TelemetryRecord, ProcessedRecord}, BridgeResult, ProcessedBatch, TelemetryBatch,
-    TelemetryProcessor as BridgeTelemetryProcessor,
+    traits::ProcessorStats,
+    types::{ProcessedRecord, TelemetryRecord},
+    BridgeResult, ProcessedBatch, TelemetryBatch, TelemetryProcessor as BridgeTelemetryProcessor,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::io::Write;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{info, warn};
 use uuid::Uuid;
 use zstd::stream::write::Encoder;
-use std::io::Write;
 
 use super::{BaseProcessor, ProcessorConfig};
 
@@ -202,28 +203,47 @@ impl BatchProcessor {
         }
 
         // Serialize the batch to JSON for compression
-        let json_data = serde_json::to_vec(&batch)
-            .map_err(|e| bridge_core::BridgeError::ingestion(format!("Failed to serialize batch: {}", e)))?;
+        let json_data = serde_json::to_vec(&batch).map_err(|e| {
+            bridge_core::BridgeError::ingestion(format!("Failed to serialize batch: {}", e))
+        })?;
 
         // Compress the serialized data using zstd
         let compression_level = self.config.compression_level.min(22) as i32; // zstd max level is 22
-        let mut encoder = Encoder::new(Vec::new(), compression_level)
-            .map_err(|e| bridge_core::BridgeError::ingestion(format!("Failed to create zstd encoder: {}", e)))?;
+        let mut encoder = Encoder::new(Vec::new(), compression_level).map_err(|e| {
+            bridge_core::BridgeError::ingestion(format!("Failed to create zstd encoder: {}", e))
+        })?;
 
-        encoder.write_all(&json_data)
-            .map_err(|e| bridge_core::BridgeError::ingestion(format!("Failed to write data to encoder: {}", e)))?;
+        encoder.write_all(&json_data).map_err(|e| {
+            bridge_core::BridgeError::ingestion(format!("Failed to write data to encoder: {}", e))
+        })?;
 
-        let compressed_data = encoder.finish()
-            .map_err(|e| bridge_core::BridgeError::ingestion(format!("Failed to finish compression: {}", e)))?;
+        let compressed_data = encoder.finish().map_err(|e| {
+            bridge_core::BridgeError::ingestion(format!("Failed to finish compression: {}", e))
+        })?;
 
         // Create a new batch with compressed metadata
         let mut compressed_batch = batch;
-        compressed_batch.metadata.insert("compression".to_string(), "zstd".to_string());
-        compressed_batch.metadata.insert("compression_level".to_string(), compression_level.to_string());
-        compressed_batch.metadata.insert("original_size".to_string(), json_data.len().to_string());
-        compressed_batch.metadata.insert("compressed_size".to_string(), compressed_data.len().to_string());
-        compressed_batch.metadata.insert("compression_ratio".to_string(), 
-            format!("{:.2}", compressed_data.len() as f64 / json_data.len() as f64));
+        compressed_batch
+            .metadata
+            .insert("compression".to_string(), "zstd".to_string());
+        compressed_batch.metadata.insert(
+            "compression_level".to_string(),
+            compression_level.to_string(),
+        );
+        compressed_batch
+            .metadata
+            .insert("original_size".to_string(), json_data.len().to_string());
+        compressed_batch.metadata.insert(
+            "compressed_size".to_string(),
+            compressed_data.len().to_string(),
+        );
+        compressed_batch.metadata.insert(
+            "compression_ratio".to_string(),
+            format!(
+                "{:.2}",
+                compressed_data.len() as f64 / json_data.len() as f64
+            ),
+        );
 
         info!(
             "Compressed batch {}: {} bytes -> {} bytes (ratio: {:.2})",
@@ -247,7 +267,7 @@ impl BatchProcessor {
         // storing the compressed data in the batch structure
         // In a real implementation, you might want to store the compressed data
         // separately and decompress it when needed
-        
+
         warn!("Decompression requested but not implemented - batch data is not actually compressed in memory");
         Ok(batch)
     }
@@ -332,7 +352,7 @@ impl BridgeTelemetryProcessor for BatchProcessor {
         // Implement actual health check
         // Check if the processor is functioning correctly
         let stats = self.base.stats.read().await;
-        
+
         // Check if we've processed any batches recently
         let is_healthy = if let Some(last_process_time) = stats.last_process_time {
             let time_since_last_process = Utc::now().signed_duration_since(last_process_time);
@@ -404,26 +424,24 @@ mod tests {
         let processor = BatchProcessor::new(&config).await.unwrap();
 
         // Create a test batch
-        let records = vec![
-            TelemetryRecord {
-                id: Uuid::new_v4(),
+        let records = vec![TelemetryRecord {
+            id: Uuid::new_v4(),
+            timestamp: Utc::now(),
+            record_type: TelemetryType::Metric,
+            data: TelemetryData::Metric(MetricData {
+                name: "test_metric".to_string(),
+                description: Some("Test metric".to_string()),
+                unit: Some("count".to_string()),
+                metric_type: MetricType::Gauge,
+                value: MetricValue::Gauge(42.0),
+                labels: HashMap::new(),
                 timestamp: Utc::now(),
-                record_type: TelemetryType::Metric,
-                data: TelemetryData::Metric(MetricData {
-                    name: "test_metric".to_string(),
-                    description: Some("Test metric".to_string()),
-                    unit: Some("count".to_string()),
-                    metric_type: MetricType::Gauge,
-                    value: MetricValue::Gauge(42.0),
-                    labels: HashMap::new(),
-                    timestamp: Utc::now(),
-                }),
-                attributes: HashMap::new(),
-                tags: HashMap::new(),
-                resource: None,
-                service: None,
-            },
-        ];
+            }),
+            attributes: HashMap::new(),
+            tags: HashMap::new(),
+            resource: None,
+            service: None,
+        }];
 
         let batch = TelemetryBatch {
             id: Uuid::new_v4(),
@@ -446,7 +464,9 @@ mod tests {
         assert!(compressed_batch.metadata.contains_key("compression_ratio"));
 
         // Verify compression ratio is reasonable (should be less than 1.0 for compression)
-        let ratio: f64 = compressed_batch.metadata["compression_ratio"].parse().unwrap();
+        let ratio: f64 = compressed_batch.metadata["compression_ratio"]
+            .parse()
+            .unwrap();
         assert!(ratio <= 1.0);
     }
 
@@ -467,26 +487,24 @@ mod tests {
         let processor = BatchProcessor::new(&config).await.unwrap();
 
         // Create a test batch
-        let records = vec![
-            TelemetryRecord {
-                id: Uuid::new_v4(),
+        let records = vec![TelemetryRecord {
+            id: Uuid::new_v4(),
+            timestamp: Utc::now(),
+            record_type: TelemetryType::Metric,
+            data: TelemetryData::Metric(MetricData {
+                name: "test_metric".to_string(),
+                description: Some("Test metric".to_string()),
+                unit: Some("count".to_string()),
+                metric_type: MetricType::Gauge,
+                value: MetricValue::Gauge(42.0),
+                labels: HashMap::new(),
                 timestamp: Utc::now(),
-                record_type: TelemetryType::Metric,
-                data: TelemetryData::Metric(MetricData {
-                    name: "test_metric".to_string(),
-                    description: Some("Test metric".to_string()),
-                    unit: Some("count".to_string()),
-                    metric_type: MetricType::Gauge,
-                    value: MetricValue::Gauge(42.0),
-                    labels: HashMap::new(),
-                    timestamp: Utc::now(),
-                }),
-                attributes: HashMap::new(),
-                tags: HashMap::new(),
-                resource: None,
-                service: None,
-            },
-        ];
+            }),
+            attributes: HashMap::new(),
+            tags: HashMap::new(),
+            resource: None,
+            service: None,
+        }];
 
         let batch = TelemetryBatch {
             id: Uuid::new_v4(),

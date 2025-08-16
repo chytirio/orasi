@@ -7,18 +7,18 @@
 //! This module provides comprehensive monitoring, metrics collection, and
 //! observability features for the telemetry ingestion system.
 
-use bridge_core::{BridgeResult, traits::MetricsCollector as BridgeMetricsCollector};
+use bridge_core::{traits::MetricsCollector as BridgeMetricsCollector, BridgeResult};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
-use tracing::{info, warn, error};
+use tracing::{error, info, warn};
 
 pub mod metrics;
 
-use metrics::{MetricsCollector as LocalMetricsCollector, MetricsConfig, AllMetrics, IngestionMetrics, ProtocolMetrics, PerformanceMetrics, ErrorMetrics};
+use metrics::{AllMetrics, MetricsCollector as LocalMetricsCollector, MetricsConfig};
 
 /// Monitoring manager for the ingestion system
 pub struct MonitoringManager {
@@ -90,7 +90,8 @@ impl MonitoringManager {
     /// Create new monitoring manager
     pub fn new(config: MetricsConfig) -> BridgeResult<Self> {
         let local_collector = LocalMetricsCollector::new(config)?;
-        let metrics_collector = Arc::new(local_collector.clone()) as Arc<dyn BridgeMetricsCollector>;
+        let metrics_collector =
+            Arc::new(local_collector.clone()) as Arc<dyn BridgeMetricsCollector>;
         let local_metrics_collector = Arc::new(local_collector);
         let health_checks = Arc::new(RwLock::new(HashMap::new()));
         let alerts = Arc::new(RwLock::new(Vec::new()));
@@ -108,13 +109,13 @@ impl MonitoringManager {
     /// Start monitoring
     pub async fn start(&self) -> BridgeResult<()> {
         info!("Starting monitoring manager");
-        
+
         let mut is_running = self.is_running.write().await;
         *is_running = true;
-        
+
         // Start metrics collection
         self.local_metrics_collector.start_collection().await?;
-        
+
         info!("Monitoring manager started");
         Ok(())
     }
@@ -122,20 +123,22 @@ impl MonitoringManager {
     /// Stop monitoring
     pub async fn stop(&self) -> BridgeResult<()> {
         info!("Stopping monitoring manager");
-        
+
         let mut is_running = self.is_running.write().await;
         *is_running = false;
-        
+
         // Stop metrics collection
         self.local_metrics_collector.stop_collection().await?;
-        
+
         info!("Monitoring manager stopped");
         Ok(())
     }
 
     /// Record batch processed
     pub async fn record_batch_processed(&self, batch_size: usize, processing_time: Duration) {
-        self.local_metrics_collector.record_batch_processed(batch_size, processing_time).await;
+        self.local_metrics_collector
+            .record_batch_processed(batch_size, processing_time)
+            .await;
     }
 
     /// Record error
@@ -176,14 +179,17 @@ impl MonitoringManager {
     pub async fn check_alerts(&self) -> BridgeResult<Vec<Alert>> {
         let metrics = self.get_metrics().await;
         let mut triggered_alerts = Vec::new();
-        
+
         let mut alerts = self.alerts.write().await;
         for alert in alerts.iter_mut() {
-            if self.evaluate_alert_condition(&alert.condition, &metrics).await? {
+            if self
+                .evaluate_alert_condition(&alert.condition, &metrics)
+                .await?
+            {
                 alert.is_active = true;
                 alert.last_triggered = Some(Utc::now());
                 triggered_alerts.push(alert.clone());
-                
+
                 match alert.severity {
                     AlertSeverity::Info => info!("Alert triggered: {}", alert.name),
                     AlertSeverity::Warning => warn!("Alert triggered: {}", alert.name),
@@ -194,12 +200,16 @@ impl MonitoringManager {
                 alert.is_active = false;
             }
         }
-        
+
         Ok(triggered_alerts)
     }
 
     /// Evaluate alert condition
-    async fn evaluate_alert_condition(&self, condition: &AlertCondition, metrics: &AllMetrics) -> BridgeResult<bool> {
+    async fn evaluate_alert_condition(
+        &self,
+        condition: &AlertCondition,
+        metrics: &AllMetrics,
+    ) -> BridgeResult<bool> {
         let value = match condition.metric_name.as_str() {
             "total_records" => metrics.ingestion.total_records as f64,
             "total_batches" => metrics.ingestion.total_batches as f64,

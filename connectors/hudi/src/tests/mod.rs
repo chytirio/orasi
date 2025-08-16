@@ -3,13 +3,13 @@
 //!
 
 //! Apache Hudi connector tests
-//! 
+//!
 //! This module contains comprehensive unit and integration tests
 //! for the Hudi connector functionality.
 
-pub mod unit;
-pub mod integration;
 pub mod common;
+pub mod integration;
+pub mod unit;
 
 use crate::config::HudiConfig;
 use crate::connector::HudiConnector;
@@ -24,15 +24,12 @@ pub mod utils {
     /// Create a test configuration
     pub fn create_test_config() -> HudiConfig {
         // Use environment variables for test configuration
-        let table_path = env::var("HUDI_TEST_TABLE_PATH")
-            .unwrap_or_else(|_| "/tmp/test_hudi_table".to_string());
-        let table_name = env::var("HUDI_TEST_TABLE_NAME")
-            .unwrap_or_else(|_| "test_telemetry".to_string());
-        
-        HudiConfig::new(
-            table_path,
-            table_name,
-        )
+        let table_path =
+            env::var("HUDI_TEST_TABLE_PATH").unwrap_or_else(|_| "/tmp/test_hudi_table".to_string());
+        let table_name =
+            env::var("HUDI_TEST_TABLE_NAME").unwrap_or_else(|_| "test_telemetry".to_string());
+
+        HudiConfig::new(table_path, table_name)
     }
 
     /// Create a test connector
@@ -45,8 +42,7 @@ pub mod utils {
 
     /// Check if Hudi is available for testing
     pub fn is_hudi_available() -> bool {
-        env::var("HUDI_TEST_TABLE_PATH").is_ok() || 
-        env::var("SKIP_HUDI_TESTS").is_err()
+        env::var("HUDI_TEST_TABLE_PATH").is_ok() || env::var("SKIP_HUDI_TESTS").is_err()
     }
 
     /// Skip test if Hudi is not available

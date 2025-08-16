@@ -10,7 +10,7 @@
 use crate::error::BridgeResult;
 use crate::types::{
     LogsBatch, LogsQuery, LogsResult, MetricsBatch, MetricsQuery, MetricsResult, TelemetryBatch,
-    TimeRange, TracesBatch, TracesQuery, TracesResult, WriteResult,
+    TracesBatch, TracesQuery, TracesResult, WriteResult,
 };
 use async_trait::async_trait;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};

@@ -6,16 +6,11 @@ use crate::registry::SchemaRegistryManager;
 use crate::schema::SchemaSearchCriteria;
 use std::sync::Arc;
 
-use super::{
-    error::ApiError,
-    requests::*,
-    responses::*,
-};
+use super::{error::ApiError, requests::*, responses::*};
 
 #[cfg(feature = "http")]
 use axum::{
     extract::{Path, Query, State},
-    http::StatusCode,
     response::Json,
 };
 

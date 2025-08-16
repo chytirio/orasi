@@ -6,14 +6,13 @@
 //!
 //! This module provides the main metrics collector implementation.
 
-use crate::error::{BridgeError, BridgeResult};
-use crate::types::{ExportResult, ProcessedBatch, TelemetryBatch};
+use crate::error::BridgeResult;
 use metrics::{counter, gauge, histogram};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
-use tracing::{error, info, warn};
+use tracing::info;
 
 use super::config::MetricsConfig;
 

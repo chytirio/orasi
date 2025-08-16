@@ -61,16 +61,6 @@ role = "telemetry_role"
 enable_bulk_loading = true
 authentication = { method = "OAuth", client_id = "your-client-id", client_secret = "your-client-secret" }
 
-[lakehouses.s3_parquet]
-type = "S3Parquet"
-bucket = "my-telemetry-bucket"
-prefix = "parquet"
-region = "us-west-2"
-enable_partitioning = true
-partition_columns = ["service_name", "date", "hour"]
-compression = "zstd"
-authentication = { method = "ApiKey", api_key = "your-api-key" }
-
 # Processing Configuration
 [processing]
 worker_threads = 8

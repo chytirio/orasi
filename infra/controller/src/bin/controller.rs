@@ -3,13 +3,7 @@
 
 //! Main controller binary for the Orasi controller
 
-use axum::{
-    extract::State,
-    http::StatusCode,
-    response::Json,
-    routing::get,
-    Router,
-};
+use axum::{extract::State, http::StatusCode, response::Json, routing::get, Router};
 
 use chrono::Utc;
 use orasi_controller::{Controller, ControllerResult, Metrics};
@@ -60,7 +54,8 @@ async fn start_server(state: AppState) -> ControllerResult<()> {
     let addr = std::net::SocketAddr::from(([0, 0, 0, 0], 8080));
     info!("Starting HTTP server on {}", addr);
 
-    let listener = tokio::net::TcpListener::bind(addr).await
+    let listener = tokio::net::TcpListener::bind(addr)
+        .await
         .map_err(|e| orasi_controller::ControllerError::GeneralError(e.to_string()))?;
 
     axum::serve(listener, app)
@@ -80,9 +75,7 @@ fn init_logging() {
     let env_filter = tracing_subscriber::EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| "info,orasi_controller=debug".into());
 
-    tracing_subscriber::fmt()
-        .with_env_filter(env_filter)
-        .init();
+    tracing_subscriber::fmt().with_env_filter(env_filter).init();
 }
 
 #[tokio::main]
@@ -114,7 +107,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     // Graceful shutdown
     info!("Shutting down...");
-    
+
     // Cancel server and controller
     server_handle.abort();
     controller_handle.abort();

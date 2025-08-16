@@ -21,9 +21,9 @@ pub mod tls;
 pub mod types;
 
 // Re-export main types
-pub use gateway::OrasiGateway;
 pub use config::GatewayConfig;
 pub use error::GatewayError;
+pub use gateway::OrasiGateway;
 pub use types::*;
 
 /// Result type for gateway operations
@@ -59,20 +59,20 @@ pub const DEFAULT_RATE_LIMIT_RPS: u32 = 1000;
 /// Initialize orasi gateway
 pub async fn init_gateway(config: GatewayConfig) -> GatewayResult<OrasiGateway> {
     tracing::info!("Initializing Orasi gateway v{}", GATEWAY_VERSION);
-    
+
     let gateway = OrasiGateway::new(config).await?;
     tracing::info!("Orasi gateway initialization completed");
-    
+
     Ok(gateway)
 }
 
 /// Shutdown orasi gateway
 pub async fn shutdown_gateway(gateway: OrasiGateway) -> GatewayResult<()> {
     tracing::info!("Shutting down Orasi gateway");
-    
+
     gateway.shutdown().await?;
     tracing::info!("Orasi gateway shutdown completed");
-    
+
     Ok(())
 }
 

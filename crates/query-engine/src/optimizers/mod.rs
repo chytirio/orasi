@@ -3,20 +3,20 @@
 //!
 
 //! Query optimizers for the bridge
-//! 
+//!
 //! This module provides optimizer implementations for query optimization
 //! including optimization rules and cost-based optimization.
 
 use async_trait::async_trait;
 use bridge_core::{BridgeResult, TelemetryBatch};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::any::Any;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{info, warn, error};
+use tracing::{error, info, warn};
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
-use std::any::Any;
 
 use crate::parsers::{ParsedQuery, QueryAst};
 
@@ -25,13 +25,13 @@ use crate::parsers::{ParsedQuery, QueryAst};
 pub trait OptimizerConfig: Send + Sync {
     /// Get optimizer name
     fn name(&self) -> &str;
-    
+
     /// Get optimizer version
     fn version(&self) -> &str;
-    
+
     /// Validate configuration
     async fn validate(&self) -> BridgeResult<()>;
-    
+
     /// Get configuration as Any for downcasting
     fn as_any(&self) -> &dyn Any;
 }
@@ -41,16 +41,16 @@ pub trait OptimizerConfig: Send + Sync {
 pub trait QueryOptimizer: Send + Sync {
     /// Initialize the optimizer
     async fn init(&mut self) -> BridgeResult<()>;
-    
+
     /// Optimize query
     async fn optimize(&self, query: ParsedQuery) -> BridgeResult<ParsedQuery>;
-    
+
     /// Get optimizer statistics
     async fn get_stats(&self) -> BridgeResult<OptimizerStats>;
-    
+
     /// Get optimizer name
     fn name(&self) -> &str;
-    
+
     /// Get optimizer version
     fn version(&self) -> &str;
 }
@@ -60,16 +60,16 @@ pub trait QueryOptimizer: Send + Sync {
 pub struct OptimizationRule {
     /// Rule name
     pub name: String,
-    
+
     /// Rule description
     pub description: String,
-    
+
     /// Rule type
     pub rule_type: OptimizationRuleType,
-    
+
     /// Rule enabled
     pub enabled: bool,
-    
+
     /// Rule priority
     pub priority: u32,
 }
@@ -91,16 +91,16 @@ pub enum OptimizationRuleType {
 pub struct OptimizationResult {
     /// Original query
     pub original_query: ParsedQuery,
-    
+
     /// Optimized query
     pub optimized_query: ParsedQuery,
-    
+
     /// Optimization rules applied
     pub rules_applied: Vec<String>,
-    
+
     /// Optimization statistics
     pub stats: OptimizerStats,
-    
+
     /// Optimization timestamp
     pub timestamp: DateTime<Utc>,
 }
@@ -110,25 +110,25 @@ pub struct OptimizationResult {
 pub struct OptimizerStats {
     /// Optimizer name
     pub optimizer: String,
-    
+
     /// Total queries optimized
     pub total_queries: u64,
-    
+
     /// Queries optimized in last minute
     pub queries_per_minute: u64,
-    
+
     /// Total optimization time in milliseconds
     pub total_optimization_time_ms: u64,
-    
+
     /// Average optimization time per query in milliseconds
     pub avg_optimization_time_ms: f64,
-    
+
     /// Error count
     pub error_count: u64,
-    
+
     /// Last optimization timestamp
     pub last_optimization_time: Option<DateTime<Utc>>,
-    
+
     /// Optimizer status
     pub is_optimizing: bool,
 }
@@ -149,32 +149,32 @@ impl OptimizerManager {
             is_running: Arc::new(RwLock::new(false)),
         }
     }
-    
+
     /// Add optimizer
     pub fn add_optimizer(&mut self, name: String, optimizer: Box<dyn QueryOptimizer>) {
         self.optimizers.insert(name, optimizer);
     }
-    
+
     /// Remove optimizer
     pub fn remove_optimizer(&mut self, name: &str) -> Option<Box<dyn QueryOptimizer>> {
         self.optimizers.remove(name)
     }
-    
+
     /// Get optimizer
     pub fn get_optimizer(&self, name: &str) -> Option<&dyn QueryOptimizer> {
         self.optimizers.get(name).map(|o| o.as_ref())
     }
-    
+
     /// Get all optimizer names
     pub fn get_optimizer_names(&self) -> Vec<String> {
         self.optimizers.keys().cloned().collect()
     }
-    
+
     /// Add optimization rule
     pub fn add_rule(&mut self, rule: OptimizationRule) {
         self.rules.push(rule);
     }
-    
+
     /// Remove optimization rule
     pub fn remove_rule(&mut self, rule_name: &str) -> Option<OptimizationRule> {
         if let Some(index) = self.rules.iter().position(|r| r.name == rule_name) {
@@ -183,27 +183,32 @@ impl OptimizerManager {
             None
         }
     }
-    
+
     /// Get optimization rules
     pub fn get_rules(&self) -> &[OptimizationRule] {
         &self.rules
     }
-    
+
     /// Optimize query with specified optimizer
-    pub async fn optimize_query(&self, optimizer_name: &str, query: ParsedQuery) -> BridgeResult<ParsedQuery> {
+    pub async fn optimize_query(
+        &self,
+        optimizer_name: &str,
+        query: ParsedQuery,
+    ) -> BridgeResult<ParsedQuery> {
         if let Some(optimizer) = self.get_optimizer(optimizer_name) {
             optimizer.optimize(query).await
         } else {
-            Err(bridge_core::BridgeError::configuration(
-                format!("Optimizer not found: {}", optimizer_name)
-            ))
+            Err(bridge_core::BridgeError::configuration(format!(
+                "Optimizer not found: {}",
+                optimizer_name
+            )))
         }
     }
-    
+
     /// Get optimizer statistics
     pub async fn get_stats(&self) -> BridgeResult<HashMap<String, OptimizerStats>> {
         let mut stats = HashMap::new();
-        
+
         for (name, optimizer) in &self.optimizers {
             match optimizer.get_stats().await {
                 Ok(optimizer_stats) => {
@@ -215,7 +220,7 @@ impl OptimizerManager {
                 }
             }
         }
-        
+
         Ok(stats)
     }
 }
@@ -232,18 +237,19 @@ impl OptimizerFactory {
             "sql" => {
                 // TODO: Create SQL optimizer
                 Err(bridge_core::BridgeError::configuration(
-                    "SQL optimizer not implemented yet"
+                    "SQL optimizer not implemented yet",
                 ))
             }
             "query" => {
                 // TODO: Create generic query optimizer
                 Err(bridge_core::BridgeError::configuration(
-                    "Generic query optimizer not implemented yet"
+                    "Generic query optimizer not implemented yet",
                 ))
             }
-            _ => Err(bridge_core::BridgeError::configuration(
-                format!("Unsupported optimizer: {}", config.name())
-            ))
+            _ => Err(bridge_core::BridgeError::configuration(format!(
+                "Unsupported optimizer: {}",
+                config.name()
+            ))),
         }
     }
 }

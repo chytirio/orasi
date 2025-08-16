@@ -9,14 +9,7 @@
 
 pub mod auth;
 
-pub use bridge_auth::{
-    AuthManager,
-    AuthConfig,
-    AuthMethod,
-    User,
-    JwtClaims,
-    AuthResult,
-};
+pub use bridge_auth::{AuthConfig, AuthManager, AuthMethod, AuthResult, JwtClaims, User};
 
 /// Security manager for comprehensive security features
 pub struct SecurityManager {
@@ -51,16 +44,24 @@ pub struct CircuitBreaker {
 /// Circuit breaker state
 #[derive(Debug, Clone)]
 pub enum CircuitBreakerState {
-    Closed { failure_count: usize },
-    Open { last_failure_time: std::time::Instant },
+    Closed {
+        failure_count: usize,
+    },
+    Open {
+        last_failure_time: std::time::Instant,
+    },
     HalfOpen,
 }
 
 impl SecurityManager {
     /// Create new security manager
     pub async fn new(auth_config: AuthConfig) -> BridgeResult<Self> {
-        let auth_manager = AuthManager::new(auth_config).await
-            .map_err(|e| bridge_core::BridgeError::authentication(format!("Failed to create auth manager: {}", e)))?;
+        let auth_manager = AuthManager::new(auth_config).await.map_err(|e| {
+            bridge_core::BridgeError::authentication(format!(
+                "Failed to create auth manager: {}",
+                e
+            ))
+        })?;
         let encryption_manager = EncryptionManager::new(EncryptionAlgorithm::Aes256Gcm)?;
         let circuit_breaker = CircuitBreaker::new(5, std::time::Duration::from_secs(60));
 
@@ -117,7 +118,7 @@ impl EncryptionManager {
     pub fn new(algorithm: EncryptionAlgorithm) -> BridgeResult<Self> {
         // In a real implementation, you would generate or load a proper encryption key
         let key = vec![0u8; 32]; // 256-bit key for AES-256
-        
+
         Ok(Self {
             algorithm,
             key,
@@ -144,7 +145,9 @@ impl EncryptionManager {
     pub async fn decrypt(&self, encrypted_data: &[u8]) -> BridgeResult<Vec<u8>> {
         match self.algorithm {
             EncryptionAlgorithm::Aes256Gcm => self.decrypt_aes256_gcm(encrypted_data).await,
-            EncryptionAlgorithm::ChaCha20Poly1305 => self.decrypt_chacha20_poly1305(encrypted_data).await,
+            EncryptionAlgorithm::ChaCha20Poly1305 => {
+                self.decrypt_chacha20_poly1305(encrypted_data).await
+            }
             EncryptionAlgorithm::Aes256Cbc => self.decrypt_aes256_cbc(encrypted_data).await,
         }
     }
@@ -156,12 +159,14 @@ impl EncryptionManager {
             Aes256Gcm,
         };
 
-        let cipher = Aes256Gcm::new_from_slice(&self.key)
-            .map_err(|e| bridge_core::BridgeError::configuration(format!("Failed to create cipher: {}", e)))?;
+        let cipher = Aes256Gcm::new_from_slice(&self.key).map_err(|e| {
+            bridge_core::BridgeError::configuration(format!("Failed to create cipher: {}", e))
+        })?;
 
         let nonce = aes_gcm::Nonce::from_slice(b"unique nonce"); // In production, use a random nonce
-        let ciphertext = cipher.encrypt(nonce, data)
-            .map_err(|e| bridge_core::BridgeError::configuration(format!("Failed to encrypt: {}", e)))?;
+        let ciphertext = cipher.encrypt(nonce, data).map_err(|e| {
+            bridge_core::BridgeError::configuration(format!("Failed to encrypt: {}", e))
+        })?;
 
         Ok(ciphertext)
     }
@@ -173,12 +178,14 @@ impl EncryptionManager {
             Aes256Gcm,
         };
 
-        let cipher = Aes256Gcm::new_from_slice(&self.key)
-            .map_err(|e| bridge_core::BridgeError::configuration(format!("Failed to create cipher: {}", e)))?;
+        let cipher = Aes256Gcm::new_from_slice(&self.key).map_err(|e| {
+            bridge_core::BridgeError::configuration(format!("Failed to create cipher: {}", e))
+        })?;
 
         let nonce = aes_gcm::Nonce::from_slice(b"unique nonce"); // In production, use the same nonce as encryption
-        let plaintext = cipher.decrypt(nonce, encrypted_data)
-            .map_err(|e| bridge_core::BridgeError::configuration(format!("Failed to decrypt: {}", e)))?;
+        let plaintext = cipher.decrypt(nonce, encrypted_data).map_err(|e| {
+            bridge_core::BridgeError::configuration(format!("Failed to decrypt: {}", e))
+        })?;
 
         Ok(plaintext)
     }
@@ -222,7 +229,9 @@ impl CircuitBreaker {
         Self {
             failure_threshold,
             recovery_timeout,
-            state: std::sync::Arc::new(tokio::sync::Mutex::new(CircuitBreakerState::Closed { failure_count: 0 })),
+            state: std::sync::Arc::new(tokio::sync::Mutex::new(CircuitBreakerState::Closed {
+                failure_count: 0,
+            })),
         }
     }
 
@@ -233,7 +242,7 @@ impl CircuitBreaker {
         E: std::error::Error + 'static + std::convert::From<std::io::Error>,
     {
         let mut state = self.state.lock().await;
-        
+
         match &*state {
             CircuitBreakerState::Closed { failure_count } => {
                 if *failure_count >= self.failure_threshold {
@@ -243,7 +252,8 @@ impl CircuitBreaker {
                     return Err(std::io::Error::new(
                         std::io::ErrorKind::Other,
                         "Circuit breaker is open",
-                    ).into());
+                    )
+                    .into());
                 }
 
                 match operation() {
@@ -275,26 +285,24 @@ impl CircuitBreaker {
                         }
                     }
                 } else {
-                    Err(std::io::Error::new(
-                        std::io::ErrorKind::Other,
-                        "Circuit breaker is open",
-                    ).into())
+                    Err(
+                        std::io::Error::new(std::io::ErrorKind::Other, "Circuit breaker is open")
+                            .into(),
+                    )
                 }
             }
-            CircuitBreakerState::HalfOpen => {
-                match operation() {
-                    Ok(result) => {
-                        *state = CircuitBreakerState::Closed { failure_count: 0 };
-                        Ok(result)
-                    }
-                    Err(e) => {
-                        *state = CircuitBreakerState::Open {
-                            last_failure_time: std::time::Instant::now(),
-                        };
-                        Err(e)
-                    }
+            CircuitBreakerState::HalfOpen => match operation() {
+                Ok(result) => {
+                    *state = CircuitBreakerState::Closed { failure_count: 0 };
+                    Ok(result)
                 }
-            }
+                Err(e) => {
+                    *state = CircuitBreakerState::Open {
+                        last_failure_time: std::time::Instant::now(),
+                    };
+                    Err(e)
+                }
+            },
         }
     }
 
@@ -343,7 +351,9 @@ impl TlsManager {
     /// Get TLS configuration
     pub fn get_config(&self) -> BridgeResult<TlsConfig> {
         if !self.enabled {
-            return Err(bridge_core::BridgeError::configuration("TLS is not enabled".to_string()));
+            return Err(bridge_core::BridgeError::configuration(
+                "TLS is not enabled".to_string(),
+            ));
         }
 
         Ok(TlsConfig {

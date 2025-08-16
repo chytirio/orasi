@@ -7,7 +7,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
 
-use super::{metadata::SchemaMetadata, resolution::ResolvedSchema, types::*, version::SchemaVersion};
+use super::{
+    metadata::SchemaMetadata, resolution::ResolvedSchema, types::*, version::SchemaVersion,
+};
 
 /// Schema representation
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -297,7 +299,8 @@ impl Schema {
         match self.format {
             SchemaFormat::Json | SchemaFormat::Yaml => {
                 // Look for semantic convention imports in the content
-                if self.content.contains("semantic_conventions") || self.content.contains("semconv") {
+                if self.content.contains("semantic_conventions") || self.content.contains("semconv")
+                {
                     // This would need to be implemented to actually fetch and resolve
                     // OpenTelemetry semantic conventions
                     // For now, return empty HashMap
@@ -328,12 +331,8 @@ impl Schema {
 
         // For JSON schemas, we could implement more sophisticated compatibility checking
         match self.format {
-            SchemaFormat::Json => {
-                self.check_json_backward_compatibility(other)
-            }
-            SchemaFormat::Yaml => {
-                self.check_yaml_backward_compatibility(other)
-            }
+            SchemaFormat::Json => self.check_json_backward_compatibility(other),
+            SchemaFormat::Yaml => self.check_yaml_backward_compatibility(other),
             _ => {
                 // For other formats, assume compatible if types match
                 Ok(true)
@@ -358,8 +357,10 @@ impl Schema {
             // Check if required fields in the old schema are still present in the new schema
             if let Some(self_required) = self_obj.get("required") {
                 if let Some(other_required) = other_obj.get("required") {
-                    if let (serde_json::Value::Array(self_req), serde_json::Value::Array(other_req)) =
-                        (self_required, other_required)
+                    if let (
+                        serde_json::Value::Array(self_req),
+                        serde_json::Value::Array(other_req),
+                    ) = (self_required, other_required)
                     {
                         for field in self_req {
                             if let serde_json::Value::String(_field_name) = field {
@@ -402,7 +403,10 @@ impl Schema {
 
         script.push_str("# Schema Migration Script\n");
         script.push_str(&format!("# From: {} v{}\n", self.name, self.version));
-        script.push_str(&format!("# To: {} v{}\n\n", target_schema.name, target_schema.version));
+        script.push_str(&format!(
+            "# To: {} v{}\n\n",
+            target_schema.name, target_schema.version
+        ));
 
         // Check compatibility
         let backward_compatible = self.is_backward_compatible_with(target_schema)?;

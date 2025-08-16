@@ -3,48 +3,44 @@
 //!
 
 //! Streaming data processors for the bridge
-//! 
+//!
 //! This module provides processor implementations for streaming data
 //! including filtering, transformation, and aggregation.
 
-pub mod stream_processor;
-pub mod filter_processor;
-pub mod transform_processor;
 pub mod aggregate_processor;
+pub mod filter_processor;
+pub mod stream_processor;
+pub mod transform_processor;
 
 // Re-export processor implementations
-pub use stream_processor::StreamProcessor;
-pub use filter_processor::FilterProcessor;
-pub use transform_processor::TransformProcessor;
 pub use aggregate_processor::AggregateProcessor;
+pub use filter_processor::FilterProcessor;
+pub use stream_processor::StreamProcessor;
+pub use transform_processor::TransformProcessor;
 
 use async_trait::async_trait;
 use bridge_core::{
-    BridgeResult, TelemetryBatch,
-    types::{TelemetryRecord, TelemetryData, TelemetryType},
-    traits::{StreamProcessor as BridgeStreamProcessor, StreamProcessorStats, DataStream},
+    traits::{DataStream, StreamProcessor as BridgeStreamProcessor, StreamProcessorStats},
+    BridgeResult,
 };
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use chrono::Utc;
+use std::any::Any;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{info, error};
-use uuid::Uuid;
-use chrono::{DateTime, Utc};
-use std::any::Any;
+use tracing::{error, info};
 
 /// Processor configuration trait
 #[async_trait]
 pub trait ProcessorConfig: Send + Sync {
     /// Get processor name
     fn name(&self) -> &str;
-    
+
     /// Get processor version
     fn version(&self) -> &str;
-    
+
     /// Validate configuration
     async fn validate(&self) -> BridgeResult<()>;
-    
+
     /// Get configuration as Any for downcasting
     fn as_any(&self) -> &dyn Any;
 }
@@ -74,9 +70,10 @@ impl ProcessorFactory {
                 let processor = AggregateProcessor::new(config).await?;
                 Ok(Box::new(processor))
             }
-            _ => Err(bridge_core::BridgeError::configuration(
-                format!("Unsupported processor: {}", config.name())
-            ))
+            _ => Err(bridge_core::BridgeError::configuration(format!(
+                "Unsupported processor: {}",
+                config.name()
+            ))),
         }
     }
 }
@@ -142,12 +139,20 @@ impl ProcessorPipeline {
         let mut current_stream = input;
 
         for (i, processor) in self.processors.iter().enumerate() {
-            info!("Processing stream through processor {}: {}", i, processor.name());
+            info!(
+                "Processing stream through processor {}: {}",
+                i,
+                processor.name()
+            );
 
             match processor.process_stream(current_stream).await {
                 Ok(processed_stream) => {
                     current_stream = processed_stream;
-                    info!("Stream processed through processor {}: {}", i, processor.name());
+                    info!(
+                        "Stream processed through processor {}: {}",
+                        i,
+                        processor.name()
+                    );
                 }
                 Err(e) => {
                     error!("Failed to process stream through processor {}: {}", i, e);

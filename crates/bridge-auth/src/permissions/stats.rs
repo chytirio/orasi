@@ -80,14 +80,14 @@ mod tests {
     #[test]
     fn test_permission_stats_increment() {
         let mut stats = PermissionStats::new();
-        
+
         stats.increment_permission_checks();
         assert_eq!(stats.permission_checks, 1);
         assert!(stats.last_permission_check.is_some());
-        
+
         stats.increment_permission_grants();
         assert_eq!(stats.permission_grants, 1);
-        
+
         stats.increment_permission_denials();
         assert_eq!(stats.permission_denials, 1);
     }
@@ -95,12 +95,12 @@ mod tests {
     #[test]
     fn test_permission_stats_record_check() {
         let mut stats = PermissionStats::new();
-        
+
         stats.record_permission_check(true);
         assert_eq!(stats.permission_checks, 1);
         assert_eq!(stats.permission_grants, 1);
         assert_eq!(stats.permission_denials, 0);
-        
+
         stats.record_permission_check(false);
         assert_eq!(stats.permission_checks, 2);
         assert_eq!(stats.permission_grants, 1);
@@ -110,19 +110,19 @@ mod tests {
     #[test]
     fn test_permission_stats_grant_rate() {
         let mut stats = PermissionStats::new();
-        
+
         // No checks yet
         assert_eq!(stats.grant_rate(), 0.0);
-        
+
         // All grants
         stats.record_permission_check(true);
         stats.record_permission_check(true);
         assert_eq!(stats.grant_rate(), 1.0);
-        
+
         // Mixed results
         stats.record_permission_check(false);
         assert_eq!(stats.grant_rate(), 2.0 / 3.0);
-        
+
         // All denials
         stats.record_permission_check(false);
         stats.record_permission_check(false);

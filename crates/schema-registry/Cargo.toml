@@ -1,3 +1,5 @@
+lints.workspace = true
+
 [package]
 name = "schema-registry"
 version = "0.1.0"
@@ -94,7 +96,7 @@ path = "src/main.rs"
 
 [[example]]
 name = "schema_registry_shutdown_example"
-path = "../../examples/schema_registry_shutdown_example.rs"
+path = "../../examples/bridge-api/schema_registry_shutdown_example.rs"
 
 [lib]
 name = "schema_registry"

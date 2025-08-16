@@ -18,7 +18,10 @@ pub enum AccessLevel {
 impl AccessLevel {
     /// Check if this access level includes read access
     pub fn can_read(&self) -> bool {
-        matches!(self, AccessLevel::Read | AccessLevel::Write | AccessLevel::Admin)
+        matches!(
+            self,
+            AccessLevel::Read | AccessLevel::Write | AccessLevel::Admin
+        )
     }
 
     /// Check if this access level includes write access

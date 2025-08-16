@@ -7,7 +7,7 @@
 //! This module provides traits and types for IDE plugin integration.
 
 use crate::error::BridgeResult;
-use crate::types::{AnalyticsRequest, AnalyticsResponse, AnalyticsQuery};
+use crate::types::{AnalyticsRequest, AnalyticsResponse};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -19,7 +19,10 @@ pub trait BridgePlugin: Send + Sync {
     async fn initialize(&self, config: PluginConfig) -> BridgeResult<()>;
 
     /// Query telemetry data
-    async fn query_telemetry(&self, query: crate::types::queries::TelemetryQuery) -> BridgeResult<TelemetryQueryResult>;
+    async fn query_telemetry(
+        &self,
+        query: crate::types::queries::TelemetryQuery,
+    ) -> BridgeResult<TelemetryQueryResult>;
 
     /// Get analytics data
     async fn get_analytics(&self, request: AnalyticsRequest) -> BridgeResult<AnalyticsResponse>;

@@ -35,7 +35,10 @@ impl LoadBalancer {
     }
 
     /// Select endpoint
-    pub async fn select_endpoint(&self, _service_name: &str) -> Result<ServiceEndpoint, GatewayError> {
+    pub async fn select_endpoint(
+        &self,
+        _service_name: &str,
+    ) -> Result<ServiceEndpoint, GatewayError> {
         // TODO: Implement endpoint selection
         Ok(ServiceEndpoint {
             url: "".to_string(),

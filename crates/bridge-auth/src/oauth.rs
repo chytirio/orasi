@@ -130,9 +130,7 @@ impl OAuthManager {
         let expires_at =
             Utc::now() + chrono::Duration::seconds(self.config.state_timeout_secs as i64);
 
-        let oauth_state = OAuthState {
-            expires_at,
-        };
+        let oauth_state = OAuthState { expires_at };
 
         {
             let mut states = self.states.write().await;

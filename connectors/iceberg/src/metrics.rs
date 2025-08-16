@@ -3,7 +3,7 @@
 //!
 
 //! Apache Iceberg metrics and monitoring
-//! 
+//!
 //! This module provides metrics collection and monitoring capabilities
 //! for Apache Iceberg operations.
 
@@ -56,9 +56,10 @@ impl IcebergMetrics {
     /// Record a write operation
     pub fn record_write(&self, records: u64, bytes: u64, time_ms: u64) {
         self.total_writes.fetch_add(1, Ordering::Relaxed);
-        self.total_records_written.fetch_add(records, Ordering::Relaxed);
+        self.total_records_written
+            .fetch_add(records, Ordering::Relaxed);
         self.total_bytes_written.fetch_add(bytes, Ordering::Relaxed);
-        
+
         // Update average write time
         let current_avg = self.avg_write_time_ms.load(Ordering::Relaxed);
         let total_writes = self.total_writes.load(Ordering::Relaxed);
@@ -73,9 +74,10 @@ impl IcebergMetrics {
     /// Record a read operation
     pub fn record_read(&self, records: u64, bytes: u64, time_ms: u64) {
         self.total_reads.fetch_add(1, Ordering::Relaxed);
-        self.total_records_read.fetch_add(records, Ordering::Relaxed);
+        self.total_records_read
+            .fetch_add(records, Ordering::Relaxed);
         self.total_bytes_read.fetch_add(bytes, Ordering::Relaxed);
-        
+
         // Update average read time
         let current_avg = self.avg_read_time_ms.load(Ordering::Relaxed);
         let total_reads = self.total_reads.load(Ordering::Relaxed);
@@ -186,7 +188,7 @@ impl IcebergMetricsManager {
     /// Export metrics in Prometheus format
     pub fn export_prometheus(&self) -> String {
         let snapshot = self.metrics.get_snapshot();
-        
+
         format!(
             r#"# HELP iceberg_total_writes Total number of write operations
 # TYPE iceberg_total_writes counter

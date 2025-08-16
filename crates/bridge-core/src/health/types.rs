@@ -50,11 +50,7 @@ pub struct HealthCheckResult {
 
 impl HealthCheckResult {
     /// Create a new health check result
-    pub fn new(
-        component: String,
-        status: HealthStatus,
-        message: String,
-    ) -> Self {
+    pub fn new(component: String, status: HealthStatus, message: String) -> Self {
         Self {
             component,
             status,
@@ -215,9 +211,18 @@ impl SystemHealth {
             return;
         }
 
-        let has_unhealthy = self.components.iter().any(|c| c.status == HealthStatus::Unhealthy);
-        let has_degraded = self.components.iter().any(|c| c.status == HealthStatus::Degraded);
-        let all_healthy = self.components.iter().all(|c| c.status == HealthStatus::Healthy);
+        let has_unhealthy = self
+            .components
+            .iter()
+            .any(|c| c.status == HealthStatus::Unhealthy);
+        let has_degraded = self
+            .components
+            .iter()
+            .any(|c| c.status == HealthStatus::Degraded);
+        let all_healthy = self
+            .components
+            .iter()
+            .all(|c| c.status == HealthStatus::Healthy);
 
         self.status = if has_unhealthy {
             HealthStatus::Unhealthy

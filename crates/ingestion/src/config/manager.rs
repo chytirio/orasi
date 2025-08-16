@@ -8,19 +8,19 @@
 //! environment-based configuration, validation, hot-reloading, and
 //! configuration persistence.
 
+use notify::{RecursiveMode, Watcher};
+use serde::{Deserialize, Serialize};
+use serde_json;
 use std::collections::HashMap;
+use std::env;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tokio::sync::{Mutex, RwLock};
 use tokio::fs;
-use tracing::{debug, error, info, warn};
-use serde::{Deserialize, Serialize};
-use serde_json;
+use tokio::sync::{Mutex, RwLock};
 use toml;
+use tracing::{error, info};
 use yaml_rust::{Yaml, YamlLoader};
-use notify::{Watcher, RecursiveMode};
-use std::env;
 
 use crate::monitoring::metrics::MetricsConfig;
 
@@ -398,24 +398,43 @@ impl ConfigurationManager {
 
     /// Load configuration from file
     async fn load_config(config_path: &PathBuf) -> BridgeResult<IngestionConfig> {
-        let config_content = fs::read_to_string(config_path).await
-            .map_err(|e| bridge_core::BridgeError::configuration(format!("Failed to read config file: {}", e)))?;
+        let config_content = fs::read_to_string(config_path).await.map_err(|e| {
+            bridge_core::BridgeError::configuration(format!("Failed to read config file: {}", e))
+        })?;
 
         let config: IngestionConfig = match config_path.extension().and_then(|s| s.to_str()) {
-            Some("json") => serde_json::from_str(&config_content)
-                .map_err(|e| bridge_core::BridgeError::configuration(format!("Failed to parse JSON config: {}", e)))?,
-            Some("toml") => toml::from_str(&config_content)
-                .map_err(|e| bridge_core::BridgeError::configuration(format!("Failed to parse TOML config: {}", e)))?,
+            Some("json") => serde_json::from_str(&config_content).map_err(|e| {
+                bridge_core::BridgeError::configuration(format!(
+                    "Failed to parse JSON config: {}",
+                    e
+                ))
+            })?,
+            Some("toml") => toml::from_str(&config_content).map_err(|e| {
+                bridge_core::BridgeError::configuration(format!(
+                    "Failed to parse TOML config: {}",
+                    e
+                ))
+            })?,
             Some("yaml") | Some("yml") => {
-                let yaml_docs = YamlLoader::load_from_str(&config_content)
-                    .map_err(|e| bridge_core::BridgeError::configuration(format!("Failed to parse YAML config: {}", e)))?;
+                let yaml_docs = YamlLoader::load_from_str(&config_content).map_err(|e| {
+                    bridge_core::BridgeError::configuration(format!(
+                        "Failed to parse YAML config: {}",
+                        e
+                    ))
+                })?;
                 if let Some(yaml_doc) = yaml_docs.first() {
                     Self::yaml_to_config(yaml_doc)?
                 } else {
-                    return Err(bridge_core::BridgeError::configuration("Empty YAML document".to_string()));
+                    return Err(bridge_core::BridgeError::configuration(
+                        "Empty YAML document".to_string(),
+                    ));
                 }
             }
-            _ => return Err(bridge_core::BridgeError::configuration("Unsupported config file format".to_string())),
+            _ => {
+                return Err(bridge_core::BridgeError::configuration(
+                    "Unsupported config file format".to_string(),
+                ))
+            }
         };
 
         Ok(config)
@@ -516,7 +535,10 @@ impl ConfigurationManager {
             "processors": {},
             "exporters": {},
             "environments": {}
-        })).map_err(|e| bridge_core::BridgeError::configuration(format!("Failed to parse config: {}", e)))
+        }))
+        .map_err(|e| {
+            bridge_core::BridgeError::configuration(format!("Failed to parse config: {}", e))
+        })
     }
 
     /// Create default validation rules
@@ -543,7 +565,9 @@ impl ConfigurationManager {
                     if config.performance.batch_processing.max_batch_size == 0 {
                         return ValidationResult {
                             is_valid: false,
-                            error_message: Some("Max batch size must be greater than 0".to_string()),
+                            error_message: Some(
+                                "Max batch size must be greater than 0".to_string(),
+                            ),
                         };
                     }
                     ValidationResult {
@@ -555,10 +579,14 @@ impl ConfigurationManager {
             ValidationRule {
                 name: "security_config".to_string(),
                 condition: Box::new(|config| {
-                    if config.security.authentication.enabled && config.security.authentication.jwt_secret.is_none() {
+                    if config.security.authentication.enabled
+                        && config.security.authentication.jwt_secret.is_none()
+                    {
                         return ValidationResult {
                             is_valid: false,
-                            error_message: Some("JWT secret is required when authentication is enabled".to_string()),
+                            error_message: Some(
+                                "JWT secret is required when authentication is enabled".to_string(),
+                            ),
                         };
                     }
                     ValidationResult {
@@ -580,8 +608,8 @@ impl ConfigurationManager {
         let config = self.config.clone();
         let last_modified = self.last_modified.clone();
 
-        let mut watcher = notify::recommended_watcher(move |res: Result<notify::Event, _>| {
-            match res {
+        let mut watcher =
+            notify::recommended_watcher(move |res: Result<notify::Event, _>| match res {
                 Ok(event) => {
                     if event.kind.is_modify() {
                         let config_path = config_path.clone();
@@ -606,11 +634,22 @@ impl ConfigurationManager {
                     }
                 }
                 Err(e) => error!("Configuration file watch error: {}", e),
-            }
-        }).map_err(|e| bridge_core::BridgeError::configuration(format!("Failed to create file watcher: {}", e)))?;
+            })
+            .map_err(|e| {
+                bridge_core::BridgeError::configuration(format!(
+                    "Failed to create file watcher: {}",
+                    e
+                ))
+            })?;
 
-        watcher.watch(&self.config_path, RecursiveMode::NonRecursive)
-            .map_err(|e| bridge_core::BridgeError::configuration(format!("Failed to watch config file: {}", e)))?;
+        watcher
+            .watch(&self.config_path, RecursiveMode::NonRecursive)
+            .map_err(|e| {
+                bridge_core::BridgeError::configuration(format!(
+                    "Failed to watch config file: {}",
+                    e
+                ))
+            })?;
 
         self.watcher = Some(watcher);
         self.hot_reload_enabled = true;
@@ -655,11 +694,13 @@ impl ConfigurationManager {
         for rule in &self.validation_rules {
             let result = (rule.condition)(config);
             if !result.is_valid {
-                return Err(bridge_core::BridgeError::configuration(
-                    format!("Validation rule '{}' failed: {}", 
-                        rule.name, 
-                        result.error_message.unwrap_or_else(|| "Unknown error".to_string()))
-                ));
+                return Err(bridge_core::BridgeError::configuration(format!(
+                    "Validation rule '{}' failed: {}",
+                    rule.name,
+                    result
+                        .error_message
+                        .unwrap_or_else(|| "Unknown error".to_string())
+                )));
             }
         }
         Ok(())
@@ -673,10 +714,10 @@ impl ConfigurationManager {
     /// Get environment-specific configuration
     pub async fn get_environment_config(&self, environment: &str) -> BridgeResult<IngestionConfig> {
         let config = self.get_config().await;
-        
+
         if let Some(env_override) = config.environments.get(environment) {
             let mut env_config = config.clone();
-            
+
             // Apply environment overrides
             if let Some(system) = &env_override.system {
                 env_config.system = system.clone();
@@ -690,7 +731,7 @@ impl ConfigurationManager {
             if let Some(security) = &env_override.security {
                 env_config.security = security.clone();
             }
-            
+
             Ok(env_config)
         } else {
             Ok(config)
@@ -700,15 +741,33 @@ impl ConfigurationManager {
     /// Save configuration to file
     pub async fn save_config(&self, config: &IngestionConfig) -> BridgeResult<()> {
         let config_content = match self.config_path.extension().and_then(|s| s.to_str()) {
-            Some("json") => serde_json::to_string_pretty(config)
-                .map_err(|e| bridge_core::BridgeError::serialization(format!("Failed to serialize JSON config: {}", e)))?,
-            Some("toml") => toml::to_string_pretty(config)
-                .map_err(|e| bridge_core::BridgeError::serialization(format!("Failed to serialize TOML config: {}", e)))?,
-            _ => return Err(bridge_core::BridgeError::configuration("Unsupported config file format".to_string())),
+            Some("json") => serde_json::to_string_pretty(config).map_err(|e| {
+                bridge_core::BridgeError::serialization(format!(
+                    "Failed to serialize JSON config: {}",
+                    e
+                ))
+            })?,
+            Some("toml") => toml::to_string_pretty(config).map_err(|e| {
+                bridge_core::BridgeError::serialization(format!(
+                    "Failed to serialize TOML config: {}",
+                    e
+                ))
+            })?,
+            _ => {
+                return Err(bridge_core::BridgeError::configuration(
+                    "Unsupported config file format".to_string(),
+                ))
+            }
         };
 
-        fs::write(&self.config_path, config_content).await
-            .map_err(|e| bridge_core::BridgeError::configuration(format!("Failed to write config file: {}", e)))?;
+        fs::write(&self.config_path, config_content)
+            .await
+            .map_err(|e| {
+                bridge_core::BridgeError::configuration(format!(
+                    "Failed to write config file: {}",
+                    e
+                ))
+            })?;
 
         info!("Configuration saved successfully");
         Ok(())

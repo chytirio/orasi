@@ -3,13 +3,13 @@
 //!
 
 //! Apache Hudi schema management
-//! 
+//!
 //! This module provides schema management capabilities for Apache Hudi tables,
 //! including schema definition, validation, and evolution.
 
+use crate::error::HudiResult;
 use serde::{Deserialize, Serialize};
-use tracing::{debug, error, info, warn};
-use crate::error::{HudiError, HudiResult};
+use tracing::{debug, info};
 
 /// Apache Hudi schema definition
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -75,18 +75,16 @@ pub struct HudiSchemaManager {
 impl HudiSchemaManager {
     /// Create a new schema manager
     pub fn new() -> Self {
-        Self {
-            schema: None,
-        }
+        Self { schema: None }
     }
 
     /// Set the current schema
     pub fn set_schema(&mut self, schema: HudiSchema) -> HudiResult<()> {
         debug!("Setting Hudi schema: {}", schema.name);
-        
+
         // Validate the schema
         self.validate_schema(&schema)?;
-        
+
         self.schema = Some(schema);
         info!("Hudi schema set successfully");
         Ok(())
@@ -100,13 +98,13 @@ impl HudiSchemaManager {
     /// Validate a schema
     pub fn validate_schema(&self, schema: &HudiSchema) -> HudiResult<()> {
         debug!("Validating Hudi schema: {}", schema.name);
-        
+
         // This would typically involve:
         // 1. Checking field names are valid
         // 2. Validating data types
         // 3. Checking for required fields
         // 4. Validating metadata
-        
+
         info!("Hudi schema validation completed successfully");
         Ok(())
     }
@@ -148,16 +146,18 @@ impl HudiSchemaManager {
 
     /// Evolve schema
     pub fn evolve_schema(&mut self, new_schema: HudiSchema) -> HudiResult<()> {
-        debug!("Evolving Hudi schema from version {} to {}", 
-               self.schema.as_ref().map(|s| s.version).unwrap_or(0), 
-               new_schema.version);
-        
+        debug!(
+            "Evolving Hudi schema from version {} to {}",
+            self.schema.as_ref().map(|s| s.version).unwrap_or(0),
+            new_schema.version
+        );
+
         // This would typically involve:
         // 1. Checking schema compatibility
         // 2. Planning migration strategy
         // 3. Updating schema metadata
         // 4. Handling backward compatibility
-        
+
         self.schema = Some(new_schema);
         info!("Hudi schema evolution completed successfully");
         Ok(())

@@ -3,12 +3,12 @@
 //!
 
 //! Error handling for the Snowflake connector
-//! 
+//!
 //! This module provides structured error types with context and recovery strategies
 //! for the Snowflake connector.
 
-use std::fmt;
 use std::error::Error as StdError;
+use std::fmt;
 use thiserror::Error;
 
 /// Result type for Snowflake operations
@@ -19,59 +19,101 @@ pub type SnowflakeResult<T> = Result<T, SnowflakeError>;
 pub enum SnowflakeError {
     /// Configuration errors
     #[error("Snowflake configuration error: {message}")]
-    Configuration { message: String, source: Option<Box<dyn StdError + Send + Sync>> },
+    Configuration {
+        message: String,
+        source: Option<Box<dyn StdError + Send + Sync>>,
+    },
 
     /// Connection errors
     #[error("Snowflake connection error: {message}")]
-    Connection { message: String, source: Option<Box<dyn StdError + Send + Sync>> },
+    Connection {
+        message: String,
+        source: Option<Box<dyn StdError + Send + Sync>>,
+    },
 
     /// Authentication errors
     #[error("Snowflake authentication error: {message}")]
-    Authentication { message: String, source: Option<Box<dyn StdError + Send + Sync>> },
+    Authentication {
+        message: String,
+        source: Option<Box<dyn StdError + Send + Sync>>,
+    },
 
     /// SQL execution errors
     #[error("Snowflake SQL execution error: {message}")]
-    SqlExecution { message: String, source: Option<Box<dyn StdError + Send + Sync>> },
+    SqlExecution {
+        message: String,
+        source: Option<Box<dyn StdError + Send + Sync>>,
+    },
 
     /// Warehouse errors
     #[error("Snowflake warehouse error: {message}")]
-    Warehouse { message: String, source: Option<Box<dyn StdError + Send + Sync>> },
+    Warehouse {
+        message: String,
+        source: Option<Box<dyn StdError + Send + Sync>>,
+    },
 
     /// Write operation errors
     #[error("Snowflake write error: {message}")]
-    Write { message: String, source: Option<Box<dyn StdError + Send + Sync>> },
+    Write {
+        message: String,
+        source: Option<Box<dyn StdError + Send + Sync>>,
+    },
 
     /// Read operation errors
     #[error("Snowflake read error: {message}")]
-    Read { message: String, source: Option<Box<dyn StdError + Send + Sync>> },
+    Read {
+        message: String,
+        source: Option<Box<dyn StdError + Send + Sync>>,
+    },
 
     /// Storage errors
     #[error("Snowflake storage error: {message}")]
-    Storage { message: String, source: Option<Box<dyn StdError + Send + Sync>> },
+    Storage {
+        message: String,
+        source: Option<Box<dyn StdError + Send + Sync>>,
+    },
 
     /// Serialization/deserialization errors
     #[error("Snowflake serialization error: {message}")]
-    Serialization { message: String, source: Option<Box<dyn StdError + Send + Sync>> },
+    Serialization {
+        message: String,
+        source: Option<Box<dyn StdError + Send + Sync>>,
+    },
 
     /// Validation errors
     #[error("Snowflake validation error: {message}")]
-    Validation { message: String, source: Option<Box<dyn StdError + Send + Sync>> },
+    Validation {
+        message: String,
+        source: Option<Box<dyn StdError + Send + Sync>>,
+    },
 
     /// Timeout errors
     #[error("Snowflake timeout error: {message}")]
-    Timeout { message: String, source: Option<Box<dyn StdError + Send + Sync>> },
+    Timeout {
+        message: String,
+        source: Option<Box<dyn StdError + Send + Sync>>,
+    },
 
     /// Rate limiting errors
     #[error("Snowflake rate limiting error: {message}")]
-    RateLimit { message: String, source: Option<Box<dyn StdError + Send + Sync>> },
+    RateLimit {
+        message: String,
+        source: Option<Box<dyn StdError + Send + Sync>>,
+    },
 
     /// Internal errors
     #[error("Snowflake internal error: {message}")]
-    Internal { message: String, source: Option<Box<dyn StdError + Send + Sync>> },
+    Internal {
+        message: String,
+        source: Option<Box<dyn StdError + Send + Sync>>,
+    },
 
     /// Unknown errors
     #[error("Snowflake unknown error: {message}")]
-    Unknown { message: String, source: Option<Box<dyn StdError + Send + Sync>> },
+    Unknown {
+        message: String,
+        source: Option<Box<dyn StdError + Send + Sync>>,
+    },
 }
 
 impl SnowflakeError {

@@ -9,15 +9,15 @@
 //! and OTLP gRPC.
 
 pub mod kafka;
+pub mod otap;
 pub mod otlp_arrow;
 pub mod otlp_grpc;
-pub mod otap;
 
 // Re-export protocol implementations
 pub use kafka::KafkaProtocol;
+pub use otap::OtapProtocol;
 pub use otlp_arrow::OtlpArrowProtocol;
 pub use otlp_grpc::OtlpGrpcProtocol;
-pub use otap::OtapProtocol;
 
 use async_trait::async_trait;
 use bridge_core::{BridgeResult, TelemetryBatch};

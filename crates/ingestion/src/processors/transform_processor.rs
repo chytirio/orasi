@@ -9,15 +9,14 @@
 
 use async_trait::async_trait;
 use bridge_core::{
-    traits::ProcessorStats, types::{ProcessedRecord, TelemetryData, TelemetryRecord}, BridgeResult, ProcessedBatch, TelemetryBatch,
-    TelemetryProcessor as BridgeTelemetryProcessor,
+    traits::ProcessorStats,
+    types::{ProcessedRecord, TelemetryData, TelemetryRecord},
+    BridgeResult, ProcessedBatch, TelemetryBatch, TelemetryProcessor as BridgeTelemetryProcessor,
 };
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::sync::Arc;
-use tokio::sync::RwLock;
-use tracing::{error, info, warn};
+use tracing::info;
 use uuid::Uuid;
 
 use super::{BaseProcessor, ProcessorConfig};
@@ -205,10 +204,10 @@ impl TransformProcessor {
     fn get_field_value(&self, record: &TelemetryRecord, field: &str) -> String {
         // Implement field value extraction
         // Extract values from record attributes, tags, etc.
-        
+
         // Handle nested field paths (e.g., "attributes.service.name")
         let field_parts: Vec<&str> = field.split('.').collect();
-        
+
         match field_parts.as_slice() {
             ["id"] => record.id.to_string(),
             ["timestamp"] => record.timestamp.to_rfc3339(),
@@ -260,10 +259,10 @@ impl TransformProcessor {
     fn set_field_value(&self, record: &mut TelemetryRecord, field: &str, value: &str) {
         // Implement field value setting
         // Set values in record attributes, tags, etc.
-        
+
         // Handle nested field paths (e.g., "attributes.service.name")
         let field_parts: Vec<&str> = field.split('.').collect();
-        
+
         match field_parts.as_slice() {
             ["attributes", key] => {
                 record.attributes.insert(key.to_string(), value.to_string());
@@ -288,7 +287,9 @@ impl TransformProcessor {
             }
             _ => {
                 // Default to setting in attributes
-                record.attributes.insert(field.to_string(), value.to_string());
+                record
+                    .attributes
+                    .insert(field.to_string(), value.to_string());
             }
         }
     }
@@ -297,10 +298,10 @@ impl TransformProcessor {
     fn remove_field_value(&self, record: &mut TelemetryRecord, field: &str) {
         // Implement field value removal
         // Remove values from record attributes, tags, etc.
-        
+
         // Handle nested field paths (e.g., "attributes.service.name")
         let field_parts: Vec<&str> = field.split('.').collect();
-        
+
         match field_parts.as_slice() {
             ["attributes", key] => {
                 record.attributes.remove(*key);

@@ -3,15 +3,15 @@
 //!
 
 //! Configuration management for the Snowflake connector
-//! 
+//!
 //! This module provides type-safe configuration structures with validation
 //! and hierarchical configuration management for Snowflake operations.
 
+use crate::error::{SnowflakeError, SnowflakeResult};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Duration;
-use serde::{Deserialize, Serialize};
 use validator::Validate;
-use crate::error::{SnowflakeError, SnowflakeResult};
 
 /// Snowflake configuration
 #[derive(Debug, Clone, Serialize, Deserialize, Validate)]
@@ -199,9 +199,10 @@ impl SnowflakeConfig {
 
     /// Load configuration from file
     pub fn from_file(path: &std::path::Path) -> SnowflakeResult<Self> {
-        let content = std::fs::read_to_string(path)
-            .map_err(|e| SnowflakeError::configuration_with_source("Failed to read config file", e))?;
-        
+        let content = std::fs::read_to_string(path).map_err(|e| {
+            SnowflakeError::configuration_with_source("Failed to read config file", e)
+        })?;
+
         Self::from_str(&content)
     }
 
@@ -209,21 +210,24 @@ impl SnowflakeConfig {
     pub fn from_str(content: &str) -> SnowflakeResult<Self> {
         let config: SnowflakeConfig = toml::from_str(content)
             .map_err(|e| SnowflakeError::configuration_with_source("Failed to parse config", e))?;
-        
+
         config.validate_config()?;
         Ok(config)
     }
 
     /// Validate the configuration
     pub fn validate_config(&self) -> SnowflakeResult<()> {
-        self.validate()
-            .map_err(|e| SnowflakeError::validation_with_source("Configuration validation failed", e))?;
-        
+        self.validate().map_err(|e| {
+            SnowflakeError::validation_with_source("Configuration validation failed", e)
+        })?;
+
         // Additional custom validation
         if self.writer.batch_size == 0 {
-            return Err(SnowflakeError::validation("Batch size must be greater than 0"));
+            return Err(SnowflakeError::validation(
+                "Batch size must be greater than 0",
+            ));
         }
-        
+
         Ok(())
     }
 
@@ -370,7 +374,7 @@ mod tests {
             "test-user".to_string(),
             "test-password".to_string(),
         );
-        
+
         assert_eq!(config.account(), "test-account");
         assert_eq!(config.username(), "test-user");
         assert_eq!(config.batch_size(), 10000);
@@ -383,7 +387,7 @@ mod tests {
             "test-user".to_string(),
             "test-password".to_string(),
         );
-        
+
         // Should be valid
         assert!(config.validate_config().is_ok());
     }

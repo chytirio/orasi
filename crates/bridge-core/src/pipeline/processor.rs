@@ -7,19 +7,14 @@
 //! This module provides the main pipeline processing logic for orchestrating
 //! telemetry data flow through receivers, processors, and exporters.
 
-use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{broadcast, RwLock};
 use tokio::time::interval;
 use tracing::{debug, error, info, warn};
-use uuid::Uuid;
 
 use crate::error::{BridgeError, BridgeResult};
-use crate::traits::{
-    ExporterStats, LakehouseExporter, ProcessorStats, ReceiverStats, TelemetryProcessor,
-    TelemetryReceiver,
-};
+use crate::traits::{LakehouseExporter, TelemetryProcessor, TelemetryReceiver};
 use crate::types::{ExportResult, ProcessedBatch, TelemetryBatch};
 
 use super::config::PipelineConfig;
@@ -175,7 +170,7 @@ impl TelemetryIngestionPipeline {
         }
 
         // Process through processors
-        let mut processed_batch = self.process_through_processors(batch).await?;
+        let processed_batch = self.process_through_processors(batch).await?;
 
         // Export through exporters
         let export_result = self.export_through_exporters(processed_batch).await?;
@@ -561,6 +556,7 @@ impl Drop for TelemetryIngestionPipeline {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::traits::{ExporterStats, ProcessorStats, ReceiverStats};
     use crate::types::{
         MetricData, MetricType, MetricValue, TelemetryData, TelemetryRecord, TelemetryType,
     };

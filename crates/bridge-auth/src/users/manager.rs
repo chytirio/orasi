@@ -254,7 +254,8 @@ impl UserManager {
         if user.failed_login_attempts >= self.config.max_login_attempts as u32 {
             user.is_locked = true;
             user.lockout_until = Some(
-                chrono::Utc::now() + chrono::Duration::seconds(self.config.lockout_duration_secs as i64),
+                chrono::Utc::now()
+                    + chrono::Duration::seconds(self.config.lockout_duration_secs as i64),
             );
         }
 

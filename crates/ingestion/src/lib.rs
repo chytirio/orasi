@@ -19,7 +19,10 @@ pub mod receivers;
 pub mod security;
 pub mod validation;
 
-use bridge_core::{BridgeResult, TelemetryBatch, traits::{TelemetryReceiver, TelemetryProcessor, LakehouseExporter}};
+use bridge_core::{
+    traits::{LakehouseExporter, TelemetryProcessor, TelemetryReceiver},
+    BridgeResult, TelemetryBatch,
+};
 use std::collections::HashMap;
 use tracing::info;
 
@@ -135,13 +138,15 @@ impl Default for IngestionSystem {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::receivers::simple_http_receiver::SimpleHttpReceiver;
-    use crate::processors::batch_processor::BatchProcessor;
     use crate::exporters::batch_exporter::BatchExporter;
-    use bridge_core::types::{TelemetryRecord, TelemetryType, TelemetryData, MetricData, MetricValue};
+    use crate::processors::batch_processor::BatchProcessor;
+    use crate::receivers::simple_http_receiver::SimpleHttpReceiver;
+    use bridge_core::types::{
+        MetricData, MetricValue, TelemetryData, TelemetryRecord, TelemetryType,
+    };
     use chrono::Utc;
-    use uuid::Uuid;
     use std::collections::HashMap;
+    use uuid::Uuid;
 
     fn create_test_batch() -> TelemetryBatch {
         let records = vec![TelemetryRecord {
@@ -186,15 +191,22 @@ mod tests {
         let mut system = IngestionSystem::new();
 
         // Add components
-        let receiver_config = crate::receivers::simple_http_receiver::SimpleHttpReceiverConfig::new("127.0.0.1".to_string(), 8080);
+        let receiver_config = crate::receivers::simple_http_receiver::SimpleHttpReceiverConfig::new(
+            "127.0.0.1".to_string(),
+            8080,
+        );
         let receiver = SimpleHttpReceiver::new(receiver_config);
-        
+
         // Create processor config and processor
-        let processor_config = crate::processors::batch_processor::BatchProcessorConfig::new(100, 1000);
+        let processor_config =
+            crate::processors::batch_processor::BatchProcessorConfig::new(100, 1000);
         let processor = BatchProcessor::new(&processor_config).await.unwrap();
-        
+
         // Create exporter config and exporter
-        let exporter_config = crate::exporters::batch_exporter::BatchExporterConfig::new("http://localhost:8080".to_string(), 100);
+        let exporter_config = crate::exporters::batch_exporter::BatchExporterConfig::new(
+            "http://localhost:8080".to_string(),
+            100,
+        );
         let exporter = BatchExporter::new(&exporter_config).await.unwrap();
 
         system.add_receiver("test_receiver".to_string(), Box::new(receiver));
@@ -222,24 +234,30 @@ mod tests {
     #[tokio::test]
     async fn test_ingestion_initialization() {
         let mut system = IngestionSystem::new();
-        
+
         // Test that we can add components
-        let receiver_config = crate::receivers::simple_http_receiver::SimpleHttpReceiverConfig::new("127.0.0.1".to_string(), 8081);
+        let receiver_config = crate::receivers::simple_http_receiver::SimpleHttpReceiverConfig::new(
+            "127.0.0.1".to_string(),
+            8081,
+        );
         let receiver = SimpleHttpReceiver::new(receiver_config);
         system.add_receiver("test_receiver".to_string(), Box::new(receiver));
-        
+
         assert_eq!(system.receivers.len(), 1);
     }
 
     #[tokio::test]
     async fn test_ingestion_shutdown() {
         let mut system = IngestionSystem::new();
-        
+
         // Add a component
-        let receiver_config = crate::receivers::simple_http_receiver::SimpleHttpReceiverConfig::new("127.0.0.1".to_string(), 8082);
+        let receiver_config = crate::receivers::simple_http_receiver::SimpleHttpReceiverConfig::new(
+            "127.0.0.1".to_string(),
+            8082,
+        );
         let receiver = SimpleHttpReceiver::new(receiver_config);
         system.add_receiver("test_receiver".to_string(), Box::new(receiver));
-        
+
         // Test health check
         let result = system.health_check().await;
         assert!(result.is_ok());

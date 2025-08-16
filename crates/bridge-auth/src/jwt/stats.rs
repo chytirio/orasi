@@ -121,23 +121,23 @@ mod tests {
     #[test]
     fn test_jwt_stats_increment() {
         let mut stats = JwtStats::new();
-        
+
         stats.increment_tokens_generated();
         assert_eq!(stats.tokens_generated, 1);
         assert!(stats.last_token_generated.is_some());
-        
+
         stats.increment_tokens_validated();
         assert_eq!(stats.tokens_validated, 1);
         assert!(stats.last_token_validated.is_some());
-        
+
         stats.increment_tokens_blacklisted();
         assert_eq!(stats.tokens_blacklisted, 1);
         assert!(stats.last_token_blacklisted.is_some());
-        
+
         stats.increment_tokens_refreshed();
         assert_eq!(stats.tokens_refreshed, 1);
         assert!(stats.last_token_refreshed.is_some());
-        
+
         stats.increment_validation_failures();
         assert_eq!(stats.validation_failures, 1);
     }
@@ -145,19 +145,19 @@ mod tests {
     #[test]
     fn test_jwt_stats_validation_success_rate() {
         let mut stats = JwtStats::new();
-        
+
         // No validations yet
         assert_eq!(stats.validation_success_rate(), 0.0);
-        
+
         // All successful
         stats.increment_tokens_validated();
         stats.increment_tokens_validated();
         assert_eq!(stats.validation_success_rate(), 1.0);
-        
+
         // Mixed results
         stats.increment_validation_failures();
         assert_eq!(stats.validation_success_rate(), 2.0 / 3.0);
-        
+
         // All failures
         stats.increment_validation_failures();
         stats.increment_validation_failures();
@@ -167,14 +167,14 @@ mod tests {
     #[test]
     fn test_jwt_stats_generation_rate() {
         let mut stats = JwtStats::new();
-        
+
         // No tokens generated yet
         assert_eq!(stats.generation_rate_per_minute(), 0.0);
-        
+
         // Generate some tokens
         stats.increment_tokens_generated();
         stats.increment_tokens_generated();
-        
+
         // Rate should be calculated (though exact value depends on timing)
         let rate = stats.generation_rate_per_minute();
         assert!(rate >= 0.0);

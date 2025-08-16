@@ -28,7 +28,9 @@ impl ServiceDiscovery {
     }
 
     /// Refresh services
-    pub async fn refresh_services(&self) -> Result<std::collections::HashMap<String, ServiceInfo>, GatewayError> {
+    pub async fn refresh_services(
+        &self,
+    ) -> Result<std::collections::HashMap<String, ServiceInfo>, GatewayError> {
         // TODO: Implement service refresh
         Ok(std::collections::HashMap::new())
     }

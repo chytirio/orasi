@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
 
-use crate::types::{MetricData, TraceData, LogData};
+use crate::types::{LogData, MetricData, TraceData};
 
 /// Query results
 #[derive(Debug, Clone, Serialize, Deserialize)]

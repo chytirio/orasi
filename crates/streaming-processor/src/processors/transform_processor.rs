@@ -3,22 +3,21 @@
 //!
 
 //! Transform processor implementation
-//! 
+//!
 //! This module provides a transform processor for streaming data transformation.
 
 use async_trait::async_trait;
 use bridge_core::{
+    traits::{DataStream, StreamProcessor as BridgeStreamProcessor, StreamProcessorStats},
+    types::{TelemetryData, TelemetryRecord},
     BridgeResult, TelemetryBatch,
-    types::{TelemetryRecord, TelemetryData, TelemetryType, MetricValue, MetricData, ServiceInfo},
-    traits::{StreamProcessor as BridgeStreamProcessor, StreamProcessorStats, DataStream},
 };
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{info, warn, error};
-use uuid::Uuid;
-use chrono::{DateTime, Utc};
+use tracing::info;
 
 use super::ProcessorConfig;
 
@@ -27,13 +26,13 @@ use super::ProcessorConfig;
 pub struct TransformProcessorConfig {
     /// Processor name
     pub name: String,
-    
+
     /// Processor version
     pub version: String,
-    
+
     /// Transform rules
     pub transform_rules: Vec<TransformRule>,
-    
+
     /// Additional configuration
     pub additional_config: HashMap<String, String>,
 }
@@ -43,19 +42,19 @@ pub struct TransformProcessorConfig {
 pub struct TransformRule {
     /// Rule name
     pub name: String,
-    
+
     /// Transform rule type
     pub rule_type: TransformRuleType,
-    
+
     /// Source field
     pub source_field: String,
-    
+
     /// Target field
     pub target_field: String,
-    
+
     /// Transform value (for set/add operations)
     pub transform_value: Option<String>,
-    
+
     /// Whether rule is enabled
     pub enabled: bool,
 }
@@ -88,29 +87,30 @@ impl ProcessorConfig for TransformProcessorConfig {
     fn name(&self) -> &str {
         &self.name
     }
-    
+
     fn version(&self) -> &str {
         &self.version
     }
-    
+
     async fn validate(&self) -> BridgeResult<()> {
         for rule in &self.transform_rules {
             if rule.name.is_empty() {
                 return Err(bridge_core::BridgeError::configuration(
-                    "Transform rule name cannot be empty".to_string()
+                    "Transform rule name cannot be empty".to_string(),
                 ));
             }
-            
+
             if rule.target_field.is_empty() {
-                return Err(bridge_core::BridgeError::configuration(
-                    format!("Transform rule '{}' target field cannot be empty", rule.name)
-                ));
+                return Err(bridge_core::BridgeError::configuration(format!(
+                    "Transform rule '{}' target field cannot be empty",
+                    rule.name
+                )));
             }
         }
-        
+
         Ok(())
     }
-    
+
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
@@ -125,15 +125,18 @@ pub struct TransformProcessor {
 impl TransformProcessor {
     /// Create new transform processor
     pub async fn new(config: &dyn ProcessorConfig) -> BridgeResult<Self> {
-        let config = config.as_any()
+        let config = config
+            .as_any()
             .downcast_ref::<TransformProcessorConfig>()
-            .ok_or_else(|| bridge_core::BridgeError::configuration(
-                "Invalid transform processor configuration".to_string()
-            ))?
+            .ok_or_else(|| {
+                bridge_core::BridgeError::configuration(
+                    "Invalid transform processor configuration".to_string(),
+                )
+            })?
             .clone();
-        
+
         config.validate().await?;
-        
+
         let stats = StreamProcessorStats {
             total_records: 0,
             records_per_minute: 0,
@@ -141,31 +144,34 @@ impl TransformProcessor {
             error_count: 0,
             last_process_time: None,
         };
-        
+
         Ok(Self {
             config,
             stats: Arc::new(RwLock::new(stats)),
         })
     }
-    
+
     /// Process data stream with transformation logic
     async fn process_data_stream(&self, input: DataStream) -> BridgeResult<DataStream> {
         let start_time = std::time::Instant::now();
-        
-        info!("Processing data stream with transformations: {}", input.stream_id);
-        
+
+        info!(
+            "Processing data stream with transformations: {}",
+            input.stream_id
+        );
+
         // Deserialize the data stream to TelemetryBatch
-        let batch: TelemetryBatch = serde_json::from_slice(&input.data)
-            .map_err(|e| bridge_core::BridgeError::internal(
-                format!("Failed to deserialize data stream: {}", e)
-            ))?;
-        
+        let batch: TelemetryBatch = serde_json::from_slice(&input.data).map_err(|e| {
+            bridge_core::BridgeError::internal(format!("Failed to deserialize data stream: {}", e))
+        })?;
+
         // Apply transformation rules to each record
-        let transformed_records: Vec<TelemetryRecord> = batch.records
+        let transformed_records: Vec<TelemetryRecord> = batch
+            .records
             .into_iter()
             .map(|record| self.apply_transformations(record))
             .collect();
-        
+
         // Create transformed batch
         let transformed_batch = TelemetryBatch {
             id: batch.id,
@@ -175,30 +181,38 @@ impl TransformProcessor {
             records: transformed_records,
             metadata: batch.metadata,
         };
-        
+
         // Serialize transformed batch back to stream
-        let transformed_data = serde_json::to_vec(&transformed_batch)
-            .map_err(|e| bridge_core::BridgeError::internal(
-                format!("Failed to serialize transformed batch: {}", e)
-            ))?;
-        
+        let transformed_data = serde_json::to_vec(&transformed_batch).map_err(|e| {
+            bridge_core::BridgeError::internal(format!(
+                "Failed to serialize transformed batch: {}",
+                e
+            ))
+        })?;
+
         // Update metadata
         let mut output_metadata = input.metadata.clone();
         output_metadata.insert("transformed_by".to_string(), self.config.name.clone());
         output_metadata.insert("transformed_at".to_string(), Utc::now().to_rfc3339());
-        output_metadata.insert("transform_rules_applied".to_string(), self.config.transform_rules.len().to_string());
+        output_metadata.insert(
+            "transform_rules_applied".to_string(),
+            self.config.transform_rules.len().to_string(),
+        );
         output_metadata.insert("original_size".to_string(), batch.size.to_string());
-        output_metadata.insert("transformed_size".to_string(), transformed_batch.size.to_string());
-        
+        output_metadata.insert(
+            "transformed_size".to_string(),
+            transformed_batch.size.to_string(),
+        );
+
         let processed_stream = DataStream {
             stream_id: format!("transformed_{}", input.stream_id),
             data: transformed_data,
             metadata: output_metadata,
             timestamp: Utc::now(),
         };
-        
+
         let processing_time = start_time.elapsed().as_millis() as f64;
-        
+
         // Update statistics
         {
             let mut stats = self.stats.write().await;
@@ -206,23 +220,22 @@ impl TransformProcessor {
             stats.avg_processing_time_ms = (stats.avg_processing_time_ms + processing_time) / 2.0;
             stats.last_process_time = Some(Utc::now());
         }
-        
+
         info!(
             "Data stream transformed: {} records in {}ms",
-            batch.size,
-            processing_time
+            batch.size, processing_time
         );
-        
+
         Ok(processed_stream)
     }
-    
+
     /// Apply transformation rules to a single record
     fn apply_transformations(&self, mut record: TelemetryRecord) -> TelemetryRecord {
         for rule in &self.config.transform_rules {
             if !rule.enabled {
                 continue;
             }
-            
+
             match rule.rule_type {
                 TransformRuleType::Copy => {
                     self.copy_field(&mut record, rule);
@@ -244,10 +257,10 @@ impl TransformProcessor {
                 }
             }
         }
-        
+
         record
     }
-    
+
     /// Copy a field from source to target
     fn copy_field(&self, record: &mut TelemetryRecord, rule: &TransformRule) {
         let source_value = self.get_field_value(record, &rule.source_field);
@@ -255,7 +268,7 @@ impl TransformProcessor {
             self.set_field_value(record, &rule.target_field, value);
         }
     }
-    
+
     /// Rename a field (copy from source to target, then remove source)
     fn rename_field(&self, record: &mut TelemetryRecord, rule: &TransformRule) {
         let source_value = self.get_field_value(record, &rule.source_field);
@@ -264,19 +277,19 @@ impl TransformProcessor {
             self.remove_field_value(record, &rule.source_field);
         }
     }
-    
+
     /// Set a field to a specific value
     fn set_field(&self, record: &mut TelemetryRecord, rule: &TransformRule) {
         if let Some(value) = &rule.transform_value {
             self.set_field_value(record, &rule.target_field, value.clone());
         }
     }
-    
+
     /// Remove a field
     fn remove_field(&self, record: &mut TelemetryRecord, rule: &TransformRule) {
         self.remove_field_value(record, &rule.source_field);
     }
-    
+
     /// Add a field (only if it doesn't exist)
     fn add_field(&self, record: &mut TelemetryRecord, rule: &TransformRule) {
         let existing_value = self.get_field_value(record, &rule.target_field);
@@ -286,7 +299,7 @@ impl TransformProcessor {
             }
         }
     }
-    
+
     /// Replace a field value
     fn replace_field(&self, record: &mut TelemetryRecord, rule: &TransformRule) {
         let source_value = self.get_field_value(record, &rule.source_field);
@@ -296,7 +309,7 @@ impl TransformProcessor {
             }
         }
     }
-    
+
     /// Get field value from a telemetry record
     fn get_field_value(&self, record: &TelemetryRecord, field_path: &str) -> Option<String> {
         // Simple field path resolution
@@ -315,7 +328,9 @@ impl TransformProcessor {
                     if let TelemetryData::Metric(metric_data) = &record.data {
                         match field_path {
                             "metric.name" => Some(metric_data.name.clone()),
-                            "metric.description" => Some(metric_data.description.clone().unwrap_or_default()),
+                            "metric.description" => {
+                                Some(metric_data.description.clone().unwrap_or_default())
+                            }
                             "metric.unit" => Some(metric_data.unit.clone().unwrap_or_default()),
                             "metric.value" => Some(format!("{:?}", metric_data.value)),
                             _ => {
@@ -330,7 +345,7 @@ impl TransformProcessor {
             }
         }
     }
-    
+
     /// Set field value in a telemetry record
     fn set_field_value(&self, record: &mut TelemetryRecord, field_path: &str, value: String) {
         match field_path {
@@ -352,7 +367,7 @@ impl TransformProcessor {
             }
         }
     }
-    
+
     /// Remove field value from a telemetry record
     fn remove_field_value(&self, record: &mut TelemetryRecord, field_path: &str) {
         match field_path {
@@ -378,25 +393,25 @@ impl BridgeStreamProcessor for TransformProcessor {
     async fn process_stream(&self, input: DataStream) -> BridgeResult<DataStream> {
         self.process_data_stream(input).await
     }
-    
+
     fn name(&self) -> &str {
         &self.config.name
     }
-    
+
     fn version(&self) -> &str {
         &self.config.version
     }
-    
+
     async fn health_check(&self) -> BridgeResult<bool> {
         // Simple health check - processor is healthy if it has a valid config
         Ok(true)
     }
-    
+
     async fn get_stats(&self) -> BridgeResult<StreamProcessorStats> {
         let stats = self.stats.read().await;
         Ok(stats.clone())
     }
-    
+
     async fn shutdown(&self) -> BridgeResult<()> {
         info!("Shutting down transform processor: {}", self.config.name);
         Ok(())

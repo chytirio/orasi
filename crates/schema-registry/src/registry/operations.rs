@@ -117,11 +117,12 @@ impl SchemaOperations {
             .ok_or_else(|| SchemaRegistryError::SchemaNotFound(schema.name.clone()))?;
 
         // Check compatibility based on the schema's compatibility mode
-        let is_compatible = crate::registry::compatibility::CompatibilityChecker::check_schema_compatibility(
-            &latest_schema,
-            schema,
-        )
-        .await?;
+        let is_compatible =
+            crate::registry::compatibility::CompatibilityChecker::check_schema_compatibility(
+                &latest_schema,
+                schema,
+            )
+            .await?;
 
         if !is_compatible {
             return Err(SchemaRegistryError::ValidationFailed(vec![
@@ -133,7 +134,10 @@ impl SchemaOperations {
         }
 
         // Create evolved schema with incremented version
-        let evolved_version = crate::registry::compatibility::CompatibilityChecker::increment_schema_version(&latest_schema.version);
+        let evolved_version =
+            crate::registry::compatibility::CompatibilityChecker::increment_schema_version(
+                &latest_schema.version,
+            );
         let mut evolved_schema = schema.clone();
         evolved_schema.version = evolved_version;
         evolved_schema.updated_at = chrono::Utc::now();

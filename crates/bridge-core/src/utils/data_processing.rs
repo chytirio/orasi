@@ -6,25 +6,24 @@
 
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{debug, error, info, warn};
 
-use crate::error::{BridgeError, BridgeResult};
+use crate::error::BridgeResult;
 
 /// Data processing configuration
 #[derive(Debug, Clone)]
 pub struct ProcessingConfig {
     /// Enable data validation
     pub enable_validation: bool,
-    
+
     /// Enable data transformation
     pub enable_transformation: bool,
-    
+
     /// Enable data filtering
     pub enable_filtering: bool,
-    
+
     /// Batch size for processing
     pub batch_size: usize,
-    
+
     /// Processing timeout in milliseconds
     pub timeout_ms: u64,
 }
@@ -46,22 +45,22 @@ impl Default for ProcessingConfig {
 pub struct ProcessingStats {
     /// Total records processed
     pub total_records: u64,
-    
+
     /// Valid records
     pub valid_records: u64,
-    
+
     /// Invalid records
     pub invalid_records: u64,
-    
+
     /// Transformed records
     pub transformed_records: u64,
-    
+
     /// Filtered records
     pub filtered_records: u64,
-    
+
     /// Processing errors
     pub processing_errors: u64,
-    
+
     /// Average processing time per record in milliseconds
     pub avg_processing_time_ms: f64,
 }
@@ -119,7 +118,8 @@ impl DataProcessor {
         }
 
         // Update statistics
-        self.update_stats(processed_data.len(), start_time.elapsed()).await;
+        self.update_stats(processed_data.len(), start_time.elapsed())
+            .await;
 
         Ok(processed_data)
     }
@@ -161,11 +161,12 @@ impl DataProcessor {
         stats.valid_records += record_count as u64;
         stats.transformed_records += record_count as u64;
         stats.filtered_records += record_count as u64;
-        
+
         let processing_time_ms = processing_time.as_millis() as f64;
         if stats.total_records > 0 {
-            stats.avg_processing_time_ms = 
-                (stats.avg_processing_time_ms * (stats.total_records - record_count as u64) as f64 + processing_time_ms) 
+            stats.avg_processing_time_ms = (stats.avg_processing_time_ms
+                * (stats.total_records - record_count as u64) as f64
+                + processing_time_ms)
                 / stats.total_records as f64;
         }
     }
@@ -198,11 +199,11 @@ mod tests {
     async fn test_process_batch() {
         let config = ProcessingConfig::default();
         let processor = DataProcessor::new(config);
-        
+
         let data = vec![1, 2, 3, 4, 5];
         let result = processor.process_batch(data).await;
         assert!(result.is_ok());
-        
+
         let stats = processor.get_stats().await;
         assert_eq!(stats.total_records, 5);
     }

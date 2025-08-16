@@ -278,17 +278,17 @@ async fn create_user_handler(
         .as_str()
         .ok_or(StatusCode::BAD_REQUEST)?
         .to_string();
-    
+
     let email = user_data["email"]
         .as_str()
         .ok_or(StatusCode::BAD_REQUEST)?
         .to_string();
-    
+
     let password = user_data["password"]
         .as_str()
         .ok_or(StatusCode::BAD_REQUEST)?
         .to_string();
-    
+
     let roles = user_data["roles"]
         .as_array()
         .map(|arr| {
@@ -364,7 +364,7 @@ async fn assign_role_handler(
         .as_str()
         .ok_or(StatusCode::BAD_REQUEST)?
         .to_string();
-    
+
     let role_id = role_data["role_id"]
         .as_str()
         .ok_or(StatusCode::BAD_REQUEST)?

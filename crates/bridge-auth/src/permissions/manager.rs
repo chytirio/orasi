@@ -78,13 +78,13 @@ impl PermissionManager {
     pub async fn user_has_permission(&self, user_id: &str, permission: &str) -> bool {
         let permissions = self.get_user_permissions(user_id).await;
         let has_permission = permissions.iter().any(|p| p == permission);
-        
+
         // Update statistics
         {
             let mut stats = self.stats.write().await;
             stats.record_permission_check(has_permission);
         }
-        
+
         has_permission
     }
 
@@ -92,13 +92,13 @@ impl PermissionManager {
     pub async fn user_has_any_permission(&self, user_id: &str, permissions: &[String]) -> bool {
         let user_permissions = self.get_user_permissions(user_id).await;
         let has_any = permissions.iter().any(|p| user_permissions.contains(p));
-        
+
         // Update statistics
         {
             let mut stats = self.stats.write().await;
             stats.record_permission_check(has_any);
         }
-        
+
         has_any
     }
 
@@ -106,35 +106,44 @@ impl PermissionManager {
     pub async fn user_has_all_permissions(&self, user_id: &str, permissions: &[String]) -> bool {
         let user_permissions = self.get_user_permissions(user_id).await;
         let has_all = permissions.iter().all(|p| user_permissions.contains(p));
-        
+
         // Update statistics
         {
             let mut stats = self.stats.write().await;
             stats.record_permission_check(has_all);
         }
-        
+
         has_all
     }
 
     /// Get user access level for a resource
     pub async fn get_user_access_level(&self, user_id: &str, resource: &str) -> AccessLevel {
         let permissions = self.get_user_permissions(user_id).await;
-        
+
         // Check for admin permission first
-        if permissions.iter().any(|p| p == "admin:all" || p == &format!("{}:admin", resource)) {
+        if permissions
+            .iter()
+            .any(|p| p == "admin:all" || p == &format!("{}:admin", resource))
+        {
             return AccessLevel::Admin;
         }
-        
+
         // Check for write permission
-        if permissions.iter().any(|p| p == &format!("{}:write", resource)) {
+        if permissions
+            .iter()
+            .any(|p| p == &format!("{}:write", resource))
+        {
             return AccessLevel::Write;
         }
-        
+
         // Check for read permission
-        if permissions.iter().any(|p| p == &format!("{}:read", resource)) {
+        if permissions
+            .iter()
+            .any(|p| p == &format!("{}:read", resource))
+        {
             return AccessLevel::Read;
         }
-        
+
         AccessLevel::None
     }
 
@@ -218,28 +227,36 @@ mod tests {
         let user_id = "test-user";
 
         // Test no access
-        let access_level = permission_manager.get_user_access_level(user_id, "metrics").await;
+        let access_level = permission_manager
+            .get_user_access_level(user_id, "metrics")
+            .await;
         assert_eq!(access_level, AccessLevel::None);
 
         // Test read access
         permission_manager
             .add_user_permission(user_id, "metrics:read".to_string())
             .await;
-        let access_level = permission_manager.get_user_access_level(user_id, "metrics").await;
+        let access_level = permission_manager
+            .get_user_access_level(user_id, "metrics")
+            .await;
         assert_eq!(access_level, AccessLevel::Read);
 
         // Test write access
         permission_manager
             .add_user_permission(user_id, "metrics:write".to_string())
             .await;
-        let access_level = permission_manager.get_user_access_level(user_id, "metrics").await;
+        let access_level = permission_manager
+            .get_user_access_level(user_id, "metrics")
+            .await;
         assert_eq!(access_level, AccessLevel::Write);
 
         // Test admin access
         permission_manager
             .add_user_permission(user_id, "metrics:admin".to_string())
             .await;
-        let access_level = permission_manager.get_user_access_level(user_id, "metrics").await;
+        let access_level = permission_manager
+            .get_user_access_level(user_id, "metrics")
+            .await;
         assert_eq!(access_level, AccessLevel::Admin);
     }
 

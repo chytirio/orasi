@@ -8,10 +8,13 @@ use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{debug, error, info, warn};
+use tracing::{error, info};
 
-use crate::error::{BridgeError, BridgeResult};
-use super::{checker::{HealthChecker, HealthCheckCallback}, types::{HealthStatus, HealthCheckResult, ComponentHealth, SystemHealth}};
+use super::{
+    checker::{HealthCheckCallback, HealthChecker},
+    types::{ComponentHealth, HealthCheckResult, HealthStatus, SystemHealth},
+};
+use crate::error::BridgeResult;
 
 /// Health manager for coordinating multiple health checkers
 pub struct HealthManager {
@@ -103,9 +106,10 @@ impl HealthManager {
         // Convert results to component health
         let mut components = Vec::new();
         for result in results {
-            let component_health = ComponentHealth::new(result.component.clone(), result.status.clone())
-                .with_last_check(result.timestamp)
-                .with_details(result.details.clone().unwrap_or_default());
+            let component_health =
+                ComponentHealth::new(result.component.clone(), result.status.clone())
+                    .with_last_check(result.timestamp)
+                    .with_details(result.details.clone().unwrap_or_default());
 
             if !result.errors.is_empty() {
                 let mut component = component_health;
@@ -125,7 +129,7 @@ impl HealthManager {
     /// Initialize all health checkers
     pub async fn init_all_checkers(&self) -> BridgeResult<()> {
         let checkers = self.checkers.read().await;
-        
+
         for (name, checker) in checkers.iter() {
             match checker.init().await {
                 Ok(()) => {
@@ -144,7 +148,7 @@ impl HealthManager {
     /// Shutdown all health checkers
     pub async fn shutdown_all_checkers(&self) -> BridgeResult<()> {
         let checkers = self.checkers.read().await;
-        
+
         for (name, checker) in checkers.iter() {
             match checker.shutdown().await {
                 Ok(()) => {

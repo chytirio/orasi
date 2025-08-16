@@ -3,15 +3,15 @@
 //!
 
 //! Configuration management for the Apache Hudi connector
-//! 
+//!
 //! This module provides type-safe configuration structures with validation
 //! and hierarchical configuration management for Apache Hudi operations.
 
+use crate::error::{HudiError, HudiResult};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Duration;
-use serde::{Deserialize, Serialize};
 use validator::Validate;
-use crate::error::{HudiError, HudiResult};
 
 /// Apache Hudi configuration
 #[derive(Debug, Clone, Serialize, Deserialize, Validate)]
@@ -172,7 +172,7 @@ impl HudiConfig {
     pub fn from_file(path: &std::path::Path) -> HudiResult<Self> {
         let content = std::fs::read_to_string(path)
             .map_err(|e| HudiError::configuration_with_source("Failed to read config file", e))?;
-        
+
         Self::from_str(&content)
     }
 
@@ -180,7 +180,7 @@ impl HudiConfig {
     pub fn from_str(content: &str) -> HudiResult<Self> {
         let config: HudiConfig = serde_json::from_str(content)
             .map_err(|e| HudiError::configuration_with_source("Failed to parse config", e))?;
-        
+
         config.validate_config()?;
         Ok(config)
     }
@@ -189,16 +189,18 @@ impl HudiConfig {
     pub fn validate_config(&self) -> HudiResult<()> {
         self.validate()
             .map_err(|e| HudiError::validation_with_source("Configuration validation failed", e))?;
-        
+
         // Additional custom validation
         if self.table.partition_columns.is_empty() {
-            return Err(HudiError::validation("At least one partition column is required"));
+            return Err(HudiError::validation(
+                "At least one partition column is required",
+            ));
         }
-        
+
         if self.writer.batch_size == 0 {
             return Err(HudiError::validation("Batch size must be greater than 0"));
         }
-        
+
         Ok(())
     }
 
@@ -287,7 +289,9 @@ impl Default for HudiPerformanceConfig {
     fn default() -> Self {
         Self {
             enable_parallel_processing: true,
-            parallel_threads: std::thread::available_parallelism().map(|p| p.get()).unwrap_or(4),
+            parallel_threads: std::thread::available_parallelism()
+                .map(|p| p.get())
+                .unwrap_or(4),
             enable_memory_optimization: true,
             memory_limit_mb: 1000,
         }
@@ -311,11 +315,8 @@ mod tests {
 
     #[test]
     fn test_config_creation() {
-        let config = HudiConfig::new(
-            "s3://test-bucket".to_string(),
-            "test_table".to_string(),
-        );
-        
+        let config = HudiConfig::new("s3://test-bucket".to_string(), "test_table".to_string());
+
         assert_eq!(config.storage_path(), "s3://hudi-tables");
         assert_eq!(config.table_name(), "test_table");
         assert_eq!(config.batch_size(), 10000);
@@ -323,14 +324,11 @@ mod tests {
 
     #[test]
     fn test_config_validation() {
-        let mut config = HudiConfig::new(
-            "s3://test-bucket".to_string(),
-            "test_table".to_string(),
-        );
-        
+        let mut config = HudiConfig::new("s3://test-bucket".to_string(), "test_table".to_string());
+
         // Should be valid
         assert!(config.validate_config().is_ok());
-        
+
         // Should be invalid with empty partition columns
         config.table.partition_columns.clear();
         assert!(config.validate_config().is_err());

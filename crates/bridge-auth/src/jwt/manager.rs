@@ -4,11 +4,11 @@
 
 //! JWT management functionality
 
+use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
-use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 
 use crate::config::JwtConfig;
 
@@ -115,8 +115,8 @@ impl JwtManager {
         let mut validation = Validation::default();
         validation.set_audience(&[&self.config.audience]);
         validation.set_issuer(&[&self.config.issuer]);
-        let token_data = decode::<JwtClaims>(token, &self.decoding_key, &validation)
-            .map_err(|e| {
+        let token_data =
+            decode::<JwtClaims>(token, &self.decoding_key, &validation).map_err(|e| {
                 // Update validation failure statistics
                 tokio::spawn({
                     let stats = self.stats.clone();
@@ -307,7 +307,10 @@ mod tests {
         let user_id = "test-user".to_string();
         let roles = vec!["user".to_string()];
         let mut custom_claims = HashMap::new();
-        custom_claims.insert("custom_field".to_string(), serde_json::json!("custom_value"));
+        custom_claims.insert(
+            "custom_field".to_string(),
+            serde_json::json!("custom_value"),
+        );
 
         // Generate token with custom claims
         let token = jwt_manager
@@ -319,7 +322,10 @@ mod tests {
         let claims = jwt_manager.validate_token(&token).await.unwrap();
         assert_eq!(claims.user_id(), user_id);
         assert_eq!(claims.roles(), roles.as_slice());
-        assert_eq!(claims.get_custom_claim("custom_field"), Some(&serde_json::json!("custom_value")));
+        assert_eq!(
+            claims.get_custom_claim("custom_field"),
+            Some(&serde_json::json!("custom_value"))
+        );
     }
 
     #[tokio::test]

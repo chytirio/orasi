@@ -1,4 +1,4 @@
-use bridge_api::{BridgeAPIServer, BridgeAPIConfig};
+use bridge_api::{BridgeAPIConfig, BridgeAPIServer};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -7,19 +7,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create a simple configuration
     let config = BridgeAPIConfig::default();
-    
+
     // Create and initialize the server
     let mut server = BridgeAPIServer::new(config);
     server.init().await?;
-    
+
     // Start the server
     server.start().await?;
-    
+
     // Keep the server running
     tokio::signal::ctrl_c().await?;
-    
+
     // Shutdown gracefully
     server.stop().await?;
-    
+
     Ok(())
 }

@@ -7,15 +7,15 @@
 //! This module provides integration with Apache Iceberg for storing and querying
 //! telemetry data in a lakehouse format.
 
+pub mod catalog;
 pub mod config;
 pub mod connector;
 pub mod error;
 pub mod exporter;
+pub mod metrics;
 pub mod reader;
 pub mod schema;
 pub mod writer;
-pub mod catalog;
-pub mod metrics;
 
 // Re-export main types
 pub use bridge_core::traits::{LakehouseConnector, LakehouseReader, LakehouseWriter};
@@ -25,9 +25,8 @@ pub use bridge_core::types::{ExportResult, ProcessedBatch, TelemetryBatch};
 pub use config::IcebergConfig;
 pub use connector::IcebergConnector;
 pub use error::{IcebergError, IcebergResult};
-pub use writer::IcebergWriter;
 pub use reader::IcebergReader;
-
+pub use writer::IcebergWriter;
 
 /// Iceberg connector version
 pub const ICEBERG_VERSION: &str = env!("CARGO_PKG_VERSION");

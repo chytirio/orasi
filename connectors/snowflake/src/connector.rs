@@ -3,21 +3,21 @@
 //!
 
 //! Snowflake connector implementation
-//! 
+//!
 //! This module provides the main Snowflake connector that implements
 //! the LakehouseConnector trait for seamless integration with the bridge.
 
-use std::sync::Arc;
 use async_trait::async_trait;
-use tracing::{debug, error, info, warn};
-use bridge_core::traits::{LakehouseConnector, LakehouseWriter, LakehouseReader};
-use bridge_core::types::{MetricsBatch, TracesBatch, LogsBatch, TelemetryBatch};
 use bridge_core::error::BridgeResult;
+use bridge_core::traits::{LakehouseConnector, LakehouseReader, LakehouseWriter};
+use bridge_core::types::{LogsBatch, MetricsBatch, TelemetryBatch, TracesBatch};
+use std::sync::Arc;
+use tracing::{debug, error, info, warn};
 
 use crate::config::SnowflakeConfig;
 use crate::error::{SnowflakeError, SnowflakeResult};
-use crate::writer::SnowflakeWriter;
 use crate::reader::SnowflakeReader;
+use crate::writer::SnowflakeWriter;
 
 /// Snowflake connector implementation
 pub struct SnowflakeConnector {
@@ -44,19 +44,22 @@ impl SnowflakeConnector {
 
     /// Initialize the connector
     pub async fn initialize(&mut self) -> SnowflakeResult<()> {
-        info!("Initializing Snowflake connector for database: {}", self.config.database());
-        
+        info!(
+            "Initializing Snowflake connector for database: {}",
+            self.config.database()
+        );
+
         // Initialize Snowflake connection and tables if they don't exist
         self.ensure_connection_and_tables().await?;
-        
+
         // Initialize writer and reader
         let writer = SnowflakeWriter::new(self.config.clone()).await?;
         let reader = SnowflakeReader::new(self.config.clone()).await?;
-        
+
         self.writer = Some(writer);
         self.reader = Some(reader);
         self.connected = true;
-        
+
         info!("Snowflake connector initialized successfully");
         Ok(())
     }
@@ -64,14 +67,14 @@ impl SnowflakeConnector {
     /// Ensure connection and tables exist
     async fn ensure_connection_and_tables(&self) -> SnowflakeResult<()> {
         debug!("Ensuring Snowflake connection and tables exist");
-        
+
         // This would typically involve:
         // 1. Establishing connection to Snowflake
         // 2. Checking if database and schema exist
         // 3. Creating tables if they don't exist
         // 4. Validating table schemas
         // 5. Setting up warehouses and roles
-        
+
         // For now, we'll just log the operation
         info!("Connection and table check completed for Snowflake");
         Ok(())
@@ -96,19 +99,25 @@ impl LakehouseConnector for SnowflakeConnector {
 
     async fn connect(config: Self::Config) -> BridgeResult<Self> {
         let mut connector = SnowflakeConnector::new(config);
-        connector.initialize().await
-            .map_err(|e| bridge_core::error::BridgeError::lakehouse_with_source("Failed to initialize Snowflake connector", e))?;
+        connector.initialize().await.map_err(|e| {
+            bridge_core::error::BridgeError::lakehouse_with_source(
+                "Failed to initialize Snowflake connector",
+                e,
+            )
+        })?;
         Ok(connector)
     }
 
     async fn writer(&self) -> BridgeResult<Self::WriteHandle> {
-        self.writer.as_ref()
+        self.writer
+            .as_ref()
             .cloned()
             .ok_or_else(|| bridge_core::error::BridgeError::lakehouse("Writer not initialized"))
     }
 
     async fn reader(&self) -> BridgeResult<Self::ReadHandle> {
-        self.reader.as_ref()
+        self.reader
+            .as_ref()
             .cloned()
             .ok_or_else(|| bridge_core::error::BridgeError::lakehouse("Reader not initialized"))
     }
@@ -135,15 +144,18 @@ impl LakehouseConnector for SnowflakeConnector {
 
     async fn get_stats(&self) -> BridgeResult<bridge_core::traits::ConnectorStats> {
         let writer_stats = if let Some(writer) = &self.writer {
-            writer.get_stats().await.unwrap_or_else(|_| bridge_core::traits::WriterStats {
-                total_writes: 0,
-                total_records: 0,
-                writes_per_minute: 0,
-                records_per_minute: 0,
-                avg_write_time_ms: 0.0,
-                error_count: 0,
-                last_write_time: None,
-            })
+            writer
+                .get_stats()
+                .await
+                .unwrap_or_else(|_| bridge_core::traits::WriterStats {
+                    total_writes: 0,
+                    total_records: 0,
+                    writes_per_minute: 0,
+                    records_per_minute: 0,
+                    avg_write_time_ms: 0.0,
+                    error_count: 0,
+                    last_write_time: None,
+                })
         } else {
             bridge_core::traits::WriterStats {
                 total_writes: 0,
@@ -157,15 +169,18 @@ impl LakehouseConnector for SnowflakeConnector {
         };
 
         let reader_stats = if let Some(reader) = &self.reader {
-            reader.get_stats().await.unwrap_or_else(|_| bridge_core::traits::ReaderStats {
-                total_reads: 0,
-                total_records: 0,
-                reads_per_minute: 0,
-                records_per_minute: 0,
-                avg_read_time_ms: 0.0,
-                error_count: 0,
-                last_read_time: None,
-            })
+            reader
+                .get_stats()
+                .await
+                .unwrap_or_else(|_| bridge_core::traits::ReaderStats {
+                    total_reads: 0,
+                    total_records: 0,
+                    reads_per_minute: 0,
+                    records_per_minute: 0,
+                    avg_read_time_ms: 0.0,
+                    error_count: 0,
+                    last_read_time: None,
+                })
         } else {
             bridge_core::traits::ReaderStats {
                 total_reads: 0,
@@ -192,16 +207,16 @@ impl LakehouseConnector for SnowflakeConnector {
 
     async fn shutdown(&self) -> BridgeResult<()> {
         info!("Shutting down Snowflake connector");
-        
+
         // Shutdown writer and reader
         if let Some(writer) = &self.writer {
             let _ = writer.close().await;
         }
-        
+
         if let Some(reader) = &self.reader {
             let _ = reader.close().await;
         }
-        
+
         info!("Snowflake connector shutdown completed");
         Ok(())
     }

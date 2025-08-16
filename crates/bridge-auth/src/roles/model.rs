@@ -31,7 +31,13 @@ pub struct Permission {
 
 impl Permission {
     /// Create new permission
-    pub fn new(id: String, name: String, description: String, resource: String, action: String) -> Self {
+    pub fn new(
+        id: String,
+        name: String,
+        description: String,
+        resource: String,
+        action: String,
+    ) -> Self {
         Self {
             id,
             name,

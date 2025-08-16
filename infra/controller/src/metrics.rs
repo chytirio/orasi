@@ -28,7 +28,10 @@ impl Metrics {
 
     /// Record reconciliation duration
     pub fn record_reconcile_duration(&self, duration: std::time::Duration) {
-        metrics::histogram!("doc_controller_reconcile_duration_seconds", duration.as_secs_f64());
+        metrics::histogram!(
+            "doc_controller_reconcile_duration_seconds",
+            duration.as_secs_f64()
+        );
     }
 
     /// Increment reconciliation counter

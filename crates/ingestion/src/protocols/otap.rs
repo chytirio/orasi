@@ -17,7 +17,7 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::{RwLock, mpsc, mpsc::error::TryRecvError, Mutex};
+use tokio::sync::{mpsc, mpsc::error::TryRecvError, Mutex, RwLock};
 use tracing::{error, info, warn};
 use uuid::Uuid;
 
@@ -167,9 +167,7 @@ impl OtapProtocol {
         let config = config
             .as_any()
             .downcast_ref::<OtapConfig>()
-            .ok_or_else(|| {
-                bridge_core::BridgeError::configuration("Invalid OTAP configuration")
-            })?
+            .ok_or_else(|| bridge_core::BridgeError::configuration("Invalid OTAP configuration"))?
             .clone();
 
         config.validate().await?;
@@ -230,39 +228,37 @@ impl OtapProtocol {
     async fn process_otap_data(&self, data: &[u8]) -> BridgeResult<TelemetryBatch> {
         // Use the otel-arrow-rust crate to decode OTAP data
         // This is a placeholder implementation that will be replaced with actual OTAP decoding
-        
+
         info!("Processing OTAP Arrow data of {} bytes", data.len());
 
         // TODO: Implement actual OTAP decoding using otel-arrow-rust
         // This would decode the Arrow IPC format and convert to TelemetryBatch
-        
+
         // For now, create a placeholder batch
-        let records = vec![
-            TelemetryRecord {
-                id: Uuid::new_v4(),
-                timestamp: Utc::now(),
-                record_type: TelemetryType::Metric,
-                data: TelemetryData::Metric(MetricData {
-                    name: "otap_metric_1".to_string(),
-                    description: Some("OTAP-encoded metric".to_string()),
-                    unit: Some("count".to_string()),
-                    metric_type: bridge_core::types::MetricType::Counter,
-                    value: MetricValue::Counter(42.0),
-                    labels: HashMap::from([
-                        ("source".to_string(), "otap".to_string()),
-                        ("data_size".to_string(), data.len().to_string()),
-                    ]),
-                    timestamp: Utc::now(),
-                }),
-                attributes: HashMap::from([
-                    ("protocol".to_string(), "otap".to_string()),
-                    ("format".to_string(), "arrow".to_string()),
+        let records = vec![TelemetryRecord {
+            id: Uuid::new_v4(),
+            timestamp: Utc::now(),
+            record_type: TelemetryType::Metric,
+            data: TelemetryData::Metric(MetricData {
+                name: "otap_metric_1".to_string(),
+                description: Some("OTAP-encoded metric".to_string()),
+                unit: Some("count".to_string()),
+                metric_type: bridge_core::types::MetricType::Counter,
+                value: MetricValue::Counter(42.0),
+                labels: HashMap::from([
+                    ("source".to_string(), "otap".to_string()),
+                    ("data_size".to_string(), data.len().to_string()),
                 ]),
-                tags: HashMap::new(),
-                resource: None,
-                service: None,
-            },
-        ];
+                timestamp: Utc::now(),
+            }),
+            attributes: HashMap::from([
+                ("protocol".to_string(), "otap".to_string()),
+                ("format".to_string(), "arrow".to_string()),
+            ]),
+            tags: HashMap::new(),
+            resource: None,
+            service: None,
+        }];
 
         // Update batch count for schema reset tracking
         {
@@ -279,7 +275,10 @@ impl OtapProtocol {
             metadata: HashMap::from([
                 ("protocol".to_string(), "otap".to_string()),
                 ("content_type".to_string(), "application/arrow".to_string()),
-                ("compression".to_string(), self.config.enable_compression.to_string()),
+                (
+                    "compression".to_string(),
+                    self.config.enable_compression.to_string(),
+                ),
             ]),
         };
 
@@ -296,8 +295,12 @@ impl OtapProtocol {
     /// Send data to receiver through the data channel
     async fn send_data_to_receiver(&self, batch: TelemetryBatch) -> BridgeResult<()> {
         if let Some(data_tx) = &self.data_tx {
-            data_tx.send(batch)
-                .map_err(|e| bridge_core::BridgeError::internal(format!("Failed to send data to receiver: {}", e)))?;
+            data_tx.send(batch).map_err(|e| {
+                bridge_core::BridgeError::internal(format!(
+                    "Failed to send data to receiver: {}",
+                    e
+                ))
+            })?;
         }
         Ok(())
     }
@@ -370,7 +373,10 @@ impl OtapProtocol {
             metadata: HashMap::from([
                 ("protocol".to_string(), "otap".to_string()),
                 ("content_type".to_string(), "application/arrow".to_string()),
-                ("compression".to_string(), self.config.enable_compression.to_string()),
+                (
+                    "compression".to_string(),
+                    self.config.enable_compression.to_string(),
+                ),
                 ("simulated".to_string(), "true".to_string()),
             ]),
         };
@@ -391,13 +397,13 @@ impl OtapProtocol {
     /// Reset schema and batch count
     async fn reset_schema(&self) -> BridgeResult<()> {
         info!("Resetting OTAP schema");
-        
+
         let mut batch_count = self.batch_count.write().await;
         *batch_count = 0;
-        
+
         // TODO: Implement actual schema reset logic
         // This would reset the Arrow schema for better compression
-        
+
         Ok(())
     }
 }
@@ -467,7 +473,7 @@ impl ProtocolHandler for OtapProtocol {
     async fn receive_data(&self) -> BridgeResult<Option<TelemetryBatch>> {
         // Get mutable access to the data receiver
         let mut data_rx_guard = self.data_rx.lock().await;
-        
+
         // Check if we have a data receiver
         if let Some(data_rx) = data_rx_guard.as_mut() {
             // Try to receive data from the channel (non-blocking)
@@ -477,7 +483,11 @@ impl ProtocolHandler for OtapProtocol {
                     {
                         let mut stats = self.stats.write().await;
                         stats.total_messages += 1;
-                        stats.total_bytes += batch.records.iter().map(|r| r.attributes.len()).sum::<usize>() as u64;
+                        stats.total_bytes += batch
+                            .records
+                            .iter()
+                            .map(|r| r.attributes.len())
+                            .sum::<usize>() as u64;
                         stats.last_message_time = Some(Utc::now());
                     }
                     Ok(Some(batch))
@@ -514,36 +524,34 @@ impl OtapMessageHandler {
     async fn decode_otap_message(&self, payload: &[u8]) -> BridgeResult<Vec<TelemetryRecord>> {
         // TODO: Implement actual OTAP message decoding using otel-arrow-rust
         // This would decode the Arrow IPC format and convert to TelemetryRecord
-        
+
         info!("Decoding OTAP Arrow message of {} bytes", payload.len());
 
         // For now, create a placeholder record
-        let records = vec![
-            TelemetryRecord {
-                id: Uuid::new_v4(),
-                timestamp: Utc::now(),
-                record_type: TelemetryType::Metric,
-                data: TelemetryData::Metric(MetricData {
-                    name: "decoded_otap_metric".to_string(),
-                    description: Some("Decoded from OTAP Arrow format".to_string()),
-                    unit: Some("count".to_string()),
-                    metric_type: bridge_core::types::MetricType::Gauge,
-                    value: MetricValue::Gauge(123.45),
-                    labels: HashMap::from([
-                        ("source".to_string(), "otap_decoder".to_string()),
-                        ("payload_size".to_string(), payload.len().to_string()),
-                    ]),
-                    timestamp: Utc::now(),
-                }),
-                attributes: HashMap::from([
-                    ("protocol".to_string(), "otap".to_string()),
-                    ("decoder".to_string(), "arrow".to_string()),
+        let records = vec![TelemetryRecord {
+            id: Uuid::new_v4(),
+            timestamp: Utc::now(),
+            record_type: TelemetryType::Metric,
+            data: TelemetryData::Metric(MetricData {
+                name: "decoded_otap_metric".to_string(),
+                description: Some("Decoded from OTAP Arrow format".to_string()),
+                unit: Some("count".to_string()),
+                metric_type: bridge_core::types::MetricType::Gauge,
+                value: MetricValue::Gauge(123.45),
+                labels: HashMap::from([
+                    ("source".to_string(), "otap_decoder".to_string()),
+                    ("payload_size".to_string(), payload.len().to_string()),
                 ]),
-                tags: HashMap::new(),
-                resource: None,
-                service: None,
-            },
-        ];
+                timestamp: Utc::now(),
+            }),
+            attributes: HashMap::from([
+                ("protocol".to_string(), "otap".to_string()),
+                ("decoder".to_string(), "arrow".to_string()),
+            ]),
+            tags: HashMap::new(),
+            resource: None,
+            service: None,
+        }];
 
         Ok(records)
     }
@@ -553,9 +561,7 @@ impl OtapMessageHandler {
 impl MessageHandler for OtapMessageHandler {
     async fn handle_message(&self, message: ProtocolMessage) -> BridgeResult<TelemetryBatch> {
         let records = match message.payload {
-            super::MessagePayload::Arrow(data) => {
-                self.decode_otap_message(&data).await?
-            }
+            super::MessagePayload::Arrow(data) => self.decode_otap_message(&data).await?,
             super::MessagePayload::Json(data) => {
                 // Fallback to JSON processing if needed
                 warn!("Received JSON message in OTAP handler, falling back to JSON processing");
@@ -583,12 +589,12 @@ impl MessageHandler for OtapMessageHandler {
         messages: Vec<ProtocolMessage>,
     ) -> BridgeResult<Vec<TelemetryBatch>> {
         let mut batches = Vec::new();
-        
+
         for message in messages {
             let batch = self.handle_message(message).await?;
             batches.push(batch);
         }
-        
+
         Ok(batches)
     }
 }

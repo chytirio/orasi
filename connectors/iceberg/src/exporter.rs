@@ -3,25 +3,28 @@
 //!
 
 //! Apache Iceberg exporter implementation
-//! 
+//!
 //! This module provides a real Apache Iceberg exporter that uses the actual
 //! Iceberg writer to export telemetry data to Iceberg tables.
 
+use async_trait::async_trait;
+use bridge_core::error::BridgeResult;
+use bridge_core::traits::{ExporterStats, LakehouseExporter, LakehouseWriter};
+use bridge_core::types::{
+    ExportError, ExportResult, ExportStatus, LogsBatch, MetricsBatch, ProcessedBatch,
+    TelemetryBatch, TelemetryData, TracesBatch,
+};
+use chrono::{DateTime, Utc};
+use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use std::time::Instant;
-use async_trait::async_trait;
 use tracing::{debug, error, info, warn};
-use bridge_core::traits::{LakehouseExporter, ExporterStats, LakehouseWriter};
-use bridge_core::types::{TelemetryBatch, ProcessedBatch, ExportResult, ExportError, ExportStatus, MetricsBatch, TracesBatch, LogsBatch, TelemetryData};
-use std::collections::HashMap;
-use chrono::{DateTime, Utc};
-use bridge_core::error::BridgeResult;
 
+use crate::catalog::IcebergCatalog;
 use crate::config::IcebergConfig;
 use crate::error::IcebergResult;
-use crate::writer::IcebergWriter;
-use crate::catalog::IcebergCatalog;
 use crate::schema::IcebergSchema;
+use crate::writer::IcebergWriter;
 
 /// Real Apache Iceberg exporter implementation
 pub struct RealIcebergExporter {
@@ -51,7 +54,9 @@ impl RealIcebergExporter {
         // Create catalog and schema for the writer
         let catalog = Arc::new(IcebergCatalog::new(config.catalog.clone()).await.unwrap());
         let schema = Arc::new(IcebergSchema::new(config.schema.clone()).await.unwrap());
-        let writer = IcebergWriter::new(config.clone(), catalog, schema).await.unwrap();
+        let writer = IcebergWriter::new(config.clone(), catalog, schema)
+            .await
+            .unwrap();
         Self {
             writer: Arc::new(writer),
             config,
@@ -62,17 +67,23 @@ impl RealIcebergExporter {
 
     /// Initialize the exporter
     pub async fn initialize(&mut self) -> IcebergResult<()> {
-        info!("Initializing Apache Iceberg exporter: {}", self.config.table_name());
-        
+        info!(
+            "Initializing Apache Iceberg exporter: {}",
+            self.config.table_name()
+        );
+
         // The writer is already initialized in the constructor
-        
+
         // Mark exporter as running
         {
             let mut running = self.running.write().unwrap();
             *running = true;
         }
-        
-        info!("Apache Iceberg exporter initialized successfully: {}", self.config.table_name());
+
+        info!(
+            "Apache Iceberg exporter initialized successfully: {}",
+            self.config.table_name()
+        );
         Ok(())
     }
 
@@ -104,7 +115,7 @@ impl RealIcebergExporter {
 
         // Check if writer is healthy - for now just return true since writer doesn't have health_check
         let writer_healthy = true;
-        
+
         Ok(writer_healthy)
     }
 }
@@ -127,12 +138,15 @@ impl LakehouseExporter for RealIcebergExporter {
         // Check if exporter is running
         if !self.is_running() {
             return Err(bridge_core::error::BridgeError::export(
-                "Apache Iceberg exporter is not running"
+                "Apache Iceberg exporter is not running",
             ));
         }
 
         let start_time = Instant::now();
-        info!("Real Apache Iceberg exporter exporting batch with {} records", batch.records.len());
+        info!(
+            "Real Apache Iceberg exporter exporting batch with {} records",
+            batch.records.len()
+        );
 
         let mut total_records = 0u64;
         let mut errors = Vec::new();
@@ -145,13 +159,15 @@ impl LakehouseExporter for RealIcebergExporter {
                         // Create a metrics batch for this single metric
                         let metrics_batch = MetricsBatch {
                             id: record.original_id,
-                            timestamp: record.metadata.get("timestamp")
+                            timestamp: record
+                                .metadata
+                                .get("timestamp")
                                 .and_then(|s| s.parse::<DateTime<Utc>>().ok())
                                 .unwrap_or_else(|| chrono::Utc::now()),
                             metrics: vec![metric_data.clone()],
                             metadata: record.metadata.clone(),
                         };
-                        
+
                         match self.writer.write_metrics(metrics_batch).await {
                             Ok(result) => {
                                 total_records += 1;
@@ -172,13 +188,15 @@ impl LakehouseExporter for RealIcebergExporter {
                         // Create a traces batch for this single trace
                         let traces_batch = TracesBatch {
                             id: record.original_id,
-                            timestamp: record.metadata.get("timestamp")
+                            timestamp: record
+                                .metadata
+                                .get("timestamp")
                                 .and_then(|s| s.parse::<DateTime<Utc>>().ok())
                                 .unwrap_or_else(|| chrono::Utc::now()),
                             traces: vec![trace_data.clone()],
                             metadata: record.metadata.clone(),
                         };
-                        
+
                         match self.writer.write_traces(traces_batch).await {
                             Ok(result) => {
                                 total_records += 1;
@@ -199,13 +217,15 @@ impl LakehouseExporter for RealIcebergExporter {
                         // Create a logs batch for this single log
                         let logs_batch = LogsBatch {
                             id: record.original_id,
-                            timestamp: record.metadata.get("timestamp")
+                            timestamp: record
+                                .metadata
+                                .get("timestamp")
                                 .and_then(|s| s.parse::<DateTime<Utc>>().ok())
                                 .unwrap_or_else(|| chrono::Utc::now()),
                             logs: vec![log_data.clone()],
                             metadata: record.metadata.clone(),
                         };
-                        
+
                         match self.writer.write_logs(logs_batch).await {
                             Ok(result) => {
                                 total_records += 1;
@@ -242,16 +262,24 @@ impl LakehouseExporter for RealIcebergExporter {
         }
 
         if errors.is_empty() {
-            info!("Real Apache Iceberg exporter successfully exported {} records in {:?}",
-                  total_records, export_duration);
+            info!(
+                "Real Apache Iceberg exporter successfully exported {} records in {:?}",
+                total_records, export_duration
+            );
         } else {
-            warn!("Real Apache Iceberg exporter failed to export some records: {} errors",
-                  errors.len());
+            warn!(
+                "Real Apache Iceberg exporter failed to export some records: {} errors",
+                errors.len()
+            );
         }
 
         Ok(ExportResult {
             timestamp: chrono::Utc::now(),
-            status: if errors.is_empty() { ExportStatus::Success } else { ExportStatus::Partial },
+            status: if errors.is_empty() {
+                ExportStatus::Success
+            } else {
+                ExportStatus::Partial
+            },
             records_exported: total_records as usize,
             records_failed: errors.len(),
             duration_ms: export_duration.as_millis() as u64,
@@ -382,23 +410,21 @@ mod tests {
             original_batch_id: uuid::Uuid::new_v4(),
             timestamp: chrono::Utc::now(),
             status: bridge_core::types::ProcessingStatus::Success,
-            records: vec![
-                bridge_core::types::ProcessedRecord {
-                    original_id: uuid::Uuid::new_v4(),
-                    status: bridge_core::types::ProcessingStatus::Success,
-                    transformed_data: Some(TelemetryData::Metric(MetricData {
-                        name: "test_metric".to_string(),
-                        description: None,
-                        unit: None,
-                        metric_type: bridge_core::types::MetricType::Gauge,
-                        value: MetricValue::Gauge(42.0),
-                        labels: HashMap::new(),
-                        timestamp: chrono::Utc::now(),
-                    })),
-                    metadata: HashMap::new(),
-                    errors: vec![],
-                }
-            ],
+            records: vec![bridge_core::types::ProcessedRecord {
+                original_id: uuid::Uuid::new_v4(),
+                status: bridge_core::types::ProcessingStatus::Success,
+                transformed_data: Some(TelemetryData::Metric(MetricData {
+                    name: "test_metric".to_string(),
+                    description: None,
+                    unit: None,
+                    metric_type: bridge_core::types::MetricType::Gauge,
+                    value: MetricValue::Gauge(42.0),
+                    labels: HashMap::new(),
+                    timestamp: chrono::Utc::now(),
+                })),
+                metadata: HashMap::new(),
+                errors: vec![],
+            }],
             metadata: HashMap::new(),
             errors: vec![],
         };

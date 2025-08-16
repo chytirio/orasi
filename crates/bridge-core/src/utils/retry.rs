@@ -7,7 +7,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
-use tracing::{debug, error, info, warn};
+use tracing::debug;
 
 use crate::error::{BridgeError, BridgeResult};
 
@@ -16,22 +16,22 @@ use crate::error::{BridgeError, BridgeResult};
 pub struct RetryConfig {
     /// Maximum number of retry attempts
     pub max_attempts: u32,
-    
+
     /// Initial backoff delay in milliseconds
     pub initial_backoff_ms: u64,
-    
+
     /// Maximum backoff delay in milliseconds
     pub max_backoff_ms: u64,
-    
+
     /// Backoff multiplier
     pub backoff_multiplier: f64,
-    
+
     /// Enable exponential backoff
     pub enable_exponential_backoff: bool,
-    
+
     /// Enable jitter
     pub enable_jitter: bool,
-    
+
     /// Jitter factor (0.0 to 1.0)
     pub jitter_factor: f64,
 }
@@ -61,16 +61,16 @@ pub struct RetryPolicy {
 pub struct RetryStats {
     /// Total retry attempts
     pub total_retries: u64,
-    
+
     /// Successful retries
     pub successful_retries: u64,
-    
+
     /// Failed retries
     pub failed_retries: u64,
-    
+
     /// Average retry attempts per operation
     pub avg_retry_attempts: f64,
-    
+
     /// Last retry timestamp
     pub last_retry_time: Option<chrono::DateTime<chrono::Utc>>,
 }
@@ -137,16 +137,17 @@ impl RetryPolicy {
     /// Calculate delay for retry attempt
     fn calculate_delay(&self, attempt: u32) -> Duration {
         let base_delay = if self.config.enable_exponential_backoff {
-            let delay_ms = self.config.initial_backoff_ms as f64 * 
-                self.config.backoff_multiplier.powi((attempt - 1) as i32);
+            let delay_ms = self.config.initial_backoff_ms as f64
+                * self.config.backoff_multiplier.powi((attempt - 1) as i32);
             delay_ms.min(self.config.max_backoff_ms as f64) as u64
         } else {
             self.config.initial_backoff_ms
         };
 
         let final_delay = if self.config.enable_jitter {
-            let jitter = (base_delay as f64 * self.config.jitter_factor * 
-                (rand::random::<f64>() * 2.0 - 1.0)) as i64;
+            let jitter = (base_delay as f64
+                * self.config.jitter_factor
+                * (rand::random::<f64>() * 2.0 - 1.0)) as i64;
             (base_delay as i64 + jitter).max(1) as u64
         } else {
             base_delay
@@ -159,15 +160,15 @@ impl RetryPolicy {
     async fn update_stats(&self, success: bool) {
         let mut stats = self.stats.write().await;
         stats.total_retries += 1;
-        
+
         if success {
             stats.successful_retries += 1;
         } else {
             stats.failed_retries += 1;
         }
-        
-        stats.avg_retry_attempts = stats.total_retries as f64 / 
-            (stats.successful_retries + stats.failed_retries) as f64;
+
+        stats.avg_retry_attempts =
+            stats.total_retries as f64 / (stats.successful_retries + stats.failed_retries) as f64;
         stats.last_retry_time = Some(chrono::Utc::now());
     }
 
@@ -193,8 +194,10 @@ mod tests {
     async fn test_successful_operation() {
         let config = RetryConfig::default();
         let policy = RetryPolicy::new(config);
-        
-        let result = policy.execute(|| async { Ok::<i32, std::io::Error>(42) }).await;
+
+        let result = policy
+            .execute(|| async { Ok::<i32, std::io::Error>(42) })
+            .await;
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), 42);
     }
@@ -206,21 +209,24 @@ mod tests {
             ..Default::default()
         };
         let policy = RetryPolicy::new(config);
-        
+
         let attempts = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let attempts_clone = attempts.clone();
-        let result = policy.execute(move || {
-            let attempts = attempts_clone.clone();
-            async move {
-                let current_attempt = attempts.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-                if current_attempt < 1 {
-                    Err(std::io::Error::new(std::io::ErrorKind::Other, "test error"))
-                } else {
-                    Ok(42)
+        let result = policy
+            .execute(move || {
+                let attempts = attempts_clone.clone();
+                async move {
+                    let current_attempt =
+                        attempts.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                    if current_attempt < 1 {
+                        Err(std::io::Error::new(std::io::ErrorKind::Other, "test error"))
+                    } else {
+                        Ok(42)
+                    }
                 }
-            }
-        }).await;
-        
+            })
+            .await;
+
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), 42);
     }

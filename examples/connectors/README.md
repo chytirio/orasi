@@ -35,7 +35,6 @@ cargo run --example delta_lake_example
 cargo run --example real_delta_lake_example
 cargo run --example hudi_example
 cargo run --example iceberg_example
-cargo run --example s3_parquet_example
 cargo run --example snowflake_example
 cargo run --example kafka_connector_example
 cargo run --example kafka_example

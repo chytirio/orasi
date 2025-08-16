@@ -3,21 +3,19 @@
 //!
 
 //! Apache Hudi connector implementation
-//! 
+//!
 //! This module provides the main Apache Hudi connector that implements
 //! the LakehouseConnector trait for seamless integration with the bridge.
 
-use std::sync::Arc;
 use async_trait::async_trait;
-use tracing::{debug, error, info, warn};
-use bridge_core::traits::{LakehouseConnector, LakehouseWriter, LakehouseReader};
-use bridge_core::types::{MetricsBatch, TracesBatch, LogsBatch, TelemetryBatch};
 use bridge_core::error::BridgeResult;
+use bridge_core::traits::{LakehouseConnector, LakehouseReader, LakehouseWriter};
+use tracing::{debug, info};
 
 use crate::config::HudiConfig;
-use crate::error::{HudiError, HudiResult};
-use crate::writer::HudiWriter;
+use crate::error::HudiResult;
 use crate::reader::HudiReader;
+use crate::writer::HudiWriter;
 
 /// Apache Hudi connector implementation
 pub struct HudiConnector {
@@ -44,36 +42,45 @@ impl HudiConnector {
 
     /// Initialize the connector
     pub async fn initialize(&mut self) -> HudiResult<()> {
-        info!("Initializing Apache Hudi connector for table: {}", self.config.table_name());
-        
+        info!(
+            "Initializing Apache Hudi connector for table: {}",
+            self.config.table_name()
+        );
+
         // Initialize Hudi table if it doesn't exist
         self.ensure_table_exists().await?;
-        
+
         // Initialize writer and reader
         let writer = HudiWriter::new(self.config.clone()).await?;
         let reader = HudiReader::new(self.config.clone()).await?;
-        
+
         self.writer = Some(writer);
         self.reader = Some(reader);
         self.connected = true;
-        
+
         info!("Apache Hudi connector initialized successfully");
         Ok(())
     }
 
     /// Ensure the Hudi table exists
     async fn ensure_table_exists(&self) -> HudiResult<()> {
-        debug!("Ensuring Apache Hudi table exists: {}", self.config.table_name());
-        
+        debug!(
+            "Ensuring Apache Hudi table exists: {}",
+            self.config.table_name()
+        );
+
         // This would typically involve:
         // 1. Checking if the table exists
         // 2. Creating the table if it doesn't exist
         // 3. Validating the table schema
         // 4. Setting up partitions and optimizations
         // 5. Configuring Hudi-specific settings (table type, key fields, etc.)
-        
+
         // For now, we'll just log the operation
-        info!("Table existence check completed for: {}", self.config.table_name());
+        info!(
+            "Table existence check completed for: {}",
+            self.config.table_name()
+        );
         Ok(())
     }
 
@@ -96,19 +103,25 @@ impl LakehouseConnector for HudiConnector {
 
     async fn connect(config: Self::Config) -> BridgeResult<Self> {
         let mut connector = HudiConnector::new(config);
-        connector.initialize().await
-            .map_err(|e| bridge_core::error::BridgeError::lakehouse_with_source("Failed to initialize Apache Hudi connector", e))?;
+        connector.initialize().await.map_err(|e| {
+            bridge_core::error::BridgeError::lakehouse_with_source(
+                "Failed to initialize Apache Hudi connector",
+                e,
+            )
+        })?;
         Ok(connector)
     }
 
     async fn writer(&self) -> BridgeResult<Self::WriteHandle> {
-        self.writer.as_ref()
+        self.writer
+            .as_ref()
             .cloned()
             .ok_or_else(|| bridge_core::error::BridgeError::lakehouse("Writer not initialized"))
     }
 
     async fn reader(&self) -> BridgeResult<Self::ReadHandle> {
-        self.reader.as_ref()
+        self.reader
+            .as_ref()
             .cloned()
             .ok_or_else(|| bridge_core::error::BridgeError::lakehouse("Reader not initialized"))
     }
@@ -135,15 +148,18 @@ impl LakehouseConnector for HudiConnector {
 
     async fn get_stats(&self) -> BridgeResult<bridge_core::traits::ConnectorStats> {
         let writer_stats = if let Some(writer) = &self.writer {
-            writer.get_stats().await.unwrap_or_else(|_| bridge_core::traits::WriterStats {
-                total_writes: 0,
-                total_records: 0,
-                writes_per_minute: 0,
-                records_per_minute: 0,
-                avg_write_time_ms: 0.0,
-                error_count: 0,
-                last_write_time: None,
-            })
+            writer
+                .get_stats()
+                .await
+                .unwrap_or_else(|_| bridge_core::traits::WriterStats {
+                    total_writes: 0,
+                    total_records: 0,
+                    writes_per_minute: 0,
+                    records_per_minute: 0,
+                    avg_write_time_ms: 0.0,
+                    error_count: 0,
+                    last_write_time: None,
+                })
         } else {
             bridge_core::traits::WriterStats {
                 total_writes: 0,
@@ -157,15 +173,18 @@ impl LakehouseConnector for HudiConnector {
         };
 
         let reader_stats = if let Some(reader) = &self.reader {
-            reader.get_stats().await.unwrap_or_else(|_| bridge_core::traits::ReaderStats {
-                total_reads: 0,
-                total_records: 0,
-                reads_per_minute: 0,
-                records_per_minute: 0,
-                avg_read_time_ms: 0.0,
-                error_count: 0,
-                last_read_time: None,
-            })
+            reader
+                .get_stats()
+                .await
+                .unwrap_or_else(|_| bridge_core::traits::ReaderStats {
+                    total_reads: 0,
+                    total_records: 0,
+                    reads_per_minute: 0,
+                    records_per_minute: 0,
+                    avg_read_time_ms: 0.0,
+                    error_count: 0,
+                    last_read_time: None,
+                })
         } else {
             bridge_core::traits::ReaderStats {
                 total_reads: 0,
@@ -192,16 +211,16 @@ impl LakehouseConnector for HudiConnector {
 
     async fn shutdown(&self) -> BridgeResult<()> {
         info!("Shutting down Apache Hudi connector");
-        
+
         // Shutdown writer and reader
         if let Some(writer) = &self.writer {
             let _ = writer.close().await;
         }
-        
+
         if let Some(reader) = &self.reader {
             let _ = reader.close().await;
         }
-        
+
         info!("Apache Hudi connector shutdown completed");
         Ok(())
     }

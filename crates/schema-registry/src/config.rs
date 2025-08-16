@@ -90,25 +90,25 @@ impl Default for StorageConfig {
 pub struct PostgresConfig {
     /// Database URL
     pub url: String,
-    
+
     /// Database name
     pub database: String,
-    
+
     /// Username
     pub username: String,
-    
+
     /// Password
     pub password: String,
-    
+
     /// Host
     pub host: String,
-    
+
     /// Port
     pub port: u16,
-    
+
     /// SSL mode
     pub ssl_mode: String,
-    
+
     /// Connection pool size
     pub pool_size: u32,
 }
@@ -133,13 +133,13 @@ impl Default for PostgresConfig {
 pub struct SqliteConfig {
     /// Database path
     pub database_path: std::path::PathBuf,
-    
+
     /// Enable WAL mode
     pub enable_wal: bool,
-    
+
     /// Connection timeout
     pub connection_timeout: u64,
-    
+
     /// Journal mode
     pub journal_mode: String,
 }
@@ -160,31 +160,31 @@ impl Default for SqliteConfig {
 pub struct RedisConfig {
     /// Redis URL
     pub url: String,
-    
+
     /// Redis host
     pub host: String,
-    
+
     /// Redis port
     pub port: u16,
-    
+
     /// Redis password
     pub password: Option<String>,
-    
+
     /// Redis database number
     pub database: u8,
-    
+
     /// Connection pool size
     pub pool_size: u32,
-    
+
     /// Connection timeout in seconds
     pub connection_timeout: u64,
-    
+
     /// Read timeout in seconds
     pub read_timeout: u64,
-    
+
     /// Write timeout in seconds
     pub write_timeout: u64,
-    
+
     /// Key prefix for schema storage
     pub key_prefix: String,
 }

@@ -4,10 +4,7 @@
 
 //! OpenAPI documentation for Bridge API
 
-use axum::{
-    routing::get,
-    Router,
-};
+use axum::{routing::get, Router};
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 

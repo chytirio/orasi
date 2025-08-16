@@ -3,23 +3,26 @@
 //!
 
 //! Comprehensive test suite for streaming processor
-//! 
+//!
 //! This module provides a complete test suite covering all aspects of the
 //! streaming processor including processors, sources, sinks, and integration tests.
 
-pub mod processors;
-pub mod sources;
 pub mod arrow_utils;
 pub mod integration;
+pub mod processors;
+pub mod sources;
 
 /// Test utilities and helpers
 pub mod utils {
     use bridge_core::{
         traits::DataStream,
-        types::{TelemetryBatch, TelemetryRecord, TelemetryData, TelemetryType, MetricData, MetricValue, MetricType},
+        types::{
+            MetricData, MetricType, MetricValue, TelemetryBatch, TelemetryData, TelemetryRecord,
+            TelemetryType,
+        },
     };
-    use std::collections::HashMap;
     use chrono::Utc;
+    use std::collections::HashMap;
     use uuid::Uuid;
 
     /// Create a test data stream with the given ID and data
@@ -34,8 +37,8 @@ pub mod utils {
 
     /// Create a test telemetry batch with the given source and number of records
     pub fn create_test_telemetry_batch(source: &str, size: usize) -> TelemetryBatch {
-        let records = (0..size).map(|i| {
-            TelemetryRecord {
+        let records = (0..size)
+            .map(|i| TelemetryRecord {
                 id: Uuid::new_v4(),
                 timestamp: Utc::now(),
                 record_type: TelemetryType::Metric,
@@ -52,8 +55,8 @@ pub mod utils {
                 tags: HashMap::new(),
                 resource: None,
                 service: None,
-            }
-        }).collect();
+            })
+            .collect();
 
         TelemetryBatch {
             id: Uuid::new_v4(),
@@ -156,16 +159,16 @@ pub mod config {
 pub mod categories {
     /// Unit tests for individual components
     pub const UNIT_TESTS: &str = "unit";
-    
+
     /// Integration tests for component interactions
     pub const INTEGRATION_TESTS: &str = "integration";
-    
+
     /// Performance tests
     pub const PERFORMANCE_TESTS: &str = "performance";
-    
+
     /// Stress tests for high load scenarios
     pub const STRESS_TESTS: &str = "stress";
-    
+
     /// Error handling tests
     pub const ERROR_TESTS: &str = "error";
 }
@@ -230,13 +233,16 @@ pub mod reporting {
             println!("Skipped: {}", self.skipped_tests);
             println!("Success rate: {:.2}%", self.success_rate());
             println!("Total duration: {:?}", self.total_duration);
-            println!("Average duration: {:?}", self.total_duration / self.total_tests.max(1) as u32);
-            
+            println!(
+                "Average duration: {:?}",
+                self.total_duration / self.total_tests.max(1) as u32
+            );
+
             if !self.test_durations.is_empty() {
                 println!("\n=== Test Durations ===");
                 let mut sorted_tests: Vec<_> = self.test_durations.iter().collect();
                 sorted_tests.sort_by(|a, b| b.1.cmp(a.1)); // Sort by duration (longest first)
-                
+
                 for (test_name, duration) in sorted_tests.iter().take(10) {
                     println!("{}: {:?}", test_name, duration);
                 }
@@ -247,8 +253,8 @@ pub mod reporting {
 
 /// Test utilities for benchmarking
 pub mod benchmark {
-    use std::time::{Duration, Instant};
     use std::collections::HashMap;
+    use std::time::{Duration, Instant};
 
     /// Benchmark result
     #[derive(Debug, Clone)]
@@ -294,7 +300,11 @@ pub mod benchmark {
     }
 
     /// Run an async benchmark
-    pub async fn run_async_benchmark<F, Fut>(name: &str, iterations: usize, mut f: F) -> BenchmarkResult
+    pub async fn run_async_benchmark<F, Fut>(
+        name: &str,
+        iterations: usize,
+        mut f: F,
+    ) -> BenchmarkResult
     where
         F: FnMut() -> Fut,
         Fut: std::future::Future<Output = ()>,
@@ -343,9 +353,9 @@ pub mod benchmark {
 
 /// Test utilities for stress testing
 pub mod stress {
+    use crate::utils::create_test_data_stream;
     use std::sync::Arc;
     use tokio::task;
-    use crate::utils::create_test_data_stream;
 
     /// Stress test configuration
     #[derive(Debug, Clone)]
@@ -374,7 +384,8 @@ pub mod stress {
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
     where
         F: Fn(usize, Vec<u8>) -> Fut + Send + Sync + Clone + 'static,
-        Fut: std::future::Future<Output = Result<(), Box<dyn std::error::Error + Send + Sync>>> + Send,
+        Fut: std::future::Future<Output = Result<(), Box<dyn std::error::Error + Send + Sync>>>
+            + Send,
     {
         let mut handles = Vec::new();
 
@@ -405,12 +416,10 @@ pub mod stress {
 
 /// Test utilities for property-based testing
 pub mod property {
-    use quickcheck::{Arbitrary, Gen};
     use bridge_core::traits::DataStream;
-    use std::collections::HashMap;
     use chrono::Utc;
-
-
+    use quickcheck::{Arbitrary, Gen};
+    use std::collections::HashMap;
 
     /// Property test for data stream roundtrip
     pub fn test_data_stream_roundtrip(stream: DataStream) -> bool {
@@ -429,12 +438,12 @@ pub mod property {
 
 /// Test utilities for mocking and stubbing
 pub mod mock {
-    use std::sync::Arc;
-    use tokio::sync::RwLock;
     use bridge_core::{
-        traits::{StreamProcessor as BridgeStreamProcessor, DataStream, StreamProcessorStats},
+        traits::{DataStream, StreamProcessor as BridgeStreamProcessor, StreamProcessorStats},
         BridgeResult,
     };
+    use std::sync::Arc;
+    use tokio::sync::RwLock;
 
     /// Mock stream processor for testing
     pub struct MockStreamProcessor {
@@ -465,7 +474,9 @@ pub mod mock {
     impl BridgeStreamProcessor for MockStreamProcessor {
         async fn process_stream(&self, input: DataStream) -> BridgeResult<DataStream> {
             if self.should_fail {
-                return Err(bridge_core::BridgeError::processing("Mock processor failure"));
+                return Err(bridge_core::BridgeError::processing(
+                    "Mock processor failure",
+                ));
             }
 
             // Update stats
@@ -476,8 +487,12 @@ pub mod mock {
 
             // Return the input with some metadata added
             let mut output = input;
-            output.metadata.insert("processed_by".to_string(), self.name.clone());
-            output.metadata.insert("processed_at".to_string(), chrono::Utc::now().to_rfc3339());
+            output
+                .metadata
+                .insert("processed_by".to_string(), self.name.clone());
+            output
+                .metadata
+                .insert("processed_at".to_string(), chrono::Utc::now().to_rfc3339());
 
             Ok(output)
         }

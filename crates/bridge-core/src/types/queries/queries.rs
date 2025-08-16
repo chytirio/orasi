@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
 
-use super::{filters::Filter, aggregations::Aggregation, time_range::TimeRange};
+use super::{aggregations::Aggregation, filters::Filter, time_range::TimeRange};
 
 /// Query structures for lakehouse operations
 #[derive(Debug, Clone, Serialize, Deserialize)]

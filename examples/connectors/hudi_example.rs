@@ -3,21 +3,21 @@
 //!
 
 //! Apache Hudi connector example
-//! 
+//!
 //! This example demonstrates how to use the Apache Hudi connector
 //! to export telemetry data to Hudi tables.
 
-use std::sync::Arc;
-use std::time::Duration;
-use tokio::time::sleep;
-use tracing::{info, warn, error};
-use bridge_core::pipeline::TelemetryIngestionPipeline;
-use bridge_core::traits::{TelemetryReceiver, LakehouseExporter};
-use bridge_core::types::{TelemetryBatch, MetricsBatch, MetricRecord};
 use bridge_core::error::BridgeResult;
-
-use hudi::HudiExporter;
-use hudi::config::HudiConfig;
+use bridge_core::pipeline::{PipelineConfig, TelemetryIngestionPipeline};
+use bridge_core::traits::{LakehouseExporter, TelemetryReceiver};
+use bridge_core::types::{
+    MetricData, MetricType, MetricValue, TelemetryBatch, TelemetryData, TelemetryRecord,
+    TelemetryType,
+};
+use chrono::Utc;
+use std::collections::HashMap;
+use tracing::{error, info};
+use uuid::Uuid;
 
 /// Mock telemetry receiver for testing
 struct MockTelemetryReceiver {
@@ -36,148 +36,242 @@ impl MockTelemetryReceiver {
 
 #[async_trait::async_trait]
 impl TelemetryReceiver for MockTelemetryReceiver {
-    async fn receive(&mut self) -> BridgeResult<Option<TelemetryBatch>> {
+    async fn receive(&self) -> BridgeResult<TelemetryBatch> {
         if self.batch_count >= self.max_batches {
-            return Ok(None);
+            return Err(bridge_core::BridgeError::ingestion(
+                "No more batches to receive",
+            ));
         }
 
-        self.batch_count += 1;
-        info!("Mock receiver generating batch {}", self.batch_count);
+        let batch_count = self.batch_count + 1;
+        info!("Mock receiver generating batch {}", batch_count);
 
         // Create sample metrics
-        let metrics = MetricsBatch {
-            records: vec![
-                MetricRecord {
-                    name: format!("cpu_usage_batch_{}", self.batch_count),
-                    value: 75.0 + (self.batch_count as f64 * 0.5),
-                    timestamp: chrono::Utc::now(),
-                    labels: vec![
-                        ("service".to_string(), "web-server".to_string()),
-                        ("instance".to_string(), "web-1".to_string()),
-                        ("batch".to_string(), self.batch_count.to_string()),
-                    ],
-                },
-                MetricRecord {
-                    name: format!("memory_usage_batch_{}", self.batch_count),
-                    value: 60.0 + (self.batch_count as f64 * 0.3),
-                    timestamp: chrono::Utc::now(),
-                    labels: vec![
-                        ("service".to_string(), "web-server".to_string()),
-                        ("instance".to_string(), "web-1".to_string()),
-                        ("batch".to_string(), self.batch_count.to_string()),
-                    ],
-                },
-                MetricRecord {
-                    name: format!("request_count_batch_{}", self.batch_count),
-                    value: 1000.0 + (self.batch_count as f64 * 100.0),
-                    timestamp: chrono::Utc::now(),
-                    labels: vec![
-                        ("service".to_string(), "web-server".to_string()),
-                        ("instance".to_string(), "web-1".to_string()),
-                        ("batch".to_string(), self.batch_count.to_string()),
-                    ],
-                },
-                MetricRecord {
-                    name: format!("error_rate_batch_{}", self.batch_count),
-                    value: 2.5 + (self.batch_count as f64 * 0.1),
-                    timestamp: chrono::Utc::now(),
-                    labels: vec![
-                        ("service".to_string(), "web-server".to_string()),
-                        ("instance".to_string(), "web-1".to_string()),
-                        ("batch".to_string(), self.batch_count.to_string()),
-                    ],
-                },
-            ],
-        };
+        let metrics = vec![
+            MetricData {
+                name: format!("cpu_usage_batch_{}", batch_count),
+                description: Some("CPU usage percentage".to_string()),
+                unit: Some("%".to_string()),
+                metric_type: MetricType::Gauge,
+                value: MetricValue::Gauge(75.0 + (batch_count as f64 * 0.5)),
+                labels: HashMap::from([
+                    ("service".to_string(), "web-server".to_string()),
+                    ("instance".to_string(), "web-1".to_string()),
+                    ("batch".to_string(), batch_count.to_string()),
+                ]),
+                timestamp: Utc::now(),
+            },
+            MetricData {
+                name: format!("memory_usage_batch_{}", batch_count),
+                description: Some("Memory usage percentage".to_string()),
+                unit: Some("%".to_string()),
+                metric_type: MetricType::Gauge,
+                value: MetricValue::Gauge(60.0 + (batch_count as f64 * 0.3)),
+                labels: HashMap::from([
+                    ("service".to_string(), "web-server".to_string()),
+                    ("instance".to_string(), "web-1".to_string()),
+                    ("batch".to_string(), batch_count.to_string()),
+                ]),
+                timestamp: Utc::now(),
+            },
+            MetricData {
+                name: format!("request_count_batch_{}", batch_count),
+                description: Some("Request count".to_string()),
+                unit: Some("requests".to_string()),
+                metric_type: MetricType::Counter,
+                value: MetricValue::Counter(1000.0 + (batch_count as f64 * 100.0)),
+                labels: HashMap::from([
+                    ("service".to_string(), "web-server".to_string()),
+                    ("instance".to_string(), "web-1".to_string()),
+                    ("batch".to_string(), batch_count.to_string()),
+                ]),
+                timestamp: Utc::now(),
+            },
+            MetricData {
+                name: format!("error_rate_batch_{}", batch_count),
+                description: Some("Error rate percentage".to_string()),
+                unit: Some("%".to_string()),
+                metric_type: MetricType::Gauge,
+                value: MetricValue::Gauge(2.5 + (batch_count as f64 * 0.1)),
+                labels: HashMap::from([
+                    ("service".to_string(), "web-server".to_string()),
+                    ("instance".to_string(), "web-1".to_string()),
+                    ("batch".to_string(), batch_count.to_string()),
+                ]),
+                timestamp: Utc::now(),
+            },
+        ];
+
+        let records: Vec<TelemetryRecord> = metrics
+            .into_iter()
+            .map(|metric_data| TelemetryRecord {
+                id: Uuid::new_v4(),
+                timestamp: Utc::now(),
+                record_type: TelemetryType::Metric,
+                data: TelemetryData::Metric(metric_data),
+                attributes: HashMap::new(),
+                tags: HashMap::new(),
+                resource: None,
+                service: None,
+            })
+            .collect();
 
         let batch = TelemetryBatch {
-            metrics: Some(metrics),
-            traces: None,
-            logs: None,
+            id: Uuid::new_v4(),
+            timestamp: Utc::now(),
+            source: "mock-receiver".to_string(),
+            size: records.len(),
+            records,
+            metadata: HashMap::from([
+                ("batch_number".to_string(), batch_count.to_string()),
+                ("source".to_string(), "mock-receiver".to_string()),
+            ]),
         };
 
-        Ok(Some(batch))
+        Ok(batch)
+    }
+
+    async fn health_check(&self) -> BridgeResult<bool> {
+        Ok(true)
+    }
+
+    async fn get_stats(&self) -> BridgeResult<bridge_core::traits::ReceiverStats> {
+        Ok(bridge_core::traits::ReceiverStats {
+            total_records: self.batch_count as u64 * 4, // 4 metrics per batch
+            records_per_minute: 0,
+            total_bytes: 0,
+            bytes_per_minute: 0,
+            error_count: 0,
+            last_receive_time: None,
+            protocol_stats: None,
+        })
+    }
+
+    async fn shutdown(&self) -> BridgeResult<()> {
+        info!("Mock telemetry receiver shutting down");
+        Ok(())
+    }
+}
+
+/// Mock Hudi exporter for testing
+struct MockHudiExporter {
+    export_count: std::sync::Arc<tokio::sync::RwLock<usize>>,
+}
+
+impl MockHudiExporter {
+    fn new() -> Self {
+        Self {
+            export_count: std::sync::Arc::new(tokio::sync::RwLock::new(0)),
+        }
+    }
+}
+
+#[async_trait::async_trait]
+impl LakehouseExporter for MockHudiExporter {
+    async fn export(
+        &self,
+        batch: bridge_core::types::ProcessedBatch,
+    ) -> BridgeResult<bridge_core::types::ExportResult> {
+        let mut count = self.export_count.write().await;
+        *count += 1;
+
+        info!(
+            "Mock Hudi exporter processing batch {} with {} records",
+            batch.original_batch_id,
+            batch.records.len()
+        );
+
+        // Simulate export processing time
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+
+        Ok(bridge_core::types::ExportResult {
+            timestamp: Utc::now(),
+            status: bridge_core::types::ExportStatus::Success,
+            records_exported: batch.records.len(),
+            records_failed: 0,
+            duration_ms: 100,
+            metadata: HashMap::from([
+                ("exporter".to_string(), "mock-hudi".to_string()),
+                ("batch_count".to_string(), count.to_string()),
+            ]),
+            errors: vec![],
+        })
     }
 
     fn name(&self) -> &str {
-        "mock-telemetry-receiver"
+        "mock-hudi-exporter"
     }
 
     fn version(&self) -> &str {
         "1.0.0"
+    }
+
+    async fn health_check(&self) -> BridgeResult<bool> {
+        Ok(true)
+    }
+
+    async fn get_stats(&self) -> BridgeResult<bridge_core::traits::ExporterStats> {
+        let count = *self.export_count.read().await;
+        Ok(bridge_core::traits::ExporterStats {
+            total_batches: count as u64,
+            total_records: count as u64 * 4, // Assuming 4 records per batch
+            batches_per_minute: 0,
+            records_per_minute: 0,
+            avg_export_time_ms: 100.0,
+            error_count: 0,
+            last_export_time: None,
+        })
+    }
+
+    async fn shutdown(&self) -> BridgeResult<()> {
+        info!("Mock Hudi exporter shutting down");
+        Ok(())
     }
 }
 
 #[tokio::main]
 async fn main() -> BridgeResult<()> {
     // Initialize tracing
-    tracing_subscriber::fmt()
-        .with_env_filter("info")
-        .init();
+    tracing_subscriber::fmt::init();
 
-    info!("Starting Apache Hudi connector example");
+    info!("Starting Hudi connector example");
 
-    // Create Hudi configuration
-    let hudi_config = HudiConfig {
-        table_name: "telemetry_metrics".to_string(),
-        base_path: "s3://hudi-tables".to_string(),
-        table_type: "COPY_ON_WRITE".to_string(),
-        compression_codec: "snappy".to_string(),
-        batch_size: 1000,
+    // Create pipeline configuration
+    let pipeline_config = PipelineConfig {
+        name: "hudi-example-pipeline".to_string(),
+        max_batch_size: 1000,
         flush_interval_ms: 5000,
-        partition_columns: vec!["year".to_string(), "month".to_string(), "day".to_string(), "hour".to_string()],
-        key_generator: "SIMPLE".to_string(),
-        record_key_field: "uuid".to_string(),
-        partition_path_field: "timestamp".to_string(),
-        precombine_field: "timestamp".to_string(),
-        ..Default::default()
+        buffer_size: 10000,
+        enable_backpressure: true,
+        backpressure_threshold: 80,
+        enable_metrics: true,
+        enable_health_checks: true,
+        health_check_interval_ms: 30000,
     };
 
-    info!("Hudi configuration: table={}, base_path={}, table_type={}",
-          hudi_config.table_name, hudi_config.base_path, hudi_config.table_type);
-
-    // Create Hudi exporter
-    let mut hudi_exporter = HudiExporter::new(hudi_config);
-    
-    // Initialize the exporter
-    match hudi_exporter.initialize().await {
-        Ok(()) => info!("Hudi exporter initialized successfully"),
-        Err(e) => {
-            error!("Failed to initialize Hudi exporter: {}", e);
-            return Err(bridge_core::error::BridgeError::exporter(format!("Failed to initialize Hudi exporter: {}", e)));
-        }
-    }
-
-    // Create mock receiver
-    let mut receiver = MockTelemetryReceiver::new(5);
-
     // Create pipeline
-    let mut pipeline = TelemetryIngestionPipeline::new(
-        Box::new(receiver),
-        Box::new(hudi_exporter),
-    );
+    let mut pipeline = TelemetryIngestionPipeline::new(pipeline_config);
 
-    info!("Starting telemetry ingestion pipeline with Hudi exporter");
+    // Create and add receiver
+    let receiver = std::sync::Arc::new(MockTelemetryReceiver::new(5));
+    pipeline.add_receiver(receiver);
 
-    // Run the pipeline
-    let pipeline_result = pipeline.run().await;
+    // Create and add exporter
+    let exporter = std::sync::Arc::new(MockHudiExporter::new());
+    pipeline.add_exporter(exporter);
 
-    match pipeline_result {
-        Ok(stats) => {
-            info!("Pipeline completed successfully");
-            info!("Pipeline statistics:");
-            info!("  Total batches processed: {}", stats.total_batches);
-            info!("  Total records processed: {}", stats.total_records);
-            info!("  Total processing time: {:?}", stats.total_processing_time);
-            info!("  Average batch processing time: {:?}", stats.average_batch_processing_time);
-        }
-        Err(e) => {
-            error!("Pipeline failed: {}", e);
-            return Err(e);
-        }
-    }
+    // Start the pipeline
+    pipeline.start().await?;
+    info!("Pipeline started successfully");
 
-    info!("Apache Hudi connector example completed successfully");
+    // Let the pipeline run for a bit
+    tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+
+    // Stop the pipeline
+    pipeline.stop().await?;
+    info!("Pipeline stopped successfully");
+
+    info!("Hudi connector example completed successfully");
     Ok(())
 }
 
@@ -200,13 +294,13 @@ mod tests {
         assert_eq!(config.table_type, "COPY_ON_WRITE");
 
         // Test mock receiver
-        let mut receiver = MockTelemetryReceiver::new(2);
+        let receiver = MockTelemetryReceiver::new(2);
         let batch1 = receiver.receive().await.unwrap();
         assert!(batch1.is_some());
-        
+
         let batch2 = receiver.receive().await.unwrap();
         assert!(batch2.is_some());
-        
+
         let batch3 = receiver.receive().await.unwrap();
         assert!(batch3.is_none()); // Should return None after max_batches
     }

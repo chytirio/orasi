@@ -7,7 +7,7 @@
 //! This module provides health checking functionality for the telemetry
 //! ingestion pipeline.
 
-use crate::error::{BridgeError, BridgeResult};
+use crate::error::BridgeResult;
 use crate::traits::{LakehouseExporter, TelemetryProcessor, TelemetryReceiver};
 use std::sync::Arc;
 use tracing::{error, info};

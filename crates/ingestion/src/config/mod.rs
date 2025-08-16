@@ -11,41 +11,18 @@
 pub mod manager;
 
 pub use manager::{
-    ConfigurationManager,
-    ConfigurationBuilder,
-    IngestionConfig,
-    SystemConfig,
-    PerformanceConfig,
-    MonitoringConfig,
-    SecurityConfig,
-    ConnectionPoolConfig,
-    BatchProcessorConfig,
-    MemoryLimits,
-    CpuLimits,
-    HealthCheckConfig,
-    AlertingConfig,
-    AlertRuleConfig,
-    NotificationChannel,
-    AuthenticationConfig,
-    AuthorizationConfig,
-    OAuthConfig,
-    RbacConfig,
-    Role,
-    TlsConfig,
-    EncryptionConfig,
-    ReceiverConfig,
-    ProcessorConfig,
-    ExporterConfig,
-    EnvironmentOverride,
-    ValidationRule,
-    ValidationResult,
+    AlertRuleConfig, AlertingConfig, AuthenticationConfig, AuthorizationConfig,
+    BatchProcessorConfig, ConfigurationBuilder, ConfigurationManager, ConnectionPoolConfig,
+    CpuLimits, EncryptionConfig, EnvironmentOverride, ExporterConfig, HealthCheckConfig,
+    IngestionConfig, MemoryLimits, MonitoringConfig, NotificationChannel, OAuthConfig,
+    PerformanceConfig, ProcessorConfig, RbacConfig, ReceiverConfig, Role, SecurityConfig,
+    SystemConfig, TlsConfig, ValidationResult, ValidationRule,
 };
 
 /// Configuration utilities
 pub mod utils {
     use super::*;
     use std::path::PathBuf;
-    use serde_json;
 
     /// Load configuration from multiple sources
     pub async fn load_configuration(
@@ -127,16 +104,19 @@ pub mod utils {
         // Metrics port validation removed - not supported in current MetricsConfig
 
         // Validate security configuration
-        if config.security.authentication.enabled && config.security.authentication.jwt_secret.is_none() {
+        if config.security.authentication.enabled
+            && config.security.authentication.jwt_secret.is_none()
+        {
             errors.push("JWT secret is required when authentication is enabled".to_string());
         }
 
         if errors.is_empty() {
             Ok(())
         } else {
-            Err(bridge_core::BridgeError::configuration(
-                format!("Configuration validation failed: {}", errors.join(", "))
-            ))
+            Err(bridge_core::BridgeError::configuration(format!(
+                "Configuration validation failed: {}",
+                errors.join(", ")
+            )))
         }
     }
 
@@ -301,13 +281,11 @@ pub mod utils {
                             enabled: true,
                         },
                     ],
-                    notification_channels: vec![
-                        NotificationChannel {
-                            name: "slack".to_string(),
-                            channel_type: "slack".to_string(),
-                            config: std::collections::HashMap::new(),
-                        },
-                    ],
+                    notification_channels: vec![NotificationChannel {
+                        name: "slack".to_string(),
+                        channel_type: "slack".to_string(),
+                        config: std::collections::HashMap::new(),
+                    }],
                 },
             })
             .security(SecurityConfig {

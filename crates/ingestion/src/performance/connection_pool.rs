@@ -12,14 +12,10 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{Mutex, Semaphore};
 use tokio::time::timeout;
-use tracing::{debug, error, info, warn};
-use std::net::SocketAddr;
+use tracing::{error, info};
 // HttpConnector removed - not needed with reqwest
 use reqwest::Client;
-use hyper_tls::HttpsConnector;
 use tonic::transport::{Channel, Endpoint};
-use std::future::Future;
-use std::pin::Pin;
 
 /// Connection pool configuration
 #[derive(Debug, Clone)]
@@ -126,10 +122,14 @@ impl HttpConnectionPool {
 
     /// Get HTTP client for endpoint
     pub async fn get_client(&self, endpoint: &str) -> Result<PooledHttpClient, PoolError> {
-        let _permit = self.semaphore.acquire().await.map_err(|_| PoolError::PoolExhausted)?;
-        
+        let _permit = self
+            .semaphore
+            .acquire()
+            .await
+            .map_err(|_| PoolError::PoolExhausted)?;
+
         let mut clients = self.clients.lock().await;
-        
+
         // Check if we have an existing healthy client
         if let Some(client) = clients.get_mut(endpoint) {
             if client.is_healthy && client.last_used.elapsed() < self.config.idle_timeout {
@@ -148,7 +148,7 @@ impl HttpConnectionPool {
         };
 
         clients.insert(endpoint.to_string(), pooled_client.clone());
-        
+
         // Update stats
         let mut stats = self.stats.lock().await;
         stats.total_connections += 1;
@@ -160,7 +160,7 @@ impl HttpConnectionPool {
     /// Create new HTTP client
     async fn create_http_client(&self, endpoint: &str) -> Result<Client, PoolError> {
         let start_time = Instant::now();
-        
+
         let client = Client::builder()
             .pool_idle_timeout(self.config.keep_alive_timeout)
             .pool_max_idle_per_host(self.config.max_idle_connections)
@@ -168,24 +168,28 @@ impl HttpConnectionPool {
             .map_err(|e| PoolError::ConnectionFailed(e.to_string()))?;
 
         // Test connection
-        let test_uri = format!("{}/health", endpoint).parse::<reqwest::Url>()
+        let test_uri = format!("{}/health", endpoint)
+            .parse::<reqwest::Url>()
             .map_err(|_| PoolError::InvalidEndpoint(endpoint.to_string()))?;
-        
-        let response = timeout(
-            self.config.connection_timeout, 
-            client.get(test_uri).send()
-        ).await
+
+        let response = timeout(self.config.connection_timeout, client.get(test_uri).send())
+            .await
             .map_err(|_| PoolError::ConnectionTimeout)?
             .map_err(|e| PoolError::ConnectionFailed(e.to_string()))?;
 
         if !response.status().is_success() {
-            return Err(PoolError::ConnectionFailed(format!("HTTP {}", response.status())));
+            return Err(PoolError::ConnectionFailed(format!(
+                "HTTP {}",
+                response.status()
+            )));
         }
 
         // Update stats
         let connection_time = start_time.elapsed();
         let mut stats = self.stats.lock().await;
-        stats.avg_connection_time_ms = (stats.avg_connection_time_ms * stats.total_connections as f64 + connection_time.as_millis() as f64) 
+        stats.avg_connection_time_ms = (stats.avg_connection_time_ms
+            * stats.total_connections as f64
+            + connection_time.as_millis() as f64)
             / (stats.total_connections + 1) as f64;
 
         Ok(client)
@@ -224,7 +228,7 @@ impl HttpConnectionPool {
         if let Some(client) = clients.get_mut(endpoint) {
             client.is_healthy = false;
             client.error_count += 1;
-            
+
             let mut stats = self.stats.lock().await;
             stats.connection_errors += 1;
         }
@@ -247,10 +251,14 @@ impl GrpcConnectionPool {
 
     /// Get gRPC channel for endpoint
     pub async fn get_channel(&self, endpoint: &str) -> Result<PooledGrpcChannel, PoolError> {
-        let _permit = self.semaphore.acquire().await.map_err(|_| PoolError::PoolExhausted)?;
-        
+        let _permit = self
+            .semaphore
+            .acquire()
+            .await
+            .map_err(|_| PoolError::PoolExhausted)?;
+
         let mut channels = self.channels.lock().await;
-        
+
         // Check if we have an existing healthy channel
         if let Some(channel) = channels.get_mut(endpoint) {
             if channel.is_healthy && channel.last_used.elapsed() < self.config.idle_timeout {
@@ -269,7 +277,7 @@ impl GrpcConnectionPool {
         };
 
         channels.insert(endpoint.to_string(), pooled_channel.clone());
-        
+
         // Update stats
         let mut stats = self.stats.lock().await;
         stats.total_connections += 1;
@@ -281,7 +289,7 @@ impl GrpcConnectionPool {
     /// Create new gRPC channel
     async fn create_grpc_channel(&self, endpoint: &str) -> Result<Channel, PoolError> {
         let start_time = Instant::now();
-        
+
         let channel = Endpoint::from_shared(endpoint.to_string())
             .map_err(|e| PoolError::InvalidEndpoint(e.to_string()))?
             .timeout(self.config.connection_timeout)
@@ -295,7 +303,9 @@ impl GrpcConnectionPool {
         // Update stats
         let connection_time = start_time.elapsed();
         let mut stats = self.stats.lock().await;
-        stats.avg_connection_time_ms = (stats.avg_connection_time_ms * stats.total_connections as f64 + connection_time.as_millis() as f64) 
+        stats.avg_connection_time_ms = (stats.avg_connection_time_ms
+            * stats.total_connections as f64
+            + connection_time.as_millis() as f64)
             / (stats.total_connections + 1) as f64;
 
         Ok(channel)
@@ -334,7 +344,7 @@ impl GrpcConnectionPool {
         if let Some(channel) = channels.get_mut(endpoint) {
             channel.is_healthy = false;
             channel.error_count += 1;
-            
+
             let mut stats = self.stats.lock().await;
             stats.connection_errors += 1;
         }
@@ -389,10 +399,10 @@ impl ConnectionPoolManager {
             let mut interval_timer = tokio::time::interval(interval);
             loop {
                 interval_timer.tick().await;
-                
+
                 // Cleanup HTTP connections
                 http_pool.cleanup_idle_connections().await;
-                
+
                 // Cleanup gRPC connections
                 grpc_pool.cleanup_idle_connections().await;
             }
@@ -473,7 +483,7 @@ mod tests {
     async fn test_http_connection_pool_creation() {
         let config = ConnectionPoolConfig::default();
         let pool = HttpConnectionPool::new(config);
-        
+
         let stats = pool.get_stats().await;
         assert_eq!(stats.total_connections, 0);
         assert_eq!(stats.active_connections, 0);
@@ -483,7 +493,7 @@ mod tests {
     async fn test_grpc_connection_pool_creation() {
         let config = ConnectionPoolConfig::default();
         let pool = GrpcConnectionPool::new(config);
-        
+
         let stats = pool.get_stats().await;
         assert_eq!(stats.total_connections, 0);
         assert_eq!(stats.active_connections, 0);
@@ -493,7 +503,7 @@ mod tests {
     async fn test_connection_pool_manager() {
         let config = ConnectionPoolConfig::default();
         let manager = ConnectionPoolManager::new(config);
-        
+
         let stats = manager.get_stats().await;
         assert_eq!(stats.http.total_connections, 0);
         assert_eq!(stats.grpc.total_connections, 0);

@@ -396,7 +396,7 @@ mod tests {
             assert_eq!(str2.len(), 10);
             assert_ne!(str1, str2);
         }
-        
+
         #[cfg(not(feature = "rand"))]
         {
             assert_eq!(str1.len(), 9); // "random_10" is 9 characters

@@ -16,10 +16,16 @@ pub mod telemetry;
 pub mod traces;
 
 // Re-export commonly used types
-pub use analytics::{AnalyticsRequest, AnalyticsResponse, AnalyticsType, AnalyticsQuery, OutputFormat};
+pub use analytics::{
+    AnalyticsQuery, AnalyticsRequest, AnalyticsResponse, AnalyticsType, OutputFormat,
+};
 pub use logs::*;
 pub use metrics::*;
 pub use processing::*;
-pub use queries::{MetricsQuery, TracesQuery, LogsQuery, TelemetryQuery, queries::TelemetryQueryType, MetricsResult, TracesResult, LogsResult, QueryStatus, QueryError, Filter, FilterOperator, FilterValue, Aggregation, AggregationFunction, TimeRange};
+pub use queries::{
+    queries::TelemetryQueryType, Aggregation, AggregationFunction, Filter, FilterOperator,
+    FilterValue, LogsQuery, LogsResult, MetricsQuery, MetricsResult, QueryError, QueryStatus,
+    TelemetryQuery, TimeRange, TracesQuery, TracesResult,
+};
 pub use telemetry::*;
 pub use traces::*;

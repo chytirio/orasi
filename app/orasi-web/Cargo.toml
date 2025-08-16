@@ -1,3 +1,5 @@
+lints.workspace = true
+
 # https://github.com/leptos-rs/awesome-leptos?tab=readme-ov-file#libraries
 [package]
 name = "orasi-ui"

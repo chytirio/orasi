@@ -107,7 +107,7 @@ mod tests {
         let roles = vec![UserRole::User];
 
         let user = User::new(username.clone(), email.clone(), None, roles.clone());
-        
+
         assert_eq!(user.username, username);
         assert_eq!(user.email, email);
         assert_eq!(user.roles, roles);

@@ -8,28 +8,28 @@ use std::time::Duration;
 pub struct AgentConfig {
     /// Agent identifier
     pub agent_id: String,
-    
+
     /// Agent endpoint for receiving tasks
     pub agent_endpoint: String,
-    
+
     /// Health check endpoint
     pub health_endpoint: String,
-    
+
     /// Metrics endpoint
     pub metrics_endpoint: String,
-    
+
     /// Cluster coordination endpoint
     pub cluster_endpoint: String,
-    
+
     /// Cluster coordination settings
     pub cluster: ClusterConfig,
-    
+
     /// Processing capabilities
     pub capabilities: CapabilitiesConfig,
-    
+
     /// Task processing settings
     pub processing: ProcessingConfig,
-    
+
     /// Storage settings
     pub storage: StorageConfig,
 }
@@ -55,16 +55,16 @@ impl Default for AgentConfig {
 pub struct ClusterConfig {
     /// Service discovery backend (etcd, consul, etc.)
     pub service_discovery: ServiceDiscoveryBackend,
-    
+
     /// Service discovery endpoints
     pub service_discovery_endpoints: Vec<String>,
-    
+
     /// Heartbeat interval
     pub heartbeat_interval: Duration,
-    
+
     /// Session timeout
     pub session_timeout: Duration,
-    
+
     /// Leader election settings
     pub leader_election: LeaderElectionConfig,
 }
@@ -94,10 +94,10 @@ pub enum ServiceDiscoveryBackend {
 pub struct LeaderElectionConfig {
     /// Enable leader election
     pub enabled: bool,
-    
+
     /// Election timeout
     pub election_timeout: Duration,
-    
+
     /// Campaign timeout
     pub campaign_timeout: Duration,
 }
@@ -117,19 +117,19 @@ impl Default for LeaderElectionConfig {
 pub struct CapabilitiesConfig {
     /// Enable ingestion capabilities
     pub ingestion: bool,
-    
+
     /// Enable indexing capabilities
     pub indexing: bool,
-    
+
     /// Enable processing capabilities
     pub processing: bool,
-    
+
     /// Enable query capabilities
     pub query: bool,
-    
+
     /// Maximum concurrent tasks
     pub max_concurrent_tasks: usize,
-    
+
     /// Supported data formats
     pub supported_formats: Vec<String>,
 }
@@ -156,16 +156,16 @@ impl Default for CapabilitiesConfig {
 pub struct ProcessingConfig {
     /// Task timeout
     pub task_timeout: Duration,
-    
+
     /// Retry attempts
     pub retry_attempts: u32,
-    
+
     /// Retry delay
     pub retry_delay: Duration,
-    
+
     /// Batch size for processing
     pub batch_size: usize,
-    
+
     /// Enable parallel processing
     pub parallel_processing: bool,
 }
@@ -187,13 +187,13 @@ impl Default for ProcessingConfig {
 pub struct StorageConfig {
     /// Local storage path
     pub local_path: String,
-    
+
     /// Database URL for local state
     pub database_url: String,
-    
+
     /// Enable local caching
     pub enable_cache: bool,
-    
+
     /// Cache size in bytes
     pub cache_size: usize,
 }

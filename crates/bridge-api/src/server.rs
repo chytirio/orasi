@@ -4,18 +4,18 @@
 
 //! Main server implementation for Bridge API
 
-use std::sync::Arc;
-use tokio::sync::RwLock;
 use axum::Router;
+use std::sync::Arc;
 use tokio::signal;
+use tokio::sync::RwLock;
 
 use crate::{
     config::BridgeAPIConfig,
     error::{ApiError, ApiResult},
-    grpc::{GrpcServer, create_grpc_server},
-    metrics::{ApiMetrics, init_metrics},
-    rest::{create_rest_router, AppState},
+    grpc::{create_grpc_server, GrpcServer},
     handlers::init_server_start_time,
+    metrics::{init_metrics, ApiMetrics},
+    rest::{create_rest_router, AppState},
 };
 
 /// Bridge API Server
@@ -60,7 +60,7 @@ impl BridgeAPIServer {
     /// Create a new Bridge API server
     pub fn new(config: BridgeAPIConfig) -> Self {
         let metrics = ApiMetrics::new();
-        
+
         Self {
             config,
             metrics,
@@ -73,7 +73,10 @@ impl BridgeAPIServer {
 
     /// Initialize the server
     pub async fn init(&mut self) -> ApiResult<()> {
-        tracing::info!("Initializing Bridge API server v{}", crate::BRIDGE_API_VERSION);
+        tracing::info!(
+            "Initializing Bridge API server v{}",
+            crate::BRIDGE_API_VERSION
+        );
 
         // Initialize server start time for uptime tracking
         init_server_start_time();
@@ -82,7 +85,8 @@ impl BridgeAPIServer {
         init_metrics();
 
         // Initialize bridge core
-        bridge_core::init_bridge().await
+        bridge_core::init_bridge()
+            .await
             .map_err(|e| ApiError::Internal(format!("Failed to initialize bridge core: {}", e)))?;
 
         // Create HTTP server
@@ -127,13 +131,13 @@ impl BridgeAPIServer {
             let router = http_server.router.clone();
             let address = http_server.address.clone();
             let mut http_shutdown_rx = shutdown_tx.subscribe();
-            
+
             tracing::info!("Starting HTTP server on {}", address);
-            
+
             tokio::spawn(async move {
                 let listener = tokio::net::TcpListener::bind(&address).await.unwrap();
                 tracing::info!("HTTP server listening on {}", address);
-                
+
                 // Simple server loop with graceful shutdown
                 loop {
                     tokio::select! {
@@ -154,7 +158,7 @@ impl BridgeAPIServer {
                         }
                     }
                 }
-                
+
                 tracing::info!("HTTP server stopped");
             });
         }
@@ -163,9 +167,9 @@ impl BridgeAPIServer {
         if let Some(grpc_server) = self.grpc_server.take() {
             let grpc_config = self.config.clone();
             let grpc_metrics = self.metrics.clone();
-            
+
             tracing::info!("Starting gRPC server on {}", grpc_config.grpc_address());
-            
+
             tokio::spawn(async move {
                 if let Err(e) = grpc_server.start().await {
                     tracing::error!("gRPC server error: {}", e);
@@ -231,7 +235,8 @@ impl BridgeAPIServer {
         }
 
         // Shutdown bridge core
-        bridge_core::shutdown_bridge().await
+        bridge_core::shutdown_bridge()
+            .await
             .map_err(|e| ApiError::Internal(format!("Failed to shutdown bridge core: {}", e)))?;
 
         tracing::info!("Bridge API server stopped successfully");
@@ -241,13 +246,13 @@ impl BridgeAPIServer {
     /// Get server status
     pub async fn get_status(&self) -> ServerStatus {
         let mut status = self.status.read().await.clone();
-        
+
         // Calculate uptime
         if let Some(start_time) = status.start_time {
             let now = chrono::Utc::now();
             status.uptime_seconds = (now - start_time).num_seconds() as u64;
         }
-        
+
         status
     }
 
@@ -273,7 +278,7 @@ impl BridgeAPIServer {
 /// Create a minimal server (health checks and metrics only)
 pub fn create_minimal_server(config: BridgeAPIConfig) -> BridgeAPIServer {
     let metrics = ApiMetrics::new();
-    
+
     BridgeAPIServer {
         config,
         metrics,
@@ -287,20 +292,20 @@ pub fn create_minimal_server(config: BridgeAPIConfig) -> BridgeAPIServer {
 /// Create a development server (with additional debugging features)
 pub fn create_dev_server(config: BridgeAPIConfig) -> BridgeAPIServer {
     let server = BridgeAPIServer::new(config);
-    
+
     // Enable development features
     // TODO: Add development-specific configuration
-    
+
     server
 }
 
 /// Create a production server (with all features enabled)
 pub fn create_production_server(config: BridgeAPIConfig) -> BridgeAPIServer {
     let server = BridgeAPIServer::new(config);
-    
+
     // Enable production features
     // TODO: Add production-specific configuration
-    
+
     server
 }
 
@@ -368,20 +373,20 @@ impl ServerBuilder {
     /// Build the server
     pub fn build(self) -> BridgeAPIServer {
         let mut config = self.config;
-        
+
         // Apply builder options
         if !self.enable_auth {
             config.auth.enabled = false;
         }
-        
+
         if !self.enable_cors {
             config.cors.enabled = false;
         }
-        
+
         if !self.enable_rate_limit {
             config.rate_limit.enabled = false;
         }
-        
+
         BridgeAPIServer::new(config)
     }
 }
@@ -389,14 +394,15 @@ impl ServerBuilder {
 /// Run the server with default configuration
 pub async fn run_server(config: BridgeAPIConfig) -> ApiResult<()> {
     let mut server = BridgeAPIServer::new(config);
-    
+
     server.init().await?;
     server.start().await?;
-    
+
     // Keep the server running
-    tokio::signal::ctrl_c().await
+    tokio::signal::ctrl_c()
+        .await
         .map_err(|e| ApiError::Internal(format!("Failed to wait for shutdown signal: {}", e)))?;
-    
+
     server.stop().await?;
     Ok(())
 }
@@ -408,14 +414,15 @@ where
 {
     let mut server = BridgeAPIServer::new(config);
     customizer(&mut server);
-    
+
     server.init().await?;
     server.start().await?;
-    
+
     // Keep the server running
-    tokio::signal::ctrl_c().await
+    tokio::signal::ctrl_c()
+        .await
         .map_err(|e| ApiError::Internal(format!("Failed to wait for shutdown signal: {}", e)))?;
-    
+
     server.stop().await?;
     Ok(())
 }
@@ -423,14 +430,15 @@ where
 /// Run a minimal server (health checks and metrics only)
 pub async fn run_minimal_server(config: BridgeAPIConfig) -> ApiResult<()> {
     let mut server = create_minimal_server(config);
-    
+
     server.init().await?;
     server.start().await?;
-    
+
     // Keep the server running
-    tokio::signal::ctrl_c().await
+    tokio::signal::ctrl_c()
+        .await
         .map_err(|e| ApiError::Internal(format!("Failed to wait for shutdown signal: {}", e)))?;
-    
+
     server.stop().await?;
     Ok(())
 }
@@ -438,14 +446,15 @@ pub async fn run_minimal_server(config: BridgeAPIConfig) -> ApiResult<()> {
 /// Run a development server
 pub async fn run_dev_server(config: BridgeAPIConfig) -> ApiResult<()> {
     let mut server = create_dev_server(config);
-    
+
     server.init().await?;
     server.start().await?;
-    
+
     // Keep the server running
-    tokio::signal::ctrl_c().await
+    tokio::signal::ctrl_c()
+        .await
         .map_err(|e| ApiError::Internal(format!("Failed to wait for shutdown signal: {}", e)))?;
-    
+
     server.stop().await?;
     Ok(())
 }
@@ -453,14 +462,15 @@ pub async fn run_dev_server(config: BridgeAPIConfig) -> ApiResult<()> {
 /// Run a production server
 pub async fn run_production_server(config: BridgeAPIConfig) -> ApiResult<()> {
     let mut server = create_production_server(config);
-    
+
     server.init().await?;
     server.start().await?;
-    
+
     // Keep the server running
-    tokio::signal::ctrl_c().await
+    tokio::signal::ctrl_c()
+        .await
         .map_err(|e| ApiError::Internal(format!("Failed to wait for shutdown signal: {}", e)))?;
-    
+
     server.stop().await?;
     Ok(())
 }

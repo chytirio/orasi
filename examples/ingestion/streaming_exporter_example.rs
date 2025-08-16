@@ -7,33 +7,30 @@
 //! This example demonstrates the streaming exporter functionality with actual data streaming
 //! to a destination URL.
 
+use bridge_core::traits::LakehouseExporter;
+use bridge_core::types::{ProcessedBatch, ProcessedRecord, ProcessingStatus};
 use bridge_core::BridgeResult;
-use ingestion::{
-    exporters::streaming_exporter::{StreamingExporter, StreamingExporterConfig},
-    types::{ProcessedBatch, ProcessedRecord, ProcessingStatus},
-};
+use chrono::Utc;
+use ingestion::exporters::streaming_exporter::{StreamingExporter, StreamingExporterConfig};
 use std::collections::HashMap;
 use tracing::{error, info};
 use uuid::Uuid;
-use chrono::Utc;
 
 fn create_test_batch() -> ProcessedBatch {
     ProcessedBatch {
         original_batch_id: Uuid::new_v4(),
         timestamp: Utc::now(),
         status: ProcessingStatus::Success,
-        records: vec![
-            ProcessedRecord {
-                original_id: Uuid::new_v4(),
-                status: ProcessingStatus::Success,
-                transformed_data: None,
-                metadata: HashMap::from([
-                    ("test_key".to_string(), "test_value".to_string()),
-                    ("source".to_string(), "streaming_example".to_string()),
-                ]),
-                errors: vec![],
-            },
-        ],
+        records: vec![ProcessedRecord {
+            original_id: Uuid::new_v4(),
+            status: ProcessingStatus::Success,
+            transformed_data: None,
+            metadata: HashMap::from([
+                ("test_key".to_string(), "test_value".to_string()),
+                ("source".to_string(), "streaming_example".to_string()),
+            ]),
+            errors: vec![],
+        }],
         metadata: HashMap::from([
             ("source".to_string(), "streaming_example".to_string()),
             ("version".to_string(), "1.0.0".to_string()),
@@ -59,7 +56,10 @@ async fn main() -> BridgeResult<()> {
 
     // Create streaming exporter
     let exporter = StreamingExporter::new(&config).await?;
-    info!("Created streaming exporter with destination: {}", config.destination_url);
+    info!(
+        "Created streaming exporter with destination: {}",
+        config.destination_url
+    );
 
     // Create test batch
     let batch = create_test_batch();
@@ -68,7 +68,7 @@ async fn main() -> BridgeResult<()> {
     // Export the batch
     info!("Exporting batch...");
     let result = exporter.export(batch).await?;
-    
+
     info!("Export completed with status: {:?}", result.status);
     info!("Records exported: {}", result.records_exported);
     info!("Records failed: {}", result.records_failed);
@@ -92,7 +92,10 @@ async fn main() -> BridgeResult<()> {
 
     // Check exporter health
     let is_healthy = exporter.health_check().await?;
-    info!("Exporter health check: {}", if is_healthy { "PASSED" } else { "FAILED" });
+    info!(
+        "Exporter health check: {}",
+        if is_healthy { "PASSED" } else { "FAILED" }
+    );
 
     // Force flush any remaining data
     exporter.force_flush().await?;

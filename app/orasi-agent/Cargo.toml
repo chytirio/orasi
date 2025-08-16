@@ -1,3 +1,5 @@
+lints.workspace = true
+
 [package]
 name = "orasi-agent"
 version = "0.1.0"

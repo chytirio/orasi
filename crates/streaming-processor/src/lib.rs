@@ -3,7 +3,7 @@
 //!
 
 //! Streaming processor for the bridge
-//! 
+//!
 //! This crate provides a streaming data processor that can:
 //! - Ingest data from various sources (HTTP, Kafka, files)
 //! - Process data through configurable pipelines
@@ -46,7 +46,7 @@ impl StreamingProcessor {
         let source_manager = SourceManager::new();
         let processor_pipeline = ProcessorPipeline::new();
         let sink_manager = SinkManager::new();
-        
+
         let stats = bridge_core::traits::StreamProcessorStats {
             total_records: 0,
             records_per_minute: 0,
@@ -71,18 +71,21 @@ impl StreamingProcessor {
             let mut is_running = self.is_running.write().await;
             *is_running = true;
         }
-        
-        tracing::info!("Starting streaming processor with config: {:?}", self.config);
-        
+
+        tracing::info!(
+            "Starting streaming processor with config: {:?}",
+            self.config
+        );
+
         // Initialize sources
         self.initialize_sources().await?;
-        
+
         // Initialize processors
         self.initialize_processors().await?;
-        
+
         // Initialize sinks
         self.initialize_sinks().await?;
-        
+
         tracing::info!("Streaming processor started successfully");
         Ok(())
     }
@@ -91,18 +94,18 @@ impl StreamingProcessor {
     pub async fn stop(&mut self) -> bridge_core::BridgeResult<()> {
         let mut is_running = self.is_running.write().await;
         *is_running = false;
-        
+
         tracing::info!("Stopping streaming processor");
-        
+
         // Stop sources
         self.source_manager.stop_all().await?;
-        
+
         // Stop processors
         self.processor_pipeline.shutdown().await?;
-        
+
         // Stop sinks
         self.sink_manager.stop_all().await?;
-        
+
         tracing::info!("Streaming processor stopped successfully");
         Ok(())
     }
@@ -270,7 +273,9 @@ impl bridge_core::traits::StreamProcessor for SimpleStreamingProcessor {
         Ok(*self.is_running.read().await)
     }
 
-    async fn get_stats(&self) -> bridge_core::BridgeResult<bridge_core::traits::StreamProcessorStats> {
+    async fn get_stats(
+        &self,
+    ) -> bridge_core::BridgeResult<bridge_core::traits::StreamProcessorStats> {
         let stats = self.stats.read().await;
         Ok(stats.clone())
     }

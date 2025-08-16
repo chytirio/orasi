@@ -7,8 +7,8 @@
 //! This module provides detailed metrics collection, monitoring, and observability
 //! features for the telemetry ingestion system.
 
-use bridge_core::{BridgeResult, traits::MetricsCollector as BridgeMetricsCollector};
 use async_trait::async_trait;
+use bridge_core::{traits::MetricsCollector as BridgeMetricsCollector, BridgeResult};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -115,7 +115,12 @@ pub struct MetricsCollector {
 
 #[async_trait]
 impl BridgeMetricsCollector for MetricsCollector {
-    async fn increment_counter(&self, name: &str, value: u64, labels: &[(&str, &str)]) -> BridgeResult<()> {
+    async fn increment_counter(
+        &self,
+        name: &str,
+        value: u64,
+        labels: &[(&str, &str)],
+    ) -> BridgeResult<()> {
         if !self.config.enable_metrics {
             return Ok(());
         }
@@ -135,11 +140,21 @@ impl BridgeMetricsCollector for MetricsCollector {
             *last_metric_time = Some(Utc::now());
         }
 
-        info!("Counter incremented: {} = {} (total: {})", name, value, current_value + value);
+        info!(
+            "Counter incremented: {} = {} (total: {})",
+            name,
+            value,
+            current_value + value
+        );
         Ok(())
     }
 
-    async fn record_gauge(&self, name: &str, value: f64, labels: &[(&str, &str)]) -> BridgeResult<()> {
+    async fn record_gauge(
+        &self,
+        name: &str,
+        value: f64,
+        labels: &[(&str, &str)],
+    ) -> BridgeResult<()> {
         if !self.config.enable_metrics {
             return Ok(());
         }
@@ -162,7 +177,12 @@ impl BridgeMetricsCollector for MetricsCollector {
         Ok(())
     }
 
-    async fn record_histogram(&self, name: &str, value: f64, labels: &[(&str, &str)]) -> BridgeResult<()> {
+    async fn record_histogram(
+        &self,
+        name: &str,
+        value: f64,
+        labels: &[(&str, &str)],
+    ) -> BridgeResult<()> {
         if !self.config.enable_metrics {
             return Ok(());
         }
@@ -182,11 +202,21 @@ impl BridgeMetricsCollector for MetricsCollector {
             *last_metric_time = Some(Utc::now());
         }
 
-        info!("Histogram recorded: {} = {} (total samples: {})", name, value, values.len());
+        info!(
+            "Histogram recorded: {} = {} (total samples: {})",
+            name,
+            value,
+            values.len()
+        );
         Ok(())
     }
 
-    async fn record_summary(&self, name: &str, value: f64, labels: &[(&str, &str)]) -> BridgeResult<()> {
+    async fn record_summary(
+        &self,
+        name: &str,
+        value: f64,
+        labels: &[(&str, &str)],
+    ) -> BridgeResult<()> {
         if !self.config.enable_metrics {
             return Ok(());
         }
@@ -206,7 +236,12 @@ impl BridgeMetricsCollector for MetricsCollector {
             *last_metric_time = Some(Utc::now());
         }
 
-        info!("Summary recorded: {} = {} (total samples: {})", name, value, values.len());
+        info!(
+            "Summary recorded: {} = {} (total samples: {})",
+            name,
+            value,
+            values.len()
+        );
         Ok(())
     }
 
@@ -273,11 +308,12 @@ impl MetricsCollector {
         metrics.total_batches += 1;
         metrics.total_records += batch_size as u64;
         metrics.last_process_time = Some(Utc::now());
-        
+
         // Update average processing time
         let processing_time_ms = processing_time.as_millis() as f64;
         if metrics.total_batches > 0 {
-            let total_time = metrics.avg_processing_time_ms * (metrics.total_batches - 1) as f64 + processing_time_ms;
+            let total_time = metrics.avg_processing_time_ms * (metrics.total_batches - 1) as f64
+                + processing_time_ms;
             metrics.avg_processing_time_ms = total_time / metrics.total_batches as f64;
         }
     }
@@ -291,8 +327,11 @@ impl MetricsCollector {
         let mut error_metrics = self.error_metrics.write().await;
         error_metrics.total_errors += 1;
         error_metrics.last_error_time = Some(Utc::now());
-        
-        let count = error_metrics.error_types.entry(error_type.to_string()).or_insert(0);
+
+        let count = error_metrics
+            .error_types
+            .entry(error_type.to_string())
+            .or_insert(0);
         *count += 1;
     }
 
@@ -318,8 +357,11 @@ impl MetricsCollector {
             return Ok(());
         }
 
-        info!("Starting metrics collection with interval: {:?}", self.config.collection_interval);
-        
+        info!(
+            "Starting metrics collection with interval: {:?}",
+            self.config.collection_interval
+        );
+
         // For now, just log that collection is started
         // In a real implementation, this would spawn a background task
         Ok(())
@@ -339,7 +381,7 @@ impl MetricsCollector {
 
         let mut key = name.to_string();
         key.push('{');
-        
+
         for (i, (label_name, label_value)) in labels.iter().enumerate() {
             if i > 0 {
                 key.push(',');
@@ -348,7 +390,7 @@ impl MetricsCollector {
             key.push('=');
             key.push_str(label_value);
         }
-        
+
         key.push('}');
         key
     }

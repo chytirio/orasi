@@ -42,6 +42,7 @@ impl SimpleMockReceiver {
                 bytes_per_minute: 0,
                 error_count: 0,
                 last_receive_time: None,
+                protocol_stats: Some(HashMap::new()),
             },
         }
     }

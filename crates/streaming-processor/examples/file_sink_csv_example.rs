@@ -3,40 +3,37 @@
 //!
 
 //! File sink CSV example
-//! 
+//!
 //! This example demonstrates how to use the file sink to write telemetry data to CSV files.
 
-use streaming_processor::sinks::{FileSink, StreamSink};
-use streaming_processor::sinks::file_sink::{FileSinkConfig, FileFormat};
+use bridge_core::types::{LogData, LogLevel, TelemetryData, TelemetryRecord, TelemetryType};
 use bridge_core::{BridgeResult, TelemetryBatch};
-use bridge_core::types::{TelemetryRecord, TelemetryData, TelemetryType, LogData, LogLevel};
-use std::collections::HashMap;
-use uuid::Uuid;
 use chrono::Utc;
+use std::collections::HashMap;
+use streaming_processor::sinks::file_sink::{FileFormat, FileSinkConfig};
+use streaming_processor::sinks::{FileSink, StreamSink};
+use uuid::Uuid;
 
 #[tokio::main]
 async fn main() -> BridgeResult<()> {
     // Initialize logging
     tracing_subscriber::fmt::init();
-    
+
     println!("File Sink CSV Example");
     println!("=====================");
-    
+
     // Create file sink configuration for CSV
-    let config = FileSinkConfig::new(
-        "output/telemetry_data.csv".to_string(),
-        FileFormat::Csv
-    );
-    
+    let config = FileSinkConfig::new("output/telemetry_data.csv".to_string(), FileFormat::Csv);
+
     // Create file sink
     let mut sink = FileSink::new(&config).await?;
-    
+
     // Initialize and start the sink
     sink.init().await?;
     sink.start().await?;
-    
+
     println!("File sink initialized and started");
-    
+
     // Create sample telemetry records
     let records = vec![
         TelemetryRecord {
@@ -82,7 +79,7 @@ async fn main() -> BridgeResult<()> {
             service: None,
         },
     ];
-    
+
     // Create telemetry batch
     let batch = TelemetryBatch {
         id: Uuid::new_v4(),
@@ -95,11 +92,11 @@ async fn main() -> BridgeResult<()> {
             ("format".to_string(), "csv".to_string()),
         ]),
     };
-    
+
     // Send batch to file sink
     println!("Sending batch to file sink...");
     sink.send(batch).await?;
-    
+
     // Get statistics
     let stats = sink.get_stats().await?;
     println!("Sink statistics:");
@@ -107,12 +104,12 @@ async fn main() -> BridgeResult<()> {
     println!("  Total records: {}", stats.total_records);
     println!("  Total bytes: {}", stats.total_bytes);
     println!("  Is connected: {}", stats.is_connected);
-    
+
     // Stop the sink
     sink.stop().await?;
     println!("File sink stopped");
-    
+
     println!("Check the output/telemetry_data.csv file for the written data");
-    
+
     Ok(())
 }

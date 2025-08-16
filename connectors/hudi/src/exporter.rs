@@ -3,20 +3,20 @@
 //!
 
 //! Apache Hudi exporter implementation
-//! 
+//!
 //! This module provides a real Apache Hudi exporter that uses the actual
 //! Hudi writer to export telemetry data to Hudi tables.
 
-use std::sync::{Arc, RwLock};
-use std::time::{Duration, Instant};
 use async_trait::async_trait;
-use tracing::{debug, error, info, warn};
-use bridge_core::traits::{LakehouseExporter, ExporterStats, LakehouseWriter};
-use bridge_core::types::{TelemetryBatch, ExportResult, ExportError, ProcessedBatch};
 use bridge_core::error::BridgeResult;
+use bridge_core::traits::{ExporterStats, LakehouseExporter, LakehouseWriter};
+use bridge_core::types::{ExportResult, ProcessedBatch};
+use std::sync::{Arc, RwLock};
+use std::time::Instant;
+use tracing::{debug, error, info, warn};
 
 use crate::config::HudiConfig;
-use crate::error::{HudiError, HudiResult};
+use crate::error::HudiResult;
 use crate::writer::HudiWriter;
 
 /// Real Apache Hudi exporter implementation
@@ -54,18 +54,24 @@ impl RealHudiExporter {
 
     /// Initialize the exporter
     pub async fn initialize(&mut self) -> HudiResult<()> {
-        info!("Initializing Apache Hudi exporter: {}", self.config.table.table_name);
-        
+        info!(
+            "Initializing Apache Hudi exporter: {}",
+            self.config.table.table_name
+        );
+
         // Initialize the Hudi writer
         self.writer.initialize().await?;
-        
+
         // Mark exporter as running
         {
             let mut running = self.running.write().unwrap();
             *running = true;
         }
-        
-        info!("Apache Hudi exporter initialized successfully: {}", self.config.table.table_name);
+
+        info!(
+            "Apache Hudi exporter initialized successfully: {}",
+            self.config.table.table_name
+        );
         Ok(())
     }
 
@@ -97,7 +103,7 @@ impl RealHudiExporter {
 
         // For now, just check if writer is initialized
         let writer_healthy = self.writer.is_initialized();
-        
+
         Ok(writer_healthy)
     }
 }
@@ -108,12 +114,15 @@ impl LakehouseExporter for RealHudiExporter {
         // Check if exporter is running
         if !self.is_running() {
             return Err(bridge_core::error::BridgeError::export(
-                "Apache Hudi exporter is not running"
+                "Apache Hudi exporter is not running",
             ));
         }
 
         let start_time = Instant::now();
-        info!("Real Apache Hudi exporter exporting batch with {} records", batch.records.len());
+        info!(
+            "Real Apache Hudi exporter exporting batch with {} records",
+            batch.records.len()
+        );
 
         let mut total_records = 0u64;
         let mut errors = Vec::new();
@@ -124,40 +133,49 @@ impl LakehouseExporter for RealHudiExporter {
             timestamp: batch.timestamp,
             source: "hudi-exporter".to_string(),
             size: batch.records.len(),
-            records: batch.records.iter().filter_map(|record| {
-                match record.status {
-                    bridge_core::types::ProcessingStatus::Success => {
-                        Some(bridge_core::types::TelemetryRecord {
-                        id: record.original_id,
-                        timestamp: batch.timestamp,
-                        record_type: bridge_core::types::TelemetryType::Metric, // Default to metric
-                        data: record.transformed_data.clone().unwrap_or_else(|| {
-                            bridge_core::types::TelemetryData::Metric(bridge_core::types::MetricData {
-                                name: "unknown".to_string(),
-                                description: None,
-                                unit: None,
-                                metric_type: bridge_core::types::MetricType::Gauge,
-                                value: bridge_core::types::MetricValue::Gauge(0.0),
-                                labels: std::collections::HashMap::new(),
+            records: batch
+                .records
+                .iter()
+                .filter_map(|record| {
+                    match record.status {
+                        bridge_core::types::ProcessingStatus::Success => {
+                            Some(bridge_core::types::TelemetryRecord {
+                                id: record.original_id,
                                 timestamp: batch.timestamp,
+                                record_type: bridge_core::types::TelemetryType::Metric, // Default to metric
+                                data: record.transformed_data.clone().unwrap_or_else(|| {
+                                    bridge_core::types::TelemetryData::Metric(
+                                        bridge_core::types::MetricData {
+                                            name: "unknown".to_string(),
+                                            description: None,
+                                            unit: None,
+                                            metric_type: bridge_core::types::MetricType::Gauge,
+                                            value: bridge_core::types::MetricValue::Gauge(0.0),
+                                            labels: std::collections::HashMap::new(),
+                                            timestamp: batch.timestamp,
+                                        },
+                                    )
+                                }),
+                                attributes: record.metadata.clone(),
+                                tags: std::collections::HashMap::new(),
+                                resource: None,
+                                service: None,
                             })
-                        }),
-                        attributes: record.metadata.clone(),
-                        tags: std::collections::HashMap::new(),
-                        resource: None,
-                        service: None,
-                    })
+                        }
+                        _ => None,
                     }
-                    _ => None,
-                }
-            }).collect(),
+                })
+                .collect(),
             metadata: batch.metadata,
         };
-        
+
         match self.writer.write_batch(telemetry_batch).await {
             Ok(result) => {
                 total_records += result.records_written as u64;
-                debug!("Successfully exported {} records to Apache Hudi", result.records_written);
+                debug!(
+                    "Successfully exported {} records to Apache Hudi",
+                    result.records_written
+                );
             }
             Err(e) => {
                 let error = bridge_core::types::ExportError {
@@ -182,19 +200,23 @@ impl LakehouseExporter for RealHudiExporter {
         }
 
         if errors.is_empty() {
-            info!("Real Apache Hudi exporter successfully exported {} records in {:?}",
-                  total_records, export_duration);
+            info!(
+                "Real Apache Hudi exporter successfully exported {} records in {:?}",
+                total_records, export_duration
+            );
         } else {
-            warn!("Real Apache Hudi exporter failed to export some records: {} errors",
-                  errors.len());
+            warn!(
+                "Real Apache Hudi exporter failed to export some records: {} errors",
+                errors.len()
+            );
         }
 
         Ok(ExportResult {
             timestamp: chrono::Utc::now(),
-            status: if errors.is_empty() { 
-                bridge_core::types::ExportStatus::Success 
-            } else { 
-                bridge_core::types::ExportStatus::Partial 
+            status: if errors.is_empty() {
+                bridge_core::types::ExportStatus::Success
+            } else {
+                bridge_core::types::ExportStatus::Partial
             },
             records_exported: total_records as usize,
             records_failed: errors.len(),
@@ -254,10 +276,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_real_hudi_exporter_creation() {
-        let config = HudiConfig::new(
-            "s3://hudi-tables".to_string(),
-            "test_table".to_string(),
-        );
+        let config = HudiConfig::new("s3://hudi-tables".to_string(), "test_table".to_string());
 
         let exporter = RealHudiExporter::new(config).await;
         assert_eq!(exporter.name(), "test_table");
@@ -267,10 +286,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_real_hudi_exporter_initialization() {
-        let config = HudiConfig::new(
-            "s3://hudi-tables".to_string(),
-            "test_table".to_string(),
-        );
+        let config = HudiConfig::new("s3://hudi-tables".to_string(), "test_table".to_string());
 
         let mut exporter = RealHudiExporter::new(config).await;
         let result = exporter.initialize().await;
@@ -282,10 +298,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_real_hudi_exporter_export() {
-        let config = HudiConfig::new(
-            "s3://hudi-tables".to_string(),
-            "test_table".to_string(),
-        );
+        let config = HudiConfig::new("s3://hudi-tables".to_string(), "test_table".to_string());
 
         let mut exporter = RealHudiExporter::new(config).await;
         exporter.initialize().await.unwrap();
@@ -296,26 +309,24 @@ mod tests {
             timestamp: chrono::Utc::now(),
             source: "test".to_string(),
             size: 1,
-            records: vec![
-                bridge_core::types::TelemetryRecord {
-                    id: uuid::Uuid::new_v4(),
+            records: vec![bridge_core::types::TelemetryRecord {
+                id: uuid::Uuid::new_v4(),
+                timestamp: chrono::Utc::now(),
+                record_type: bridge_core::types::TelemetryType::Metric,
+                data: bridge_core::types::TelemetryData::Metric(bridge_core::types::MetricData {
+                    name: "test_metric".to_string(),
+                    description: None,
+                    unit: Some("count".to_string()),
+                    metric_type: bridge_core::types::MetricType::Gauge,
+                    value: bridge_core::types::MetricValue::Gauge(42.0),
+                    labels: std::collections::HashMap::new(),
                     timestamp: chrono::Utc::now(),
-                    record_type: bridge_core::types::TelemetryType::Metric,
-                    data: bridge_core::types::TelemetryData::Metric(bridge_core::types::MetricData {
-                        name: "test_metric".to_string(),
-                        description: None,
-                        unit: Some("count".to_string()),
-                        metric_type: bridge_core::types::MetricType::Gauge,
-                        value: bridge_core::types::MetricValue::Gauge(42.0),
-                        labels: std::collections::HashMap::new(),
-                        timestamp: chrono::Utc::now(),
-                    }),
-                    attributes: std::collections::HashMap::new(),
-                    tags: std::collections::HashMap::new(),
-                    resource: None,
-                    service: None,
-                }
-            ],
+                }),
+                attributes: std::collections::HashMap::new(),
+                tags: std::collections::HashMap::new(),
+                resource: None,
+                service: None,
+            }],
             metadata: std::collections::HashMap::new(),
         };
 
@@ -324,19 +335,21 @@ mod tests {
             original_batch_id: telemetry_batch.id,
             timestamp: telemetry_batch.timestamp,
             status: bridge_core::types::ProcessingStatus::Success,
-            records: telemetry_batch.records.iter().map(|record| {
-                bridge_core::types::ProcessedRecord {
+            records: telemetry_batch
+                .records
+                .iter()
+                .map(|record| bridge_core::types::ProcessedRecord {
                     original_id: record.id,
                     status: bridge_core::types::ProcessingStatus::Success,
                     transformed_data: Some(record.data.clone()),
                     metadata: record.attributes.clone(),
                     errors: vec![],
-                }
-            }).collect(),
+                })
+                .collect(),
             metadata: telemetry_batch.metadata,
             errors: vec![],
         };
-        
+
         let result = exporter.export(batch).await;
         assert!(result.is_ok());
 

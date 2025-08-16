@@ -22,7 +22,7 @@ pub mod validation;
 pub use bridge_core::types::{ProcessedBatch, TelemetryBatch};
 pub use config::SchemaRegistryConfig;
 pub use error::{SchemaRegistryError, SchemaRegistryResult};
-pub use registry::{SchemaRegistryManager, RegistryMetrics, RegistryState, RegistryStats};
+pub use registry::{RegistryMetrics, RegistryState, RegistryStats, SchemaRegistryManager};
 pub use schema::{Schema, SchemaMetadata, SchemaVersion};
 pub use storage::{MemoryStorage, RedisStorage, StorageBackend, StorageError};
 pub use validation::{SchemaValidator, SchemaValidatorTrait, ValidationError, ValidationResult};
@@ -34,7 +34,9 @@ pub const SCHEMA_REGISTRY_VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const SCHEMA_REGISTRY_NAME: &str = "orasi-schema-registry";
 
 /// Initialize the schema registry
-pub async fn init_schema_registry(config: SchemaRegistryConfig) -> SchemaRegistryResult<SchemaRegistry> {
+pub async fn init_schema_registry(
+    config: SchemaRegistryConfig,
+) -> SchemaRegistryResult<SchemaRegistry> {
     SchemaRegistry::new(config).await
 }
 
@@ -137,18 +139,16 @@ impl SchemaRegistry {
     pub async fn shutdown(self) -> SchemaRegistryResult<()> {
         // Shutdown the registry manager
         self.manager.shutdown().await?;
-        
+
         // Shutdown the storage backend
         self.storage.shutdown().await?;
-        
+
         // Log shutdown completion
         tracing::info!("Schema registry shutdown completed");
-        
+
         Ok(())
     }
 }
-
-
 
 #[cfg(test)]
 mod tests {
@@ -175,7 +175,7 @@ mod tests {
     async fn test_schema_registry_shutdown() {
         let config = SchemaRegistryConfig::default();
         let registry = SchemaRegistry::new(config).await.unwrap();
-        
+
         // Shutdown should complete successfully
         let shutdown_result = registry.shutdown().await;
         assert!(shutdown_result.is_ok());

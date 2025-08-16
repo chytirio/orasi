@@ -13,7 +13,7 @@ pub mod responses;
 pub mod server;
 
 // Re-export main types for convenience
-pub use server::SchemaRegistryApi;
 pub use error::ApiError;
 pub use requests::*;
 pub use responses::*;
+pub use server::SchemaRegistryApi;

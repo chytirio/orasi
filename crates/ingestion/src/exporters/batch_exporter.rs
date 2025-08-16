@@ -130,7 +130,7 @@ impl BatchExporter {
         config.validate().await?;
 
         let base = BaseExporter::new(config.name.clone(), config.version.clone());
-        
+
         let stats = Arc::new(RwLock::new(bridge_core::traits::ExporterStats {
             total_batches: 0,
             total_records: 0,
@@ -141,7 +141,11 @@ impl BatchExporter {
             last_export_time: None,
         }));
 
-        Ok(Self { base, config, stats })
+        Ok(Self {
+            base,
+            config,
+            stats,
+        })
     }
 
     /// Update statistics after export operation
@@ -190,12 +194,14 @@ impl BatchExporter {
 
         // Create HTTP client
         let client = reqwest::Client::new();
-        
+
         // Serialize batch to JSON
-        let json_data = serde_json::to_vec(&batch)
-            .map_err(|e| bridge_core::BridgeError::serialization(format!(
-                "Failed to serialize batch to JSON: {}", e
-            )))?;
+        let json_data = serde_json::to_vec(&batch).map_err(|e| {
+            bridge_core::BridgeError::serialization(format!(
+                "Failed to serialize batch to JSON: {}",
+                e
+            ))
+        })?;
 
         // Send HTTP POST request
         let response = client
@@ -205,9 +211,12 @@ impl BatchExporter {
             .body(json_data)
             .send()
             .await
-            .map_err(|e| bridge_core::BridgeError::network(format!(
-                "Failed to send batch to destination: {}", e
-            )))?;
+            .map_err(|e| {
+                bridge_core::BridgeError::network(format!(
+                    "Failed to send batch to destination: {}",
+                    e
+                ))
+            })?;
 
         // Check response status
         if !response.status().is_success() {
@@ -221,8 +230,7 @@ impl BatchExporter {
 
         info!(
             "Successfully exported batch {} to {}",
-            batch.original_batch_id,
-            self.config.destination_url
+            batch.original_batch_id, self.config.destination_url
         );
 
         Ok(())
@@ -242,7 +250,8 @@ impl BridgeTelemetryExporter for BatchExporter {
                     let export_time = start_time.elapsed();
                     let export_time_ms = export_time.as_millis() as f64;
 
-                    self.update_stats(batch.records.len(), export_time, true).await;
+                    self.update_stats(batch.records.len(), export_time, true)
+                        .await;
 
                     return Ok(ExportResult {
                         timestamp: Utc::now(),
@@ -277,7 +286,8 @@ impl BridgeTelemetryExporter for BatchExporter {
         let export_time = start_time.elapsed();
         let export_time_ms = export_time.as_millis() as f64;
 
-        self.update_stats(batch.records.len(), export_time, false).await;
+        self.update_stats(batch.records.len(), export_time, false)
+            .await;
 
         Ok(ExportResult {
             timestamp: Utc::now(),
@@ -310,9 +320,9 @@ impl BridgeTelemetryExporter for BatchExporter {
 
     async fn health_check(&self) -> BridgeResult<bool> {
         // Check if the destination is reachable via HTTP HEAD request
-        
+
         let client = reqwest::Client::new();
-        
+
         // Try to send a HEAD request to check connectivity
         match client
             .head(&self.config.destination_url)
@@ -321,7 +331,8 @@ impl BridgeTelemetryExporter for BatchExporter {
             .await
         {
             Ok(response) => {
-                let is_healthy = response.status().is_success() || response.status().as_u16() == 405; // 405 Method Not Allowed is also OK
+                let is_healthy =
+                    response.status().is_success() || response.status().as_u16() == 405; // 405 Method Not Allowed is also OK
                 if !is_healthy {
                     warn!(
                         "Health check failed for {}: status {}",
@@ -334,8 +345,7 @@ impl BridgeTelemetryExporter for BatchExporter {
             Err(e) => {
                 error!(
                     "Health check failed for {}: {}",
-                    self.config.destination_url,
-                    e
+                    self.config.destination_url, e
                 );
                 Ok(false)
             }

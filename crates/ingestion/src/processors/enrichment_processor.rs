@@ -9,18 +9,16 @@
 
 use async_trait::async_trait;
 use bridge_core::{
-    BridgeResult, TelemetryBatch, traits::{TelemetryProcessor, ProcessorStats},
-    types::{TelemetryData, MetricData, LogData, TraceData, EventData, MetricValue, MetricType, LogLevel, SpanKind, SpanStatus, ProcessedBatch, ProcessedRecord, TelemetryRecord}
+    traits::{ProcessorStats, TelemetryProcessor},
+    types::{ProcessedBatch, ProcessedRecord, TelemetryRecord},
+    BridgeResult, TelemetryBatch,
 };
-use chrono::{DateTime, Utc, Datelike, Timelike, Duration};
+use chrono::{DateTime, Datelike, Timelike, Utc};
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::sync::Arc;
-use tokio::sync::RwLock;
-use tracing::{info, warn, error};
-use uuid::Uuid;
-use regex::Regex;
 use std::time::{SystemTime, UNIX_EPOCH};
+use tracing::{info, warn};
 
 use super::{BaseProcessor, ProcessorConfig};
 
@@ -255,18 +253,20 @@ impl ProcessorConfig for EnrichmentProcessorConfig {
         // Validate custom rules
         for rule in &self.custom_rules {
             if rule.target_field.is_empty() {
-                return Err(bridge_core::BridgeError::configuration(
-                    format!("Custom rule '{}' has empty target field", rule.name),
-                ));
+                return Err(bridge_core::BridgeError::configuration(format!(
+                    "Custom rule '{}' has empty target field",
+                    rule.name
+                )));
             }
         }
 
         // Validate validation rules
         for rule in &self.validation_rules {
             if rule.field.is_empty() {
-                return Err(bridge_core::BridgeError::configuration(
-                    format!("Validation rule '{}' has empty field", rule.name),
-                ));
+                return Err(bridge_core::BridgeError::configuration(format!(
+                    "Validation rule '{}' has empty field",
+                    rule.name
+                )));
             }
         }
 
@@ -293,7 +293,9 @@ impl EnrichmentProcessor {
             .as_any()
             .downcast_ref::<EnrichmentProcessorConfig>()
             .ok_or_else(|| {
-                bridge_core::BridgeError::configuration("Invalid enrichment processor configuration")
+                bridge_core::BridgeError::configuration(
+                    "Invalid enrichment processor configuration",
+                )
             })?
             .clone();
 
@@ -372,12 +374,13 @@ impl EnrichmentProcessor {
             let field_value = self.get_field_value(record, &rule.field);
             let is_valid = match &rule.validation_type {
                 ValidationType::Required => !field_value.is_empty(),
-                ValidationType::Pattern(pattern) => {
-                    Regex::new(&pattern).map(|re| re.is_match(&field_value)).unwrap_or(false)
-                }
-                ValidationType::Range(min, max) => {
-                    field_value.parse::<f64>().map(|v| v >= *min && v <= *max).unwrap_or(false)
-                }
+                ValidationType::Pattern(pattern) => Regex::new(&pattern)
+                    .map(|re| re.is_match(&field_value))
+                    .unwrap_or(false),
+                ValidationType::Range(min, max) => field_value
+                    .parse::<f64>()
+                    .map(|v| v >= *min && v <= *max)
+                    .unwrap_or(false),
                 ValidationType::Length(min, max) => {
                     let len = field_value.len();
                     len >= *min && len <= *max
@@ -391,12 +394,16 @@ impl EnrichmentProcessor {
             if !is_valid {
                 match &rule.failure_action {
                     ValidationFailureAction::Drop => {
-                        return Err(bridge_core::BridgeError::validation(
-                            format!("Validation failed for rule '{}': field '{}' is invalid", rule.name, rule.field),
-                        ));
+                        return Err(bridge_core::BridgeError::validation(format!(
+                            "Validation failed for rule '{}': field '{}' is invalid",
+                            rule.name, rule.field
+                        )));
                     }
                     ValidationFailureAction::MarkError => {
-                        warn!("Validation failed for rule '{}': field '{}' is invalid", rule.name, rule.field);
+                        warn!(
+                            "Validation failed for rule '{}': field '{}' is invalid",
+                            rule.name, rule.field
+                        );
                     }
                     ValidationFailureAction::UseDefault(_) => {
                         // Will be handled in enrichment
@@ -433,18 +440,35 @@ impl EnrichmentProcessor {
     /// Enrich timestamp
     async fn enrich_timestamp(&self, record: &mut TelemetryRecord) -> BridgeResult<()> {
         let now = Utc::now();
-        
+
         // Add processing timestamp
-        record.attributes.insert("processing_timestamp".to_string(), now.to_rfc3339());
-        
+        record
+            .attributes
+            .insert("processing_timestamp".to_string(), now.to_rfc3339());
+
         // Add age in seconds
         let age_seconds = (now - record.timestamp).num_seconds();
-        record.attributes.insert("age_seconds".to_string(), age_seconds.to_string());
-        
+        record
+            .attributes
+            .insert("age_seconds".to_string(), age_seconds.to_string());
+
         // Add time-based attributes
-        record.attributes.insert("hour_of_day".to_string(), record.timestamp.hour().to_string());
-        record.attributes.insert("day_of_week".to_string(), record.timestamp.weekday().num_days_from_monday().to_string());
-        record.attributes.insert("is_weekend".to_string(), (record.timestamp.weekday().num_days_from_monday() >= 5).to_string());
+        record.attributes.insert(
+            "hour_of_day".to_string(),
+            record.timestamp.hour().to_string(),
+        );
+        record.attributes.insert(
+            "day_of_week".to_string(),
+            record
+                .timestamp
+                .weekday()
+                .num_days_from_monday()
+                .to_string(),
+        );
+        record.attributes.insert(
+            "is_weekend".to_string(),
+            (record.timestamp.weekday().num_days_from_monday() >= 5).to_string(),
+        );
 
         Ok(())
     }
@@ -453,12 +477,18 @@ impl EnrichmentProcessor {
     async fn enrich_service(&self, record: &mut TelemetryRecord) -> BridgeResult<()> {
         // Try to extract service name from various sources
         let service_name = self.extract_service_name(record);
-        
+
         if let Some(service) = service_name {
             // Apply service mapping
-            let mapped_service = self.config.service_mapping.get(&service).unwrap_or(&service);
-            record.attributes.insert("service.name".to_string(), mapped_service.clone());
-            
+            let mapped_service = self
+                .config
+                .service_mapping
+                .get(&service)
+                .unwrap_or(&service);
+            record
+                .attributes
+                .insert("service.name".to_string(), mapped_service.clone());
+
             // Set service info if not already present
             if record.service.is_none() {
                 record.service = Some(bridge_core::types::ServiceInfo {
@@ -469,7 +499,9 @@ impl EnrichmentProcessor {
                 });
             }
         } else if let Some(default_service) = &self.config.default_service {
-            record.attributes.insert("service.name".to_string(), default_service.clone());
+            record
+                .attributes
+                .insert("service.name".to_string(), default_service.clone());
         }
 
         Ok(())
@@ -481,32 +513,32 @@ impl EnrichmentProcessor {
         if let Some(service) = record.attributes.get("service.name") {
             return Some(service.clone());
         }
-        
+
         if let Some(service) = record.attributes.get("service") {
             return Some(service.clone());
         }
-        
+
         // Check tags
         if let Some(service) = record.tags.get("service.name") {
             return Some(service.clone());
         }
-        
+
         if let Some(service) = record.tags.get("service") {
             return Some(service.clone());
         }
-        
+
         // Check resource info
         if let Some(ref resource) = record.resource {
             if let Some(service) = resource.attributes.get("service.name") {
                 return Some(service.clone());
             }
         }
-        
+
         // Check service info
         if let Some(ref service_info) = record.service {
             return Some(service_info.name.clone());
         }
-        
+
         None
     }
 
@@ -514,13 +546,17 @@ impl EnrichmentProcessor {
     async fn enrich_environment(&self, record: &mut TelemetryRecord) -> BridgeResult<()> {
         // Try to extract environment from various sources
         let environment = self.extract_environment(record);
-        
+
         if let Some(env) = environment {
             // Apply environment mapping
             let mapped_env = self.config.environment_mapping.get(&env).unwrap_or(&env);
-            record.attributes.insert("environment".to_string(), mapped_env.clone());
+            record
+                .attributes
+                .insert("environment".to_string(), mapped_env.clone());
         } else if let Some(default_env) = &self.config.default_environment {
-            record.attributes.insert("environment".to_string(), default_env.clone());
+            record
+                .attributes
+                .insert("environment".to_string(), default_env.clone());
         }
 
         Ok(())
@@ -532,42 +568,50 @@ impl EnrichmentProcessor {
         if let Some(env) = record.attributes.get("environment") {
             return Some(env.clone());
         }
-        
+
         if let Some(env) = record.attributes.get("env") {
             return Some(env.clone());
         }
-        
+
         // Check tags
         if let Some(env) = record.tags.get("environment") {
             return Some(env.clone());
         }
-        
+
         if let Some(env) = record.tags.get("env") {
             return Some(env.clone());
         }
-        
+
         // Check resource info
         if let Some(ref resource) = record.resource {
             if let Some(env) = resource.attributes.get("environment") {
                 return Some(env.clone());
             }
         }
-        
+
         None
     }
 
     /// Enrich host information
     async fn enrich_host(&self, record: &mut TelemetryRecord) -> BridgeResult<()> {
-        record.attributes.insert("host.name".to_string(), self.hostname.clone());
-        record.attributes.insert("host.arch".to_string(), std::env::consts::ARCH.to_string());
-        record.attributes.insert("host.os".to_string(), std::env::consts::OS.to_string());
-        
+        record
+            .attributes
+            .insert("host.name".to_string(), self.hostname.clone());
+        record
+            .attributes
+            .insert("host.arch".to_string(), std::env::consts::ARCH.to_string());
+        record
+            .attributes
+            .insert("host.os".to_string(), std::env::consts::OS.to_string());
+
         // Add uptime
         let uptime = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs();
-        record.attributes.insert("host.uptime_seconds".to_string(), uptime.to_string());
+        record
+            .attributes
+            .insert("host.uptime_seconds".to_string(), uptime.to_string());
 
         Ok(())
     }
@@ -580,18 +624,14 @@ impl EnrichmentProcessor {
             }
 
             let value = match &rule.rule_type {
-                EnrichmentRuleType::Copy => {
-                    self.get_field_value(record, &rule.source_expression)
-                }
+                EnrichmentRuleType::Copy => self.get_field_value(record, &rule.source_expression),
                 EnrichmentRuleType::Regex => {
                     self.apply_regex_extraction(record, &rule.source_expression)?
                 }
                 EnrichmentRuleType::Expression => {
                     self.evaluate_expression(record, &rule.source_expression)?
                 }
-                EnrichmentRuleType::Static => {
-                    rule.source_expression.clone()
-                }
+                EnrichmentRuleType::Static => rule.source_expression.clone(),
                 EnrichmentRuleType::Transform(func) => {
                     self.apply_transform(record, &rule.source_expression, func)?
                 }
@@ -600,7 +640,9 @@ impl EnrichmentProcessor {
             if !value.is_empty() {
                 record.attributes.insert(rule.target_field.clone(), value);
             } else if let Some(default_value) = &rule.default_value {
-                record.attributes.insert(rule.target_field.clone(), default_value.clone());
+                record
+                    .attributes
+                    .insert(rule.target_field.clone(), default_value.clone());
             }
         }
 
@@ -608,49 +650,76 @@ impl EnrichmentProcessor {
     }
 
     /// Apply regex extraction
-    fn apply_regex_extraction(&self, record: &TelemetryRecord, pattern: &str) -> BridgeResult<String> {
+    fn apply_regex_extraction(
+        &self,
+        record: &TelemetryRecord,
+        pattern: &str,
+    ) -> BridgeResult<String> {
         let text = self.get_field_value(record, pattern);
-        let regex = Regex::new(pattern)
-            .map_err(|e| bridge_core::BridgeError::configuration(format!("Invalid regex pattern: {}", e)))?;
-        
+        let regex = Regex::new(pattern).map_err(|e| {
+            bridge_core::BridgeError::configuration(format!("Invalid regex pattern: {}", e))
+        })?;
+
         if let Some(captures) = regex.captures(&text) {
             if let Some(m) = captures.get(1) {
                 return Ok(m.as_str().to_string());
             }
         }
-        
+
         Ok(String::new())
     }
 
     /// Evaluate expression
-    fn evaluate_expression(&self, record: &TelemetryRecord, expression: &str) -> BridgeResult<String> {
+    fn evaluate_expression(
+        &self,
+        record: &TelemetryRecord,
+        expression: &str,
+    ) -> BridgeResult<String> {
         // Simple expression evaluation
         // In a real implementation, this would use a proper expression engine
         match expression {
             "timestamp_iso" => Ok(record.timestamp.to_rfc3339()),
             "record_type" => Ok(format!("{:?}", record.record_type)),
-            "id_short" => Ok(record.id.to_string().split('-').next().unwrap_or("").to_string()),
+            "id_short" => Ok(record
+                .id
+                .to_string()
+                .split('-')
+                .next()
+                .unwrap_or("")
+                .to_string()),
             _ => Ok(String::new()),
         }
     }
 
     /// Apply transform function
-    fn apply_transform(&self, record: &TelemetryRecord, field: &str, func: &TransformFunction) -> BridgeResult<String> {
+    fn apply_transform(
+        &self,
+        record: &TelemetryRecord,
+        field: &str,
+        func: &TransformFunction,
+    ) -> BridgeResult<String> {
         let value = self.get_field_value(record, field);
-        
+
         let transformed = match func {
             TransformFunction::ToUpper => value.to_uppercase(),
             TransformFunction::ToLower => value.to_lowercase(),
             TransformFunction::ExtractDomain => {
-                if let Some(url) = value.strip_prefix("http://").or_else(|| value.strip_prefix("https://")) {
+                if let Some(url) = value
+                    .strip_prefix("http://")
+                    .or_else(|| value.strip_prefix("https://"))
+                {
                     url.split('/').next().unwrap_or("").to_string()
                 } else {
                     value
                 }
             }
             TransformFunction::ExtractPath => {
-                if let Some(url) = value.strip_prefix("http://").or_else(|| value.strip_prefix("https://")) {
-                    if let Some(path) = url.split('/').skip(1).collect::<Vec<_>>().join("/").into() {
+                if let Some(url) = value
+                    .strip_prefix("http://")
+                    .or_else(|| value.strip_prefix("https://"))
+                {
+                    if let Some(path) = url.split('/').skip(1).collect::<Vec<_>>().join("/").into()
+                    {
                         format!("/{}", path)
                     } else {
                         "/".to_string()
@@ -675,7 +744,7 @@ impl EnrichmentProcessor {
             }
             TransformFunction::Replace(from, to) => value.replace(from, to),
         };
-        
+
         Ok(transformed)
     }
 }
@@ -687,14 +756,17 @@ impl TelemetryProcessor for EnrichmentProcessor {
         let mut processed_records = Vec::new();
         let mut errors = Vec::new();
 
-        info!("Processing batch with {} records through enrichment processor", batch.records.len());
+        info!(
+            "Processing batch with {} records through enrichment processor",
+            batch.records.len()
+        );
 
         for record in batch.records {
             // Extract attributes before moving the record
             let record_id = record.id.clone();
             let record_data = record.data.clone();
             let record_attributes = record.attributes.clone();
-            
+
             match self.enrich_record(record).await {
                 Ok(enriched_record) => {
                     processed_records.push(ProcessedRecord {
@@ -711,7 +783,7 @@ impl TelemetryProcessor for EnrichmentProcessor {
                         message: e.to_string(),
                         details: None,
                     });
-                    
+
                     // Add failed record with error status
                     processed_records.push(ProcessedRecord {
                         original_id: record_id,
@@ -730,8 +802,10 @@ impl TelemetryProcessor for EnrichmentProcessor {
 
         let processing_time = start_time.elapsed();
         let processing_time_ms = processing_time.as_millis() as f64;
-        
-        self.base.update_stats(1, processed_records.len(), processing_time_ms).await;
+
+        self.base
+            .update_stats(1, processed_records.len(), processing_time_ms)
+            .await;
 
         if !errors.is_empty() {
             self.base.increment_error_count().await;

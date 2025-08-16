@@ -3,15 +3,15 @@
 //!
 
 //! Configuration management for the Apache Iceberg connector
-//! 
+//!
 //! This module provides type-safe configuration structures with validation
 //! and hierarchical configuration management for Apache Iceberg operations.
 
+use crate::error::{IcebergError, IcebergResult};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Duration;
-use serde::{Deserialize, Serialize};
 use validator::Validate;
-use crate::error::{IcebergError, IcebergResult};
 
 /// Apache Iceberg configuration
 #[derive(Debug, Clone, Serialize, Deserialize, Validate, Default)]
@@ -179,9 +179,10 @@ impl IcebergConfig {
 
     /// Load configuration from file
     pub fn from_file(path: &std::path::Path) -> IcebergResult<Self> {
-        let content = std::fs::read_to_string(path)
-            .map_err(|e| IcebergError::configuration_with_source("Failed to read config file", e))?;
-        
+        let content = std::fs::read_to_string(path).map_err(|e| {
+            IcebergError::configuration_with_source("Failed to read config file", e)
+        })?;
+
         Self::from_str(&content)
     }
 
@@ -189,25 +190,30 @@ impl IcebergConfig {
     pub fn from_str(content: &str) -> IcebergResult<Self> {
         let config: IcebergConfig = toml::from_str(content)
             .map_err(|e| IcebergError::configuration_with_source("Failed to parse config", e))?;
-        
+
         config.validate_config()?;
         Ok(config)
     }
 
     /// Validate the configuration
     pub fn validate_config(&self) -> IcebergResult<()> {
-        self.validate()
-            .map_err(|e| IcebergError::validation_with_source("Configuration validation failed", e))?;
-        
+        self.validate().map_err(|e| {
+            IcebergError::validation_with_source("Configuration validation failed", e)
+        })?;
+
         // Additional custom validation
         if self.table.partition_columns.is_empty() {
-            return Err(IcebergError::validation("At least one partition column is required"));
+            return Err(IcebergError::validation(
+                "At least one partition column is required",
+            ));
         }
-        
+
         if self.writer.batch_size == 0 {
-            return Err(IcebergError::validation("Batch size must be greater than 0"));
+            return Err(IcebergError::validation(
+                "Batch size must be greater than 0",
+            ));
         }
-        
+
         Ok(())
     }
 
@@ -327,11 +333,8 @@ mod tests {
 
     #[test]
     fn test_config_creation() {
-        let config = IcebergConfig::new(
-            "s3://test-bucket".to_string(),
-            "test_table".to_string(),
-        );
-        
+        let config = IcebergConfig::new("s3://test-bucket".to_string(), "test_table".to_string());
+
         assert_eq!(config.storage_path(), "s3://test-bucket");
         assert_eq!(config.table_name(), "test_table");
         assert_eq!(config.batch_size(), 10000);
@@ -339,14 +342,12 @@ mod tests {
 
     #[test]
     fn test_config_validation() {
-        let mut config = IcebergConfig::new(
-            "s3://test-bucket".to_string(),
-            "test_table".to_string(),
-        );
-        
+        let mut config =
+            IcebergConfig::new("s3://test-bucket".to_string(), "test_table".to_string());
+
         // Should be valid
         assert!(config.validate_config().is_ok());
-        
+
         // Should be invalid with empty partition columns
         config.table.partition_columns.clear();
         assert!(config.validate_config().is_err());

@@ -7,21 +7,19 @@
 //! This binary provides the schema registry service for
 //! OpenTelemetry Data Lake Bridge.
 
-use std::path::PathBuf;
-use std::net::SocketAddr;
-use std::str::FromStr;
-use std::sync::Arc;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use tracing::{info, warn, error};
+use std::net::SocketAddr;
+use std::path::PathBuf;
+use std::str::FromStr;
+use std::sync::Arc;
+use tracing::{error, info, warn};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use schema_registry::{
-    SchemaRegistryConfig, init_schema_registry, shutdown_schema_registry,
-    SCHEMA_REGISTRY_VERSION, SCHEMA_REGISTRY_NAME,
-    config::StorageBackendType,
+    config::StorageBackendType, init_schema_registry, shutdown_schema_registry,
+    SchemaRegistryConfig, SCHEMA_REGISTRY_NAME, SCHEMA_REGISTRY_VERSION,
 };
-
 
 #[derive(Parser)]
 #[command(name = "schema-registry")]
@@ -122,10 +120,16 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Serve { config, host, port, storage, database_url } => {
+        Commands::Serve {
+            config,
+            host,
+            port,
+            storage,
+            database_url,
+        } => {
             // Load configuration
             let mut config = SchemaRegistryConfig::from_file(&config)?;
-            
+
             // Override configuration with CLI arguments
             config.api.host = host.clone();
             config.api.port = port;
@@ -153,7 +157,10 @@ async fn main() -> Result<()> {
                         config.storage.sqlite.database_path = PathBuf::from(url);
                     }
                     _ => {
-                        warn!("Database URL ignored for storage backend: {:?}", config.storage.backend);
+                        warn!(
+                            "Database URL ignored for storage backend: {:?}",
+                            config.storage.backend
+                        );
                     }
                 }
             }
@@ -162,7 +169,8 @@ async fn main() -> Result<()> {
             let registry = init_schema_registry(config.clone()).await?;
 
             // Create API server
-            let manager = schema_registry::registry::SchemaRegistryManager::new_with_storage(config).await?;
+            let manager =
+                schema_registry::registry::SchemaRegistryManager::new_with_storage(config).await?;
             let api = schema_registry::api::SchemaRegistryApi::new(Arc::new(manager));
             let app = api.create_app();
 
@@ -182,7 +190,8 @@ async fn main() -> Result<()> {
         Commands::Register { schema, endpoint } => {
             // Read schema file
             let content = std::fs::read_to_string(&schema)?;
-            let component_schema: schema_registry::types::ComponentSchema = serde_yaml::from_str(&content)?;
+            let component_schema: schema_registry::types::ComponentSchema =
+                serde_yaml::from_str(&content)?;
 
             // Create HTTP client
             let client = reqwest::Client::new();
@@ -216,7 +225,10 @@ async fn main() -> Result<()> {
 
             if response.status().is_success() {
                 let result: schema_registry::api::RegisterSchemaResponse = response.json().await?;
-                println!("Schema registered successfully with fingerprint: {}", result.fingerprint);
+                println!(
+                    "Schema registered successfully with fingerprint: {}",
+                    result.fingerprint
+                );
             } else {
                 error!("Failed to register schema: {}", response.status());
                 std::process::exit(1);
@@ -254,7 +266,10 @@ async fn main() -> Result<()> {
 
             if response.status().is_success() {
                 let result: schema_registry::api::ListSchemasResponse = response.json().await?;
-                println!("Schemas: {}", serde_json::to_string_pretty(&result.schemas)?);
+                println!(
+                    "Schemas: {}",
+                    serde_json::to_string_pretty(&result.schemas)?
+                );
             } else {
                 error!("Failed to list schemas: {}", response.status());
                 std::process::exit(1);
@@ -264,7 +279,8 @@ async fn main() -> Result<()> {
         Commands::Validate { schema, endpoint } => {
             // Read schema file
             let content = std::fs::read_to_string(&schema)?;
-            let component_schema: schema_registry::types::ComponentSchema = serde_yaml::from_str(&content)?;
+            let component_schema: schema_registry::types::ComponentSchema =
+                serde_yaml::from_str(&content)?;
 
             // Create HTTP client
             let client = reqwest::Client::new();
@@ -285,11 +301,17 @@ async fn main() -> Result<()> {
                 if result.valid {
                     println!("✅ Schema validation passed");
                     println!("Status: {}", result.status);
-                    println!("Errors: {}, Warnings: {}", result.error_count, result.warning_count);
+                    println!(
+                        "Errors: {}, Warnings: {}",
+                        result.error_count, result.warning_count
+                    );
                 } else {
                     println!("❌ Schema validation failed");
                     println!("Status: {}", result.status);
-                    println!("Errors: {}, Warnings: {}", result.error_count, result.warning_count);
+                    println!(
+                        "Errors: {}, Warnings: {}",
+                        result.error_count, result.warning_count
+                    );
                     if !result.errors.is_empty() {
                         println!("Errors:");
                         for error in result.errors {
@@ -310,7 +332,10 @@ async fn main() -> Result<()> {
             }
         }
 
-        Commands::Delete { fingerprint, endpoint } => {
+        Commands::Delete {
+            fingerprint,
+            endpoint,
+        } => {
             // Create HTTP client
             let client = reqwest::Client::new();
 

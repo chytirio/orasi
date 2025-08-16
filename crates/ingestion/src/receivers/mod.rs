@@ -9,17 +9,17 @@
 
 pub mod http_receiver;
 pub mod kafka_receiver;
-pub mod otlp_receiver;
-pub mod otlp_http_receiver;
 pub mod otap_receiver;
+pub mod otlp_http_receiver;
+pub mod otlp_receiver;
 pub mod simple_http_receiver;
 
 // Re-export receiver implementations
 pub use http_receiver::HttpReceiver;
 pub use kafka_receiver::KafkaReceiver;
-pub use otlp_receiver::OtlpReceiver;
-pub use otlp_http_receiver::{OtlpHttpReceiver, OtlpHttpReceiverConfig};
 pub use otap_receiver::OtapReceiver;
+pub use otlp_http_receiver::{OtlpHttpReceiver, OtlpHttpReceiverConfig};
+pub use otlp_receiver::OtlpReceiver;
 pub use simple_http_receiver::{SimpleHttpReceiver, SimpleHttpReceiverConfig};
 
 use async_trait::async_trait;
@@ -27,7 +27,6 @@ use bridge_core::{
     traits::ReceiverStats, BridgeResult, TelemetryReceiver as BridgeTelemetryReceiver,
 };
 use chrono::Utc;
-use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::collections::HashMap;
 use std::sync::Arc;

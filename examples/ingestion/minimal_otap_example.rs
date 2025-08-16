@@ -9,12 +9,9 @@
 
 use bridge_core::BridgeResult;
 use ingestion::{
-    receivers::otap_receiver::OtapReceiver,
-    receivers::ReceiverManager,
-    processors::batch_processor::BatchProcessor,
-    processors::ProcessorPipeline,
-    exporters::batch_exporter::BatchExporter,
-    exporters::ExporterPipeline,
+    exporters::batch_exporter::BatchExporter, exporters::ExporterPipeline,
+    processors::batch_processor::BatchProcessor, processors::ProcessorPipeline,
+    receivers::otap_receiver::OtapReceiver, receivers::ReceiverManager,
 };
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -66,7 +63,12 @@ impl MinimalOtapPipeline {
     }
 
     /// Add OTAP receiver to the pipeline
-    pub async fn add_otap_receiver(&mut self, name: String, endpoint: String, port: u16) -> BridgeResult<()> {
+    pub async fn add_otap_receiver(
+        &mut self,
+        name: String,
+        endpoint: String,
+        port: u16,
+    ) -> BridgeResult<()> {
         info!("Adding OTAP receiver: {} on {}:{}", name, endpoint, port);
 
         let config = ingestion::receivers::otap_receiver::OtapReceiverConfig::new(endpoint, port);
@@ -84,21 +86,25 @@ impl MinimalOtapPipeline {
             self.config.max_batch_size,
             self.config.flush_interval_ms,
         );
-        
+
         let processor = BatchProcessor::new(&config).await?;
         self.processor_pipeline.add_processor(Box::new(processor));
         Ok(())
     }
 
     /// Add batch exporter to the pipeline
-    pub async fn add_batch_exporter(&mut self, name: String, destination: String) -> BridgeResult<()> {
+    pub async fn add_batch_exporter(
+        &mut self,
+        name: String,
+        destination: String,
+    ) -> BridgeResult<()> {
         info!("Adding batch exporter: {} to {}", name, destination);
 
         let config = ingestion::exporters::batch_exporter::BatchExporterConfig::new(
             destination,
             self.config.max_batch_size,
         );
-        
+
         let exporter = BatchExporter::new(&config).await?;
         self.exporter_pipeline.add_exporter(Box::new(exporter));
         Ok(())
@@ -184,20 +190,22 @@ async fn main() -> BridgeResult<()> {
     let mut pipeline = MinimalOtapPipeline::new(config);
 
     // Add OTAP receiver
-    pipeline.add_otap_receiver(
-        "otap-receiver".to_string(),
-        "127.0.0.1".to_string(),
-        4319,
-    ).await?;
+    pipeline
+        .add_otap_receiver("otap-receiver".to_string(), "127.0.0.1".to_string(), 4319)
+        .await?;
 
     // Add batch processor
-    pipeline.add_batch_processor("batch-processor".to_string()).await?;
+    pipeline
+        .add_batch_processor("batch-processor".to_string())
+        .await?;
 
     // Add batch exporter (to memory for this example)
-    pipeline.add_batch_exporter(
-        "memory-exporter".to_string(),
-        "memory://telemetry-data".to_string(),
-    ).await?;
+    pipeline
+        .add_batch_exporter(
+            "memory-exporter".to_string(),
+            "memory://telemetry-data".to_string(),
+        )
+        .await?;
 
     // Start the pipeline
     pipeline.start().await?;

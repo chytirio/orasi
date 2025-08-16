@@ -12,8 +12,6 @@ use bridge_core::{BridgeResult, TelemetryBatch};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use tracing::{error, info, warn};
-use uuid::Uuid;
 
 /// Validation trait for telemetry data
 #[async_trait::async_trait]
@@ -173,7 +171,11 @@ impl SchemaValidator {
     }
 
     /// Validate individual record
-    fn validate_record(&self, record: &TelemetryRecord, index: usize) -> (Vec<ValidationError>, Vec<ValidationWarning>) {
+    fn validate_record(
+        &self,
+        record: &TelemetryRecord,
+        index: usize,
+    ) -> (Vec<ValidationError>, Vec<ValidationWarning>) {
         let mut errors = Vec::new();
         let mut warnings = Vec::new();
 
@@ -317,7 +319,7 @@ impl DataValidator {
         &self,
         batch: &TelemetryBatch,
     ) -> BridgeResult<ValidationResult> {
-        let mut errors = Vec::new();
+        let errors = Vec::new();
         let mut warnings = Vec::new();
 
         // Check for duplicate records

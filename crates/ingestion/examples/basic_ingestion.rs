@@ -11,10 +11,21 @@ use ingestion::{
     exporters::batch_exporter::BatchExporterConfig,
     exporters::streaming_exporter::StreamingExporterConfig,
 
+    // Exporters
+    exporters::BatchExporter,
+    exporters::ExporterFactory,
+    exporters::ExporterPipeline,
+    exporters::StreamingExporter,
     processors::batch_processor::BatchProcessorConfig,
     processors::filter_processor::{FilterMode, FilterOperator, FilterProcessorConfig, FilterRule},
     processors::transform_processor::{TransformProcessorConfig, TransformRule, TransformRuleType},
 
+    // Processors
+    processors::BatchProcessor,
+    processors::FilterProcessor,
+    processors::ProcessorFactory,
+    processors::ProcessorPipeline,
+    processors::TransformProcessor,
     protocols::kafka::KafkaConfig,
     // Protocols
     protocols::otlp_arrow::OtlpArrowConfig,
@@ -24,27 +35,16 @@ use ingestion::{
 
     receivers::kafka_receiver::KafkaReceiverConfig,
     receivers::otlp_receiver::OtlpReceiverConfig,
-    validation::TelemetryValidator,
-    // Exporters
-    BatchExporter,
-    // Processors
-    BatchProcessor,
-    DataValidator,
-    ExporterFactory,
-    ExporterPipeline,
-    FilterProcessor,
-    HttpReceiver,
-    KafkaReceiver,
     // Receivers
-    OtlpReceiver,
-    ProcessorFactory,
-    ProcessorPipeline,
-    ReceiverFactory,
-    ReceiverManager,
+    receivers::HttpReceiver,
+    receivers::KafkaReceiver,
+    receivers::OtlpReceiver,
+    receivers::ReceiverFactory,
+    receivers::ReceiverManager,
     // Validation
-    SchemaValidator,
-    StreamingExporter,
-    TransformProcessor,
+    validation::DataValidator,
+    validation::SchemaValidator,
+    validation::TelemetryValidator,
 };
 
 use bridge_core::{BridgeResult, TelemetryBatch};

@@ -23,6 +23,11 @@ members = [
   "examples",
 ]
 
+[workspace.lints.rust]
+unused_imports = "allow"
+unused_variables = "allow"
+unused_comparisons = "allow"
+
 [workspace.dependencies]
 # Core dependencies
 tokio = { version = "1.36", features = ["full"] }
@@ -119,5 +124,3 @@ debug = true
 [profile.bench]
 opt-level = 3
 debug = false
-
-

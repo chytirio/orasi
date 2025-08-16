@@ -8,29 +8,28 @@
 //! telemetry data during ingestion.
 
 pub mod batch_processor;
+pub mod enrichment_processor;
 pub mod filter_processor;
 pub mod transform_processor;
-pub mod enrichment_processor;
 
 // Re-export processor implementations
 pub use batch_processor::BatchProcessor;
+pub use enrichment_processor::{EnrichmentProcessor, EnrichmentProcessorConfig};
 pub use filter_processor::FilterProcessor;
 pub use transform_processor::TransformProcessor;
-pub use enrichment_processor::{EnrichmentProcessor, EnrichmentProcessorConfig};
 
 use async_trait::async_trait;
 use bridge_core::{
-    traits::ProcessorStats, BridgeResult, ProcessedBatch, TelemetryBatch,
-    TelemetryProcessor, types::{ProcessedRecord, TelemetryData, TelemetryRecord, TelemetryType},
+    traits::ProcessorStats,
+    types::{ProcessedRecord, TelemetryData, TelemetryRecord, TelemetryType},
+    BridgeResult, ProcessedBatch, TelemetryBatch, TelemetryProcessor,
 };
-use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use chrono::Utc;
 use std::any::Any;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{error, info, warn};
-use uuid::Uuid;
+use tracing::{error, info};
 
 /// Processor configuration trait
 #[async_trait]
@@ -188,22 +187,20 @@ impl ProcessorPipeline {
                             .records
                             .into_iter()
                             .filter_map(|r| {
-                                r.transformed_data.map(|d| {
-                                    TelemetryRecord {
-                                        id: r.original_id,
-                                        timestamp: Utc::now(),
-                                        record_type: match &d {
-                                            TelemetryData::Metric(_) => TelemetryType::Metric,
-                                            TelemetryData::Trace(_) => TelemetryType::Trace,
-                                            TelemetryData::Log(_) => TelemetryType::Log,
-                                            TelemetryData::Event(_) => TelemetryType::Event,
-                                        },
-                                        data: d,
-                                        attributes: r.metadata,
-                                        tags: HashMap::new(),
-                                        resource: None,
-                                        service: None,
-                                    }
+                                r.transformed_data.map(|d| TelemetryRecord {
+                                    id: r.original_id,
+                                    timestamp: Utc::now(),
+                                    record_type: match &d {
+                                        TelemetryData::Metric(_) => TelemetryType::Metric,
+                                        TelemetryData::Trace(_) => TelemetryType::Trace,
+                                        TelemetryData::Log(_) => TelemetryType::Log,
+                                        TelemetryData::Event(_) => TelemetryType::Event,
+                                    },
+                                    data: d,
+                                    attributes: r.metadata,
+                                    tags: HashMap::new(),
+                                    resource: None,
+                                    service: None,
                                 })
                             })
                             .collect(),

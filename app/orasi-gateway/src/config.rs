@@ -8,34 +8,34 @@ use std::time::Duration;
 pub struct GatewayConfig {
     /// Gateway identifier
     pub gateway_id: String,
-    
+
     /// Gateway endpoint for external traffic
     pub gateway_endpoint: String,
-    
+
     /// Health check endpoint
     pub health_endpoint: String,
-    
+
     /// Metrics endpoint
     pub metrics_endpoint: String,
-    
+
     /// Admin endpoint
     pub admin_endpoint: String,
-    
+
     /// Service discovery settings
     pub service_discovery: ServiceDiscoveryConfig,
-    
+
     /// Load balancing settings
     pub load_balancing: LoadBalancingConfig,
-    
+
     /// Routing settings
     pub routing: RoutingConfig,
-    
+
     /// Security settings
     pub security: SecurityConfig,
-    
+
     /// Rate limiting settings
     pub rate_limiting: RateLimitingConfig,
-    
+
     /// TLS settings
     pub tls: TlsConfig,
 }
@@ -63,13 +63,13 @@ impl Default for GatewayConfig {
 pub struct ServiceDiscoveryConfig {
     /// Service discovery backend (etcd, consul, etc.)
     pub backend: ServiceDiscoveryBackend,
-    
+
     /// Service discovery endpoints
     pub endpoints: Vec<String>,
-    
+
     /// Service refresh interval
     pub refresh_interval: Duration,
-    
+
     /// Service health check interval
     pub health_check_interval: Duration,
 }
@@ -98,13 +98,13 @@ pub enum ServiceDiscoveryBackend {
 pub struct LoadBalancingConfig {
     /// Load balancing algorithm
     pub algorithm: LoadBalancingAlgorithm,
-    
+
     /// Health check settings
     pub health_check: HealthCheckConfig,
-    
+
     /// Circuit breaker settings
     pub circuit_breaker: CircuitBreakerConfig,
-    
+
     /// Retry settings
     pub retry: RetryConfig,
 }
@@ -135,19 +135,19 @@ pub enum LoadBalancingAlgorithm {
 pub struct HealthCheckConfig {
     /// Enable health checks
     pub enabled: bool,
-    
+
     /// Health check path
     pub path: String,
-    
+
     /// Health check interval
     pub interval: Duration,
-    
+
     /// Health check timeout
     pub timeout: Duration,
-    
+
     /// Unhealthy threshold
     pub unhealthy_threshold: u32,
-    
+
     /// Healthy threshold
     pub healthy_threshold: u32,
 }
@@ -170,13 +170,13 @@ impl Default for HealthCheckConfig {
 pub struct CircuitBreakerConfig {
     /// Enable circuit breaker
     pub enabled: bool,
-    
+
     /// Failure threshold
     pub failure_threshold: u32,
-    
+
     /// Recovery timeout
     pub recovery_timeout: Duration,
-    
+
     /// Half-open state max requests
     pub half_open_max_requests: u32,
 }
@@ -197,13 +197,13 @@ impl Default for CircuitBreakerConfig {
 pub struct RetryConfig {
     /// Enable retries
     pub enabled: bool,
-    
+
     /// Maximum retry attempts
     pub max_attempts: u32,
-    
+
     /// Retry delay
     pub delay: Duration,
-    
+
     /// Retry backoff multiplier
     pub backoff_multiplier: f64,
 }
@@ -224,13 +224,13 @@ impl Default for RetryConfig {
 pub struct RoutingConfig {
     /// Default service
     pub default_service: String,
-    
+
     /// Route rules
     pub routes: Vec<RouteRule>,
-    
+
     /// Request timeout
     pub request_timeout: Duration,
-    
+
     /// Max request size
     pub max_request_size: usize,
 }
@@ -251,16 +251,16 @@ impl Default for RoutingConfig {
 pub struct RouteRule {
     /// Route path pattern
     pub path: String,
-    
+
     /// Target service
     pub service: String,
-    
+
     /// HTTP methods
     pub methods: Vec<String>,
-    
+
     /// Route priority
     pub priority: u32,
-    
+
     /// Route metadata
     pub metadata: std::collections::HashMap<String, String>,
 }
@@ -270,16 +270,16 @@ pub struct RouteRule {
 pub struct SecurityConfig {
     /// Enable CORS
     pub enable_cors: bool,
-    
+
     /// CORS origins
     pub cors_origins: Vec<String>,
-    
+
     /// Enable authentication
     pub enable_auth: bool,
-    
+
     /// Authentication providers
     pub auth_providers: Vec<String>,
-    
+
     /// Enable rate limiting
     pub enable_rate_limiting: bool,
 }
@@ -301,13 +301,13 @@ impl Default for SecurityConfig {
 pub struct RateLimitingConfig {
     /// Requests per second
     pub requests_per_second: u32,
-    
+
     /// Burst size
     pub burst_size: u32,
-    
+
     /// Rate limit by IP
     pub limit_by_ip: bool,
-    
+
     /// Rate limit by user
     pub limit_by_user: bool,
 }
@@ -328,16 +328,16 @@ impl Default for RateLimitingConfig {
 pub struct TlsConfig {
     /// Enable TLS
     pub enabled: bool,
-    
+
     /// Certificate file path
     pub cert_file: Option<String>,
-    
+
     /// Private key file path
     pub key_file: Option<String>,
-    
+
     /// CA certificate file path
     pub ca_file: Option<String>,
-    
+
     /// TLS version
     pub min_tls_version: TlsVersion,
 }

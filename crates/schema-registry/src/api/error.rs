@@ -95,12 +95,19 @@ impl ApiError {
 impl axum::response::IntoResponse for ApiError {
     fn into_response(self) -> axum::response::Response {
         let (status, message) = match self {
-            ApiError::BadRequest { ref message } => (axum::http::StatusCode::BAD_REQUEST, message.clone()),
-            ApiError::NotFound { ref message } => (axum::http::StatusCode::NOT_FOUND, message.clone()),
-            ApiError::Internal { ref message } => {
-                (axum::http::StatusCode::INTERNAL_SERVER_ERROR, message.clone())
+            ApiError::BadRequest { ref message } => {
+                (axum::http::StatusCode::BAD_REQUEST, message.clone())
             }
-            ApiError::Validation { ref message } => (axum::http::StatusCode::BAD_REQUEST, message.clone()),
+            ApiError::NotFound { ref message } => {
+                (axum::http::StatusCode::NOT_FOUND, message.clone())
+            }
+            ApiError::Internal { ref message } => (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                message.clone(),
+            ),
+            ApiError::Validation { ref message } => {
+                (axum::http::StatusCode::BAD_REQUEST, message.clone())
+            }
         };
 
         let body = axum::response::Json(crate::api::responses::ErrorResponse {

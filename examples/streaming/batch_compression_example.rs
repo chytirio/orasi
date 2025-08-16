@@ -7,15 +7,13 @@
 //! This example shows how to use the batch processor with compression enabled
 //! to reduce the size of telemetry batches.
 
-use ingestion::processors::{
-    batch_processor::BatchProcessorConfig,
-    BatchProcessor,
+use bridge_core::types::{
+    MetricData, MetricType, MetricValue, TelemetryBatch, TelemetryData, TelemetryRecord,
+    TelemetryType,
 };
 use bridge_core::BridgeResult;
-use bridge_core::types::{
-    MetricData, MetricType, MetricValue, TelemetryBatch, TelemetryData, TelemetryRecord, TelemetryType,
-};
 use chrono::Utc;
+use ingestion::processors::{batch_processor::BatchProcessorConfig, BatchProcessor};
 use std::collections::HashMap;
 use uuid::Uuid;
 
@@ -45,7 +43,7 @@ async fn main() -> BridgeResult<()> {
 
     // Create a large batch with many records to demonstrate compression
     let mut records = Vec::new();
-    
+
     // Generate 100 sample metric records
     for i in 0..100 {
         let record = TelemetryRecord {
@@ -54,7 +52,10 @@ async fn main() -> BridgeResult<()> {
             record_type: TelemetryType::Metric,
             data: TelemetryData::Metric(MetricData {
                 name: format!("example_metric_{}", i),
-                description: Some(format!("Example metric number {} for compression testing", i)),
+                description: Some(format!(
+                    "Example metric number {} for compression testing",
+                    i
+                )),
                 unit: Some("count".to_string()),
                 metric_type: MetricType::Gauge,
                 value: MetricValue::Gauge(i as f64 * 1.5),
@@ -66,7 +67,10 @@ async fn main() -> BridgeResult<()> {
                 timestamp: Utc::now(),
             }),
             attributes: HashMap::from([
-                ("source".to_string(), "batch-compression-example".to_string()),
+                (
+                    "source".to_string(),
+                    "batch-compression-example".to_string(),
+                ),
                 ("batch_id".to_string(), format!("batch-{}", i / 10)),
                 ("record_index".to_string(), i.to_string()),
             ]),
@@ -88,7 +92,10 @@ async fn main() -> BridgeResult<()> {
         records,
         metadata: HashMap::from([
             ("example_type".to_string(), "compression_demo".to_string()),
-            ("created_by".to_string(), "batch_compression_example".to_string()),
+            (
+                "created_by".to_string(),
+                "batch_compression_example".to_string(),
+            ),
         ]),
     };
 
@@ -124,7 +131,7 @@ async fn main() -> BridgeResult<()> {
 
     if let Some(compression_ratio) = compressed_batch.metadata.get("compression_ratio") {
         println!("Compression ratio: {}", compression_ratio);
-        
+
         // Calculate space savings
         if let (Ok(original), Ok(compressed)) = (
             compressed_batch.metadata["original_size"].parse::<usize>(),
@@ -152,11 +159,16 @@ async fn main() -> BridgeResult<()> {
     };
 
     let processor_disabled = BatchProcessor::new(&config_disabled).await?;
-    let uncompressed_batch = processor_disabled.compress_batch(compressed_batch.clone()).await?;
+    let uncompressed_batch = processor_disabled
+        .compress_batch(compressed_batch.clone())
+        .await?;
 
     println!("Compression disabled - batch returned unchanged");
     println!("Batch ID: {}", uncompressed_batch.id);
-    println!("Has compression metadata: {}", uncompressed_batch.metadata.contains_key("compression"));
+    println!(
+        "Has compression metadata: {}",
+        uncompressed_batch.metadata.contains_key("compression")
+    );
 
     println!("\n=== Example completed successfully! ===");
 

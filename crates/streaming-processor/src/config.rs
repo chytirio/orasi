@@ -4,38 +4,38 @@
 
 //! Configuration for streaming processor
 
+use bridge_core::BridgeResult;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Duration;
-use bridge_core::BridgeResult;
 
 /// Streaming processor configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StreamingProcessorConfig {
     /// Processor name
     pub name: String,
-    
+
     /// Processor version
     pub version: String,
-    
+
     /// Sources configuration
     pub sources: HashMap<String, SourceConfig>,
-    
+
     /// Processors configuration
     pub processors: Vec<ProcessorConfig>,
-    
+
     /// Sinks configuration
     pub sinks: HashMap<String, SinkConfig>,
-    
+
     /// General processing configuration
     pub processing: ProcessingConfig,
-    
+
     /// State management configuration
     pub state: StateConfig,
-    
+
     /// Metrics configuration
     pub metrics: MetricsConfig,
-    
+
     /// Security configuration
     pub security: SecurityConfig,
 }
@@ -122,19 +122,19 @@ impl StreamingProcessorConfig {
 pub struct SourceConfig {
     /// Source type
     pub source_type: SourceType,
-    
+
     /// Source name
     pub name: String,
-    
+
     /// Source version
     pub version: String,
-    
+
     /// Source-specific configuration
     pub config: HashMap<String, serde_json::Value>,
-    
+
     /// Authentication configuration
     pub auth: Option<AuthConfig>,
-    
+
     /// Connection configuration
     pub connection: ConnectionConfig,
 }
@@ -174,16 +174,16 @@ pub enum SourceType {
 pub struct ProcessorConfig {
     /// Processor type
     pub processor_type: ProcessorType,
-    
+
     /// Processor name
     pub name: String,
-    
+
     /// Processor version
     pub version: String,
-    
+
     /// Processor-specific configuration
     pub config: HashMap<String, serde_json::Value>,
-    
+
     /// Processing order
     pub order: usize,
 }
@@ -221,19 +221,19 @@ pub enum ProcessorType {
 pub struct SinkConfig {
     /// Sink type
     pub sink_type: SinkType,
-    
+
     /// Sink name
     pub name: String,
-    
+
     /// Sink version
     pub version: String,
-    
+
     /// Sink-specific configuration
     pub config: HashMap<String, serde_json::Value>,
-    
+
     /// Authentication configuration
     pub auth: Option<AuthConfig>,
-    
+
     /// Connection configuration
     pub connection: ConnectionConfig,
 }
@@ -273,22 +273,22 @@ pub enum SinkType {
 pub struct ProcessingConfig {
     /// Batch size
     pub batch_size: usize,
-    
+
     /// Buffer size
     pub buffer_size: usize,
-    
+
     /// Processing timeout
     pub timeout: Duration,
-    
+
     /// Enable parallel processing
     pub enable_parallel: bool,
-    
+
     /// Number of parallel workers
     pub num_workers: usize,
-    
+
     /// Enable backpressure
     pub enable_backpressure: bool,
-    
+
     /// Backpressure threshold (percentage)
     pub backpressure_threshold: u8,
 }
@@ -342,13 +342,13 @@ impl ProcessingConfig {
 pub struct StateConfig {
     /// State store type
     pub store_type: StateStoreType,
-    
+
     /// State store configuration
     pub config: HashMap<String, serde_json::Value>,
-    
+
     /// Enable state persistence
     pub enable_persistence: bool,
-    
+
     /// State persistence path
     pub persistence_path: Option<String>,
 }
@@ -391,16 +391,16 @@ pub enum StateStoreType {
 pub struct MetricsConfig {
     /// Enable metrics collection
     pub enable_metrics: bool,
-    
+
     /// Metrics endpoint
     pub endpoint: Option<String>,
-    
+
     /// Metrics collection interval
     pub collection_interval: Duration,
-    
+
     /// Enable health checks
     pub enable_health_checks: bool,
-    
+
     /// Health check interval
     pub health_check_interval: Duration,
 }
@@ -434,13 +434,13 @@ impl MetricsConfig {
 pub struct SecurityConfig {
     /// Enable authentication
     pub enable_auth: bool,
-    
+
     /// Authentication type
     pub auth_type: AuthType,
-    
+
     /// TLS configuration
     pub tls: Option<TlsConfig>,
-    
+
     /// Rate limiting configuration
     pub rate_limiting: Option<RateLimitingConfig>,
 }
@@ -485,7 +485,7 @@ pub enum AuthType {
 pub struct AuthConfig {
     /// Authentication type
     pub auth_type: AuthType,
-    
+
     /// Authentication credentials
     pub credentials: HashMap<String, String>,
 }
@@ -495,10 +495,10 @@ pub struct AuthConfig {
 pub struct TlsConfig {
     /// Certificate file path
     pub cert_file: String,
-    
+
     /// Private key file path
     pub key_file: String,
-    
+
     /// CA certificate file path
     pub ca_file: Option<String>,
 }
@@ -526,13 +526,13 @@ impl TlsConfig {
 pub struct RateLimitingConfig {
     /// Requests per second
     pub requests_per_second: u32,
-    
+
     /// Burst size
     pub burst_size: u32,
-    
+
     /// Rate limit by IP
     pub limit_by_ip: bool,
-    
+
     /// Rate limit by user
     pub limit_by_user: bool,
 }
@@ -560,13 +560,13 @@ impl RateLimitingConfig {
 pub struct ConnectionConfig {
     /// Connection timeout
     pub timeout: Duration,
-    
+
     /// Maximum retries
     pub max_retries: u32,
-    
+
     /// Retry delay
     pub retry_delay: Duration,
-    
+
     /// Keep-alive configuration
     pub keep_alive: Option<KeepAliveConfig>,
 }
@@ -599,7 +599,7 @@ impl ConnectionConfig {
 pub struct KeepAliveConfig {
     /// Keep-alive interval
     pub interval: Duration,
-    
+
     /// Keep-alive timeout
     pub timeout: Duration,
 }

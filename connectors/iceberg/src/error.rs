@@ -3,12 +3,12 @@
 //!
 
 //! Error handling for the Apache Iceberg connector
-//! 
+//!
 //! This module provides structured error types with context and recovery strategies
 //! for the Apache Iceberg connector.
 
-use std::fmt;
 use std::error::Error as StdError;
+use std::fmt;
 use thiserror::Error;
 
 /// Result type for Iceberg operations
@@ -19,55 +19,94 @@ pub type IcebergResult<T> = Result<T, IcebergError>;
 pub enum IcebergError {
     /// Configuration errors
     #[error("Iceberg configuration error: {message}")]
-    Configuration { message: String, source: Option<Box<dyn StdError + Send + Sync>> },
+    Configuration {
+        message: String,
+        source: Option<Box<dyn StdError + Send + Sync>>,
+    },
 
     /// Connection errors
     #[error("Iceberg connection error: {message}")]
-    Connection { message: String, source: Option<Box<dyn StdError + Send + Sync>> },
+    Connection {
+        message: String,
+        source: Option<Box<dyn StdError + Send + Sync>>,
+    },
 
     /// Table operation errors
     #[error("Iceberg table operation error: {message}")]
-    TableOperation { message: String, source: Option<Box<dyn StdError + Send + Sync>> },
+    TableOperation {
+        message: String,
+        source: Option<Box<dyn StdError + Send + Sync>>,
+    },
 
     /// Schema errors
     #[error("Iceberg schema error: {message}")]
-    Schema { message: String, source: Option<Box<dyn StdError + Send + Sync>> },
+    Schema {
+        message: String,
+        source: Option<Box<dyn StdError + Send + Sync>>,
+    },
 
     /// Catalog errors
     #[error("Iceberg catalog error: {message}")]
-    Catalog { message: String, source: Option<Box<dyn StdError + Send + Sync>> },
+    Catalog {
+        message: String,
+        source: Option<Box<dyn StdError + Send + Sync>>,
+    },
 
     /// Write operation errors
     #[error("Iceberg write error: {message}")]
-    Write { message: String, source: Option<Box<dyn StdError + Send + Sync>> },
+    Write {
+        message: String,
+        source: Option<Box<dyn StdError + Send + Sync>>,
+    },
 
     /// Read operation errors
     #[error("Iceberg read error: {message}")]
-    Read { message: String, source: Option<Box<dyn StdError + Send + Sync>> },
+    Read {
+        message: String,
+        source: Option<Box<dyn StdError + Send + Sync>>,
+    },
 
     /// Storage errors
     #[error("Iceberg storage error: {message}")]
-    Storage { message: String, source: Option<Box<dyn StdError + Send + Sync>> },
+    Storage {
+        message: String,
+        source: Option<Box<dyn StdError + Send + Sync>>,
+    },
 
     /// Serialization/deserialization errors
     #[error("Iceberg serialization error: {message}")]
-    Serialization { message: String, source: Option<Box<dyn StdError + Send + Sync>> },
+    Serialization {
+        message: String,
+        source: Option<Box<dyn StdError + Send + Sync>>,
+    },
 
     /// Validation errors
     #[error("Iceberg validation error: {message}")]
-    Validation { message: String, source: Option<Box<dyn StdError + Send + Sync>> },
+    Validation {
+        message: String,
+        source: Option<Box<dyn StdError + Send + Sync>>,
+    },
 
     /// Timeout errors
     #[error("Iceberg timeout error: {message}")]
-    Timeout { message: String, source: Option<Box<dyn StdError + Send + Sync>> },
+    Timeout {
+        message: String,
+        source: Option<Box<dyn StdError + Send + Sync>>,
+    },
 
     /// Internal errors
     #[error("Iceberg internal error: {message}")]
-    Internal { message: String, source: Option<Box<dyn StdError + Send + Sync>> },
+    Internal {
+        message: String,
+        source: Option<Box<dyn StdError + Send + Sync>>,
+    },
 
     /// Unknown errors
     #[error("Iceberg unknown error: {message}")]
-    Unknown { message: String, source: Option<Box<dyn StdError + Send + Sync>> },
+    Unknown {
+        message: String,
+        source: Option<Box<dyn StdError + Send + Sync>>,
+    },
 }
 
 impl IcebergError {

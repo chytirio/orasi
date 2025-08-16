@@ -9,9 +9,8 @@
 
 use async_trait::async_trait;
 use bridge_core::{
-    traits::ReceiverStats,
-    types::{MetricData, MetricValue, TelemetryData, TelemetryRecord, TelemetryType},
-    BridgeResult, TelemetryBatch, TelemetryReceiver as BridgeTelemetryReceiver,
+    traits::ReceiverStats, BridgeResult, TelemetryBatch,
+    TelemetryReceiver as BridgeTelemetryReceiver,
 };
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
@@ -216,8 +215,8 @@ impl OtlpReceiver {
     /// Receive telemetry data
     async fn receive_data(&self) -> BridgeResult<TelemetryBatch> {
         if let Some(handler) = &self.protocol_handler {
-            let mut handler = handler.lock().await;
-            
+            let handler = handler.lock().await;
+
             // Try to receive data from the protocol handler
             match handler.receive_data().await {
                 Ok(Some(batch)) => {
@@ -250,18 +249,21 @@ impl OtlpReceiver {
     /// Process incoming OTLP data
     async fn process_otlp_data(&self, data: &[u8]) -> BridgeResult<TelemetryBatch> {
         use crate::conversion::{OtlpConverter, TelemetryConverter};
-        
+
         let converter = OtlpConverter::new();
-        
+
         // Try to convert OTLP data to internal format
         match converter.convert(data, "otlp", "internal").await {
             Ok(internal_data) => {
                 // Deserialize the internal format
-                let batch: TelemetryBatch = serde_json::from_slice(&internal_data)
-                    .map_err(|e| bridge_core::BridgeError::serialization(format!(
-                        "Failed to deserialize internal format: {}", e
-                    )))?;
-                
+                let batch: TelemetryBatch =
+                    serde_json::from_slice(&internal_data).map_err(|e| {
+                        bridge_core::BridgeError::serialization(format!(
+                            "Failed to deserialize internal format: {}",
+                            e
+                        ))
+                    })?;
+
                 Ok(batch)
             }
             Err(e) => {
@@ -274,10 +276,10 @@ impl OtlpReceiver {
     /// Validate and sanitize received data
     async fn validate_data(&self, mut batch: TelemetryBatch) -> BridgeResult<TelemetryBatch> {
         use crate::conversion::DataValidator;
-        
+
         let validator = DataValidator::new();
         validator.validate_batch(&mut batch)?;
-        
+
         Ok(batch)
     }
 }

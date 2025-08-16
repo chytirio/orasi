@@ -5,38 +5,38 @@
 //! Configuration management for Bridge API
 
 use serde::{Deserialize, Serialize};
-use std::time::Duration;
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::RwLock;
+use std::time::Duration;
 use tokio::fs;
+use tokio::sync::RwLock;
 use tokio::time::{interval, Duration as TokioDuration};
-use tracing::{info, warn, error};
+use tracing::{error, info};
 
 /// Bridge API configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BridgeAPIConfig {
     /// HTTP server configuration
     pub http: HttpConfig,
-    
+
     /// gRPC server configuration
     pub grpc: GrpcConfig,
-    
+
     /// Authentication configuration
     pub auth: AuthConfig,
-    
+
     /// CORS configuration
     pub cors: CorsConfig,
-    
+
     /// Rate limiting configuration
     pub rate_limit: RateLimitConfig,
-    
+
     /// Logging configuration
     pub logging: LoggingConfig,
-    
+
     /// Metrics configuration
     pub metrics: MetricsConfig,
-    
+
     /// Security configuration
     pub security: SecurityConfig,
 }
@@ -61,22 +61,22 @@ impl Default for BridgeAPIConfig {
 pub struct HttpConfig {
     /// HTTP server address
     pub address: String,
-    
+
     /// HTTP server port
     pub port: u16,
-    
+
     /// Request timeout
     pub request_timeout: Duration,
-    
+
     /// Maximum request body size
     pub max_request_size: usize,
-    
+
     /// Enable compression
     pub enable_compression: bool,
-    
+
     /// Enable keep-alive
     pub enable_keep_alive: bool,
-    
+
     /// Keep-alive timeout
     pub keep_alive_timeout: Duration,
 }
@@ -100,19 +100,19 @@ impl Default for HttpConfig {
 pub struct GrpcConfig {
     /// gRPC server address
     pub address: String,
-    
+
     /// gRPC server port
     pub port: u16,
-    
+
     /// Enable reflection
     pub enable_reflection: bool,
-    
+
     /// Enable health checks
     pub enable_health_checks: bool,
-    
+
     /// Maximum message size
     pub max_message_size: usize,
-    
+
     /// Maximum concurrent streams
     pub max_concurrent_streams: usize,
 }
@@ -135,16 +135,16 @@ impl Default for GrpcConfig {
 pub struct AuthConfig {
     /// Enable authentication
     pub enabled: bool,
-    
+
     /// Authentication type
     pub auth_type: AuthType,
-    
+
     /// API key configuration
     pub api_key: ApiKeyConfig,
-    
+
     /// JWT configuration
     pub jwt: JwtConfig,
-    
+
     /// OAuth configuration
     pub oauth: OAuthConfig,
 }
@@ -175,10 +175,10 @@ pub enum AuthType {
 pub struct ApiKeyConfig {
     /// API key header name
     pub header_name: String,
-    
+
     /// Valid API keys
     pub valid_keys: Vec<String>,
-    
+
     /// API key validation regex
     pub validation_regex: Option<String>,
 }
@@ -198,13 +198,13 @@ impl Default for ApiKeyConfig {
 pub struct JwtConfig {
     /// JWT secret key
     pub secret_key: String,
-    
+
     /// JWT issuer
     pub issuer: Option<String>,
-    
+
     /// JWT audience
     pub audience: Option<String>,
-    
+
     /// JWT expiration time
     pub expiration_time: Duration,
 }
@@ -225,16 +225,16 @@ impl Default for JwtConfig {
 pub struct OAuthConfig {
     /// OAuth client ID
     pub client_id: String,
-    
+
     /// OAuth client secret
     pub client_secret: String,
-    
+
     /// OAuth authorization URL
     pub authorization_url: String,
-    
+
     /// OAuth token URL
     pub token_url: String,
-    
+
     /// OAuth user info URL
     pub user_info_url: Option<String>,
 }
@@ -256,19 +256,19 @@ impl Default for OAuthConfig {
 pub struct CorsConfig {
     /// Enable CORS
     pub enabled: bool,
-    
+
     /// Allowed origins
     pub allowed_origins: Vec<String>,
-    
+
     /// Allowed methods
     pub allowed_methods: Vec<String>,
-    
+
     /// Allowed headers
     pub allowed_headers: Vec<String>,
-    
+
     /// Allow credentials
     pub allow_credentials: bool,
-    
+
     /// Max age
     pub max_age: Duration,
 }
@@ -301,13 +301,13 @@ impl Default for CorsConfig {
 pub struct RateLimitConfig {
     /// Enable rate limiting
     pub enabled: bool,
-    
+
     /// Requests per second
     pub requests_per_second: u32,
-    
+
     /// Burst size
     pub burst_size: u32,
-    
+
     /// Rate limit window
     pub window_size: Duration,
 }
@@ -328,13 +328,13 @@ impl Default for RateLimitConfig {
 pub struct LoggingConfig {
     /// Log level
     pub level: String,
-    
+
     /// Enable request logging
     pub enable_request_logging: bool,
-    
+
     /// Enable response logging
     pub enable_response_logging: bool,
-    
+
     /// Log format
     pub format: LogFormat,
 }
@@ -362,13 +362,13 @@ pub enum LogFormat {
 pub struct MetricsConfig {
     /// Enable metrics
     pub enabled: bool,
-    
+
     /// Metrics address
     pub address: String,
-    
+
     /// Metrics port
     pub port: u16,
-    
+
     /// Metrics path
     pub path: String,
 }
@@ -389,16 +389,16 @@ impl Default for MetricsConfig {
 pub struct SecurityConfig {
     /// Enable security headers
     pub enable_security_headers: bool,
-    
+
     /// Content security policy
     pub content_security_policy: Option<String>,
-    
+
     /// Strict transport security
     pub strict_transport_security: Option<String>,
-    
+
     /// X-Frame-Options
     pub x_frame_options: Option<String>,
-    
+
     /// X-Content-Type-Options
     pub x_content_type_options: Option<String>,
 }
@@ -481,7 +481,7 @@ impl BridgeAPIConfig {
     pub fn hash(&self) -> String {
         use std::collections::hash_map::DefaultHasher;
         use std::hash::{Hash, Hasher};
-        
+
         let mut hasher = DefaultHasher::new();
         format!("{:?}", self).hash(&mut hasher);
         format!("{:x}", hasher.finish())
@@ -493,19 +493,19 @@ impl BridgeAPIConfig {
 pub enum ConfigValidationError {
     #[error("Validation failed: {}", .0.join(", "))]
     ValidationFailed(Vec<String>),
-    
+
     #[error("Invalid port number: {0}")]
     InvalidPort(u16),
-    
+
     #[error("Invalid timeout: {0}")]
     InvalidTimeout(String),
-    
+
     #[error("Invalid size: {0}")]
     InvalidSize(String),
-    
+
     #[error("Missing required field: {0}")]
     MissingField(String),
-    
+
     #[error("Invalid authentication configuration: {0}")]
     InvalidAuth(String),
 }
@@ -525,12 +525,16 @@ impl HttpConfig {
 
         // Validate timeout
         if self.request_timeout.as_secs() == 0 {
-            return Err(ConfigValidationError::InvalidTimeout("request_timeout cannot be zero".to_string()));
+            return Err(ConfigValidationError::InvalidTimeout(
+                "request_timeout cannot be zero".to_string(),
+            ));
         }
 
         // Validate max request size
         if self.max_request_size == 0 {
-            return Err(ConfigValidationError::InvalidSize("max_request_size cannot be zero".to_string()));
+            return Err(ConfigValidationError::InvalidSize(
+                "max_request_size cannot be zero".to_string(),
+            ));
         }
 
         Ok(())
@@ -551,12 +555,16 @@ impl GrpcConfig {
 
         // Validate max message size
         if self.max_message_size == 0 {
-            return Err(ConfigValidationError::InvalidSize("max_message_size cannot be zero".to_string()));
+            return Err(ConfigValidationError::InvalidSize(
+                "max_message_size cannot be zero".to_string(),
+            ));
         }
 
         // Validate max concurrent streams
         if self.max_concurrent_streams == 0 {
-            return Err(ConfigValidationError::InvalidSize("max_concurrent_streams cannot be zero".to_string()));
+            return Err(ConfigValidationError::InvalidSize(
+                "max_concurrent_streams cannot be zero".to_string(),
+            ));
         }
 
         Ok(())
@@ -572,21 +580,30 @@ impl AuthConfig {
         match self.auth_type {
             AuthType::ApiKey => {
                 if self.api_key.valid_keys.is_empty() {
-                    return Err(ConfigValidationError::InvalidAuth("API key authentication enabled but no valid keys provided".to_string()));
+                    return Err(ConfigValidationError::InvalidAuth(
+                        "API key authentication enabled but no valid keys provided".to_string(),
+                    ));
                 }
             }
             AuthType::Jwt => {
                 if self.jwt.secret_key.is_empty() {
-                    return Err(ConfigValidationError::InvalidAuth("JWT authentication enabled but no secret key provided".to_string()));
+                    return Err(ConfigValidationError::InvalidAuth(
+                        "JWT authentication enabled but no secret key provided".to_string(),
+                    ));
                 }
             }
             AuthType::OAuth => {
                 if self.oauth.client_id.is_empty() || self.oauth.client_secret.is_empty() {
-                    return Err(ConfigValidationError::InvalidAuth("OAuth authentication enabled but missing client_id or client_secret".to_string()));
+                    return Err(ConfigValidationError::InvalidAuth(
+                        "OAuth authentication enabled but missing client_id or client_secret"
+                            .to_string(),
+                    ));
                 }
             }
             AuthType::None => {
-                return Err(ConfigValidationError::InvalidAuth("Authentication enabled but auth_type is None".to_string()));
+                return Err(ConfigValidationError::InvalidAuth(
+                    "Authentication enabled but auth_type is None".to_string(),
+                ));
             }
         }
 
@@ -601,11 +618,15 @@ impl RateLimitConfig {
         }
 
         if self.requests_per_second == 0 {
-            return Err(ConfigValidationError::InvalidSize("requests_per_second cannot be zero".to_string()));
+            return Err(ConfigValidationError::InvalidSize(
+                "requests_per_second cannot be zero".to_string(),
+            ));
         }
 
         if self.burst_size == 0 {
-            return Err(ConfigValidationError::InvalidSize("burst_size cannot be zero".to_string()));
+            return Err(ConfigValidationError::InvalidSize(
+                "burst_size cannot be zero".to_string(),
+            ));
         }
 
         Ok(())
@@ -660,7 +681,10 @@ impl ConfigManager {
     }
 
     /// Update configuration
-    pub async fn update_config(&self, new_config: BridgeAPIConfig) -> Result<(), ConfigValidationError> {
+    pub async fn update_config(
+        &self,
+        new_config: BridgeAPIConfig,
+    ) -> Result<(), ConfigValidationError> {
         // Validate new configuration
         new_config.validate()?;
 
@@ -713,10 +737,10 @@ impl ConfigManager {
 
         tokio::spawn(async move {
             let mut interval = interval(TokioDuration::from_secs(5));
-            
+
             loop {
                 interval.tick().await;
-                
+
                 if let Err(e) = config_manager.check_file_changes().await {
                     error!("Error checking configuration file changes: {}", e);
                 }
@@ -738,7 +762,7 @@ impl ConfigManager {
 
         // Store last modified time (simplified - in production you'd want to persist this)
         static mut LAST_MODIFIED: Option<std::time::SystemTime> = None;
-        
+
         unsafe {
             if let Some(last_modified) = LAST_MODIFIED {
                 if current_modified > last_modified {
@@ -756,7 +780,7 @@ impl ConfigManager {
     async fn notify_watchers(&self) {
         let config = self.config.read().await;
         let watchers = self.watchers.read().await;
-        
+
         for (name, callback) in watchers.iter() {
             info!("Notifying configuration watcher: {}", name);
             callback(&config);

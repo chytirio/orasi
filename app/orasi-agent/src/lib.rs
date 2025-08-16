@@ -12,8 +12,8 @@ pub mod cluster;
 pub mod config;
 pub mod error;
 pub mod health;
-pub mod ingestion;
 pub mod indexing;
+pub mod ingestion;
 pub mod metrics;
 pub mod processing;
 pub mod service_discovery;
@@ -56,20 +56,20 @@ pub const DEFAULT_TASK_TIMEOUT_SECS: u64 = 300;
 /// Initialize orasi agent
 pub async fn init_agent(config: AgentConfig) -> AgentResult<OrasiAgent> {
     tracing::info!("Initializing Orasi agent v{}", AGENT_VERSION);
-    
+
     let agent = OrasiAgent::new(config).await?;
     tracing::info!("Orasi agent initialization completed");
-    
+
     Ok(agent)
 }
 
 /// Shutdown orasi agent
 pub async fn shutdown_agent(agent: OrasiAgent) -> AgentResult<()> {
     tracing::info!("Shutting down Orasi agent");
-    
+
     agent.shutdown().await?;
     tracing::info!("Orasi agent shutdown completed");
-    
+
     Ok(())
 }
 

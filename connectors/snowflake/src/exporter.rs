@@ -3,18 +3,18 @@
 //!
 
 //! Snowflake exporter implementation
-//! 
+//!
 //! This module provides a real Snowflake exporter that uses the actual
 //! Snowflake writer to export telemetry data to Snowflake tables.
 
+use async_trait::async_trait;
+use bridge_core::error::BridgeResult;
+use bridge_core::traits::{ExporterStats, LakehouseExporter, LakehouseWriter};
+use bridge_core::types::{ExportError, ExportResult, ProcessedBatch, TelemetryBatch};
+use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
-use async_trait::async_trait;
 use tracing::{debug, error, info, warn};
-use bridge_core::traits::{LakehouseExporter, ExporterStats, LakehouseWriter};
-use bridge_core::types::{TelemetryBatch, ProcessedBatch, ExportResult, ExportError};
-use std::collections::HashMap;
-use bridge_core::error::BridgeResult;
 
 use crate::config::SnowflakeConfig;
 use crate::error::{SnowflakeError, SnowflakeResult};
@@ -55,18 +55,24 @@ impl RealSnowflakeExporter {
 
     /// Initialize the exporter
     pub async fn initialize(&mut self) -> SnowflakeResult<()> {
-        info!("Initializing Snowflake exporter: {}", self.config.database.database_name);
-        
+        info!(
+            "Initializing Snowflake exporter: {}",
+            self.config.database.database_name
+        );
+
         // Initialize the Snowflake writer
         self.writer.initialize().await?;
-        
+
         // Mark exporter as running
         {
             let mut running = self.running.write().unwrap();
             *running = true;
         }
-        
-        info!("Snowflake exporter initialized successfully: {}", self.config.database.database_name);
+
+        info!(
+            "Snowflake exporter initialized successfully: {}",
+            self.config.database.database_name
+        );
         Ok(())
     }
 
@@ -101,7 +107,7 @@ impl RealSnowflakeExporter {
             Ok(healthy) => healthy,
             Err(_) => false,
         };
-        
+
         Ok(writer_healthy)
     }
 }
@@ -112,12 +118,15 @@ impl LakehouseExporter for RealSnowflakeExporter {
         // Check if exporter is running
         if !self.is_running() {
             return Err(bridge_core::error::BridgeError::export(
-                "Snowflake exporter is not running"
+                "Snowflake exporter is not running",
             ));
         }
 
         let start_time = Instant::now();
-        info!("Real Snowflake exporter exporting batch with {} records", batch.records.len());
+        info!(
+            "Real Snowflake exporter exporting batch with {} records",
+            batch.records.len()
+        );
 
         let mut total_records = 0u64;
         let mut total_bytes = 0u64;
@@ -154,19 +163,23 @@ impl LakehouseExporter for RealSnowflakeExporter {
         }
 
         if errors.is_empty() {
-            info!("Real Snowflake exporter successfully exported {} records in {:?}",
-                  total_records, export_duration);
+            info!(
+                "Real Snowflake exporter successfully exported {} records in {:?}",
+                total_records, export_duration
+            );
         } else {
-            warn!("Real Snowflake exporter failed to export some records: {} errors",
-                  errors.len());
+            warn!(
+                "Real Snowflake exporter failed to export some records: {} errors",
+                errors.len()
+            );
         }
 
         Ok(ExportResult {
             timestamp: chrono::Utc::now(),
-            status: if errors.is_empty() { 
-                bridge_core::types::ExportStatus::Success 
-            } else { 
-                bridge_core::types::ExportStatus::Partial 
+            status: if errors.is_empty() {
+                bridge_core::types::ExportStatus::Success
+            } else {
+                bridge_core::types::ExportStatus::Partial
             },
             records_exported: total_records as usize,
             records_failed: errors.len(),
@@ -262,25 +275,23 @@ mod tests {
             original_batch_id: uuid::Uuid::new_v4(),
             timestamp: chrono::Utc::now(),
             status: bridge_core::types::ProcessingStatus::Success,
-            records: vec![
-                bridge_core::types::ProcessedRecord {
-                    original_id: uuid::Uuid::new_v4(),
-                    status: bridge_core::types::ProcessingStatus::Success,
-                    transformed_data: Some(bridge_core::types::TelemetryData::Metric(
-                        bridge_core::types::MetricData {
-                            name: "test_metric".to_string(),
-                            description: None,
-                            unit: None,
-                            metric_type: bridge_core::types::MetricType::Counter,
-                            value: bridge_core::types::MetricValue::Counter(42.0),
-                            labels: HashMap::new(),
-                            timestamp: chrono::Utc::now(),
-                        }
-                    )),
-                    metadata: HashMap::new(),
-                    errors: Vec::new(),
-                }
-            ],
+            records: vec![bridge_core::types::ProcessedRecord {
+                original_id: uuid::Uuid::new_v4(),
+                status: bridge_core::types::ProcessingStatus::Success,
+                transformed_data: Some(bridge_core::types::TelemetryData::Metric(
+                    bridge_core::types::MetricData {
+                        name: "test_metric".to_string(),
+                        description: None,
+                        unit: None,
+                        metric_type: bridge_core::types::MetricType::Counter,
+                        value: bridge_core::types::MetricValue::Counter(42.0),
+                        labels: HashMap::new(),
+                        timestamp: chrono::Utc::now(),
+                    },
+                )),
+                metadata: HashMap::new(),
+                errors: Vec::new(),
+            }],
             metadata: HashMap::new(),
             errors: Vec::new(),
         };

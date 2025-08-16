@@ -1,3 +1,5 @@
+lints.workspace = true
+
 [package]
 name = "examples"
 version = "0.1.0"
@@ -16,15 +18,10 @@ bridge-auth = { path = "../crates/bridge-auth" }
 streaming-processor = { path = "../crates/streaming-processor" }
 schema-registry = { path = "../crates/schema-registry" }
 bridge-api = { path = "../crates/bridge-api" }
-# query-engine = { path = "../crates/query-engine" }  # Temporarily disabled due to compilation issues
+query-engine = { path = "../crates/query-engine" }
 
-# Connectors (temporarily disabled - directories don't exist)
-# deltalake-connector = { path = "../crates/connectors/deltalake" }
-# lakehouse-iceberg = { path = "../crates/connectors/iceberg" }
-# lakehouse-hudi = { path = "../crates/connectors/hudi" }
-# lakehouse-snowflake = { path = "../crates/connectors/snowflake" }
-# lakehouse-s3-parquet = { path = "../crates/connectors/s3-parquet" }
-# kafka-connector = { path = "../crates/connectors/kafka" }
+# Connectors
+lakehouse-snowflake = { path = "../connectors/snowflake" }
 
 # Runtime
 orasi-agent = { path = "../app/orasi-agent" }
@@ -50,6 +47,11 @@ arrow-schema = { workspace = true }
 arrow-ipc = { workspace = true }
 arrow-json = { workspace = true }
 otel-arrow-rust = { workspace = true }
+
+# Additional dependencies needed for examples
+async-trait = "0.1"
+toml = "0.8"
+num_cpus = "1.16"
 
 [[example]]
 name = "otap_example"
@@ -116,10 +118,6 @@ name = "receiver_example"
 path = "ingestion/receiver_example.rs"
 
 [[example]]
-name = "s3_parquet_example"
-path = "connectors/s3_parquet_example.rs"
-
-[[example]]
 name = "schema_registry_shutdown_example"
 path = "bridge-api/schema_registry_shutdown_example.rs"
 
@@ -150,11 +148,3 @@ path = "core/config_management_example.rs"
 [[example]]
 name = "streaming_exporter_example"
 path = "ingestion/streaming_exporter_example.rs"
-
-[[example]]
-name = "phase3_advanced_ingestion"
-path = "ingestion/phase3_advanced_ingestion.rs"
-
-[[example]]
-name = "phase4_production_ready"
-path = "ingestion/phase4_production_ready.rs"

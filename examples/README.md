@@ -24,7 +24,6 @@ Examples for various data lake and storage connectors.
 - `real_delta_lake_example.rs` - Production Delta Lake setup
 - `hudi_example.rs` - Apache Hudi integration
 - `iceberg_example.rs` - Apache Iceberg integration
-- `s3_parquet_example.rs` - S3 Parquet storage
 - `snowflake_example.rs` - Snowflake data warehouse
 - `kafka_connector_example.rs` - Kafka connector usage
 - `kafka_example.rs` - Kafka integration patterns

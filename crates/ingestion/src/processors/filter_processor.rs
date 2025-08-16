@@ -9,17 +9,16 @@
 
 use async_trait::async_trait;
 use bridge_core::{
-    traits::ProcessorStats, types::{ProcessedRecord, TelemetryData, TelemetryRecord}, BridgeResult, ProcessedBatch, TelemetryBatch,
-    TelemetryProcessor as BridgeTelemetryProcessor,
+    traits::ProcessorStats,
+    types::{ProcessedRecord, TelemetryData, TelemetryRecord},
+    BridgeResult, ProcessedBatch, TelemetryBatch, TelemetryProcessor as BridgeTelemetryProcessor,
 };
-use chrono::{DateTime, Utc};
+use chrono::Utc;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::sync::Arc;
-use tokio::sync::RwLock;
-use tracing::{error, info, warn};
+use tracing::{info, warn};
 use uuid::Uuid;
-use regex::Regex;
 
 use super::{BaseProcessor, ProcessorConfig};
 
@@ -178,10 +177,10 @@ impl FilterProcessor {
     fn get_field_value(&self, record: &TelemetryRecord, field: &str) -> String {
         // Implement field value extraction
         // Extract values from record attributes, tags, etc.
-        
+
         // Handle nested field paths (e.g., "attributes.service.name")
         let field_parts: Vec<&str> = field.split('.').collect();
-        
+
         match field_parts.as_slice() {
             ["id"] => record.id.to_string(),
             ["timestamp"] => record.timestamp.to_rfc3339(),
@@ -283,7 +282,10 @@ impl FilterProcessor {
                     Ok(regex) => regex.is_match(field_value),
                     Err(_) => {
                         // If regex compilation fails, fall back to simple contains
-                        warn!("Invalid regex pattern '{}', falling back to contains", rule_value);
+                        warn!(
+                            "Invalid regex pattern '{}', falling back to contains",
+                            rule_value
+                        );
                         field_value.contains(rule_value)
                     }
                 }
@@ -461,18 +463,27 @@ mod tests {
         let processed_batch = processor.process(batch).await.unwrap();
 
         // Verify that ProcessedRecord conversion worked correctly
-        assert!(matches!(processed_batch.status, bridge_core::types::ProcessingStatus::Success));
+        assert!(matches!(
+            processed_batch.status,
+            bridge_core::types::ProcessingStatus::Success
+        ));
         assert_eq!(processed_batch.records.len(), 1); // Only one record should pass the filter
 
         let processed_record = &processed_batch.records[0];
-        assert!(matches!(processed_record.status, bridge_core::types::ProcessingStatus::Success));
+        assert!(matches!(
+            processed_record.status,
+            bridge_core::types::ProcessingStatus::Success
+        ));
         assert!(processed_record.transformed_data.is_some());
         assert!(processed_record.errors.is_empty());
 
         // Verify the filtered record has the correct data
         if let Some(TelemetryData::Metric(metric_data)) = &processed_record.transformed_data {
             assert_eq!(metric_data.name, "test_metric");
-            assert_eq!(processed_record.metadata.get("name"), Some(&"test_metric".to_string()));
+            assert_eq!(
+                processed_record.metadata.get("name"),
+                Some(&"test_metric".to_string())
+            );
         } else {
             panic!("Expected metric data");
         }
@@ -493,28 +504,24 @@ mod tests {
         let processor = FilterProcessor::new(&config).await.unwrap();
 
         // Create test records
-        let records = vec![
-            TelemetryRecord {
-                id: Uuid::new_v4(),
+        let records = vec![TelemetryRecord {
+            id: Uuid::new_v4(),
+            timestamp: Utc::now(),
+            record_type: TelemetryType::Metric,
+            data: TelemetryData::Metric(MetricData {
+                name: "test_metric".to_string(),
+                description: Some("Test metric".to_string()),
+                unit: Some("count".to_string()),
+                metric_type: MetricType::Gauge,
+                value: MetricValue::Gauge(42.0),
+                labels: HashMap::new(),
                 timestamp: Utc::now(),
-                record_type: TelemetryType::Metric,
-                data: TelemetryData::Metric(MetricData {
-                    name: "test_metric".to_string(),
-                    description: Some("Test metric".to_string()),
-                    unit: Some("count".to_string()),
-                    metric_type: MetricType::Gauge,
-                    value: MetricValue::Gauge(42.0),
-                    labels: HashMap::new(),
-                    timestamp: Utc::now(),
-                }),
-                attributes: HashMap::from([
-                    ("name".to_string(), "test_metric".to_string()),
-                ]),
-                tags: HashMap::new(),
-                resource: None,
-                service: None,
-            },
-        ];
+            }),
+            attributes: HashMap::from([("name".to_string(), "test_metric".to_string())]),
+            tags: HashMap::new(),
+            resource: None,
+            service: None,
+        }];
 
         let batch = TelemetryBatch {
             id: Uuid::new_v4(),
@@ -529,7 +536,10 @@ mod tests {
         let processed_batch = processor.process(batch).await.unwrap();
 
         // Verify that no records passed the filter
-        assert!(matches!(processed_batch.status, bridge_core::types::ProcessingStatus::Success));
+        assert!(matches!(
+            processed_batch.status,
+            bridge_core::types::ProcessingStatus::Success
+        ));
         assert_eq!(processed_batch.records.len(), 0); // No records should pass the filter
         assert!(processed_batch.errors.is_empty());
     }

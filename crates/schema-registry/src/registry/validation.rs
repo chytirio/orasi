@@ -35,8 +35,10 @@ impl ValidationTracker {
 
     /// Track validation result
     pub async fn track_validation_result(&self, result: &ValidationResult) {
-        self.track_validation_errors(result.errors.len() as u64).await;
-        self.track_validation_warnings(result.warnings.len() as u64).await;
+        self.track_validation_errors(result.errors.len() as u64)
+            .await;
+        self.track_validation_warnings(result.warnings.len() as u64)
+            .await;
     }
 }
 

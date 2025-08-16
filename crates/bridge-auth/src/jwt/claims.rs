@@ -148,7 +148,7 @@ mod tests {
         let roles = vec!["user".to_string(), "admin".to_string()];
 
         let claims = JwtClaims::new(user_id.clone(), roles.clone(), &config, None);
-        
+
         assert_eq!(claims.user_id(), user_id);
         assert_eq!(claims.roles(), roles.as_slice());
         assert!(!claims.is_expired());
@@ -162,7 +162,7 @@ mod tests {
         let roles = vec!["user".to_string(), "admin".to_string()];
 
         let claims = JwtClaims::new(user_id, roles, &config, None);
-        
+
         assert!(claims.has_role("user"));
         assert!(claims.has_role("admin"));
         assert!(!claims.has_role("nonexistent"));
@@ -182,9 +182,15 @@ mod tests {
         custom_claims.insert("subscription".to_string(), serde_json::json!("pro"));
 
         let claims = JwtClaims::new(user_id, roles, &config, Some(custom_claims));
-        
-        assert_eq!(claims.get_custom_claim("premium"), Some(&serde_json::json!(true)));
-        assert_eq!(claims.get_custom_claim("subscription"), Some(&serde_json::json!("pro")));
+
+        assert_eq!(
+            claims.get_custom_claim("premium"),
+            Some(&serde_json::json!(true))
+        );
+        assert_eq!(
+            claims.get_custom_claim("subscription"),
+            Some(&serde_json::json!("pro"))
+        );
         assert_eq!(claims.get_custom_claim("nonexistent"), None);
     }
 }

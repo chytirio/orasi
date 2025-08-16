@@ -9,10 +9,13 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info};
 
-use crate::error::{BridgeError, BridgeResult};
-use super::{config::HealthCheckConfig, types::{HealthStatus, HealthCheckResult}};
+use super::{
+    config::HealthCheckConfig,
+    types::{HealthCheckResult, HealthStatus},
+};
+use crate::error::BridgeResult;
 
 /// Health state
 #[derive(Debug, Clone)]

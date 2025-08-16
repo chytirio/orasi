@@ -3,7 +3,7 @@
 //!
 
 //! Comprehensive streaming processor example
-//! 
+//!
 //! This example demonstrates a complete streaming pipeline with:
 //! - HTTP source for data ingestion
 //! - Filter processor for data filtering
@@ -11,34 +11,38 @@
 //! - HTTP sink for data output
 //! - Error handling and monitoring
 
-use streaming_processor::{
-    sources::{SourceManager, http_source::HttpSourceConfig},
-    processors::{ProcessorPipeline, filter_processor::{FilterProcessorConfig, FilterRule, FilterMode, FilterOperator}, transform_processor::{TransformProcessorConfig, TransformRule, TransformRuleType}},
-    sinks::{SinkManager, http_sink::HttpSinkConfig},
-};
 use bridge_core::BridgeResult;
+use chrono::Utc;
 use std::collections::HashMap;
 use std::sync::Arc;
+use streaming_processor::{
+    processors::{
+        filter_processor::{FilterMode, FilterOperator, FilterProcessorConfig, FilterRule},
+        transform_processor::{TransformProcessorConfig, TransformRule, TransformRuleType},
+        ProcessorPipeline,
+    },
+    sinks::{http_sink::HttpSinkConfig, SinkManager},
+    sources::{http_source::HttpSourceConfig, SourceManager},
+};
 use tokio::sync::RwLock;
-use tracing::{info, error, warn};
-use chrono::Utc;
+use tracing::{error, info, warn};
 
 #[tokio::main]
 async fn main() -> BridgeResult<()> {
     // Initialize logging
     tracing_subscriber::fmt::init();
-    
+
     info!("Starting comprehensive streaming processor example");
-    
+
     // Create source manager
     let source_manager = Arc::new(RwLock::new(SourceManager::new()));
-    
+
     // Create sink manager
     let sink_manager = Arc::new(RwLock::new(SinkManager::new()));
-    
+
     // Create processor pipeline
     let pipeline = Arc::new(RwLock::new(ProcessorPipeline::new()));
-    
+
     // Configure HTTP source
     let http_source_config = HttpSourceConfig {
         name: "http".to_string(),
@@ -47,7 +51,10 @@ async fn main() -> BridgeResult<()> {
         method: "GET".to_string(),
         headers: {
             let mut headers = HashMap::new();
-            headers.insert("User-Agent".to_string(), "StreamingProcessor/1.0".to_string());
+            headers.insert(
+                "User-Agent".to_string(),
+                "StreamingProcessor/1.0".to_string(),
+            );
             headers.insert("Accept".to_string(), "application/json".to_string());
             headers
         },
@@ -62,7 +69,7 @@ async fn main() -> BridgeResult<()> {
         retry_delay_ms: 1000,
         rate_limit_requests_per_second: Some(1),
     };
-    
+
     // Configure filter processor
     let filter_config = FilterProcessorConfig {
         name: "data_filter".to_string(),
@@ -86,7 +93,7 @@ async fn main() -> BridgeResult<()> {
         ],
         additional_config: HashMap::new(),
     };
-    
+
     // Configure transform processor
     let transform_config = TransformProcessorConfig {
         name: "data_transformer".to_string(),
@@ -119,7 +126,7 @@ async fn main() -> BridgeResult<()> {
         ],
         additional_config: HashMap::new(),
     };
-    
+
     // Configure HTTP sink
     let http_sink_config = HttpSinkConfig {
         name: "http".to_string(),
@@ -141,13 +148,13 @@ async fn main() -> BridgeResult<()> {
         content_type: "application/json".to_string(),
         rate_limit_requests_per_second: Some(2),
     };
-    
+
     info!("Configuration created successfully");
-    
+
     // Run for a specified duration
     let running = Arc::new(RwLock::new(true));
     let running_clone = running.clone();
-    
+
     // Set up graceful shutdown
     tokio::spawn(async move {
         tokio::time::sleep(tokio::time::Duration::from_secs(60)).await; // Run for 1 minute
@@ -155,15 +162,15 @@ async fn main() -> BridgeResult<()> {
         *r = false;
         info!("Shutdown signal received");
     });
-    
+
     // Main processing loop
     while *running.read().await {
         tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-        
+
         // Simulate some processing
         info!("Processing data...");
     }
-    
+
     info!("Comprehensive streaming processor example completed");
     Ok(())
 }

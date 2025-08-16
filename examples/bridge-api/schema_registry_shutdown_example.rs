@@ -8,10 +8,11 @@
 //! with all its components.
 
 use schema_registry::{
-    SchemaRegistryConfig, init_schema_registry, shutdown_schema_registry,
+    init_schema_registry,
     schema::{Schema, SchemaFormat, SchemaType, SchemaVersion},
+    shutdown_schema_registry, SchemaRegistryConfig,
 };
-use tracing::{info, error};
+use tracing::{error, info};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -67,8 +68,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Get statistics
     match registry.get_stats().await {
         Ok(stats) => {
-            info!("Registry stats: {} schemas, {} versions", 
-                  stats.total_schemas, stats.total_versions);
+            info!(
+                "Registry stats: {} schemas, {} versions",
+                stats.total_schemas, stats.total_versions
+            );
         }
         Err(e) => {
             error!("Failed to get stats: {}", e);

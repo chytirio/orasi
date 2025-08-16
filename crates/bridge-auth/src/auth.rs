@@ -814,7 +814,7 @@ mod tests {
     async fn test_rate_limiting_disabled() {
         let mut config = AuthConfig::default();
         config.security.enable_rate_limiting = false;
-        
+
         let auth_manager = AuthManager::new(config).await.unwrap();
 
         let request = AuthRequest {
@@ -855,7 +855,9 @@ mod tests {
         let config = AuthConfig::default();
         let auth_manager = AuthManager::new(config).await.unwrap();
 
-        let result = auth_manager.authorize("nonexistent-user", "test", "read").await;
+        let result = auth_manager
+            .authorize("nonexistent-user", "test", "read")
+            .await;
         assert!(result.is_ok());
         // Should return false for non-existent user
         assert_eq!(result.unwrap(), false);
@@ -885,11 +887,26 @@ mod tests {
         let auth_manager = AuthManager::new(config).await.unwrap();
 
         // Test that all getters return references to the managers
-        assert!(std::ptr::eq(auth_manager.jwt_manager(), &auth_manager.jwt_manager));
-        assert!(std::ptr::eq(auth_manager.api_key_manager(), &auth_manager.api_key_manager));
-        assert!(std::ptr::eq(auth_manager.user_manager(), &auth_manager.user_manager));
-        assert!(std::ptr::eq(auth_manager.role_manager(), &auth_manager.role_manager));
-        assert!(std::ptr::eq(auth_manager.permission_manager(), &auth_manager.permission_manager));
+        assert!(std::ptr::eq(
+            auth_manager.jwt_manager(),
+            &auth_manager.jwt_manager
+        ));
+        assert!(std::ptr::eq(
+            auth_manager.api_key_manager(),
+            &auth_manager.api_key_manager
+        ));
+        assert!(std::ptr::eq(
+            auth_manager.user_manager(),
+            &auth_manager.user_manager
+        ));
+        assert!(std::ptr::eq(
+            auth_manager.role_manager(),
+            &auth_manager.role_manager
+        ));
+        assert!(std::ptr::eq(
+            auth_manager.permission_manager(),
+            &auth_manager.permission_manager
+        ));
     }
 
     #[tokio::test]

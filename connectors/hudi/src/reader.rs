@@ -3,21 +3,26 @@
 //!
 
 //! Apache Hudi reader implementation
-//! 
+//!
 //! This module provides the Apache Hudi reader that implements
 //! the LakehouseReader trait for reading telemetry data from Hudi tables.
 
 use async_trait::async_trait;
-use tracing::{debug, error, info, warn};
-use bridge_core::traits::LakehouseReader;
-use bridge_core::types::{MetricsQuery, TracesQuery, LogsQuery, MetricsResult, TracesResult, LogsResult};
-use bridge_core::types::{MetricData, TraceData, LogData, MetricType, MetricValue, SpanKind, SpanStatus, StatusCode, LogLevel};
 use bridge_core::error::BridgeResult;
-use std::time::Instant;
+use bridge_core::traits::LakehouseReader;
+use bridge_core::types::{
+    LogData, LogLevel, MetricData, MetricType, MetricValue, SpanKind, SpanStatus, StatusCode,
+    TraceData,
+};
+use bridge_core::types::{
+    LogsQuery, LogsResult, MetricsQuery, MetricsResult, TracesQuery, TracesResult,
+};
 use chrono::Utc;
+use std::time::Instant;
+use tracing::{debug, info};
 
 use crate::config::HudiConfig;
-use crate::error::{HudiError, HudiResult};
+use crate::error::HudiResult;
 
 /// Apache Hudi reader implementation
 #[derive(Clone)]
@@ -31,13 +36,16 @@ pub struct HudiReader {
 impl HudiReader {
     /// Create a new Apache Hudi reader
     pub async fn new(config: HudiConfig) -> HudiResult<Self> {
-        info!("Creating Apache Hudi reader for table: {}", config.table_name());
-        
+        info!(
+            "Creating Apache Hudi reader for table: {}",
+            config.table_name()
+        );
+
         let mut reader = Self {
             config,
             initialized: false,
         };
-        
+
         reader.initialize().await?;
         reader.initialized = true;
         Ok(reader)
@@ -46,7 +54,7 @@ impl HudiReader {
     /// Initialize the reader
     async fn initialize(&self) -> HudiResult<()> {
         debug!("Initializing Apache Hudi reader");
-        
+
         // Initialize Hudi reader components
         // This would typically involve:
         // 1. Setting up the Hudi table reader
@@ -54,7 +62,7 @@ impl HudiReader {
         // 3. Setting up caching and buffering
         // 4. Initializing connection pools
         // 5. Configuring Hudi-specific settings (incremental processing, etc.)
-        
+
         info!("Apache Hudi reader initialized successfully");
         Ok(())
     }
@@ -72,7 +80,7 @@ impl HudiReader {
     /// Generate sample metrics data for demonstration
     fn generate_sample_metrics(&self, query: &MetricsQuery) -> Vec<MetricData> {
         let mut metrics = Vec::new();
-        
+
         // Generate sample counter metrics
         for i in 0..5 {
             metrics.push(MetricData {
@@ -98,7 +106,9 @@ impl HudiReader {
                 description: Some(format!("Memory usage for service {}", i)),
                 unit: Some("bytes".to_string()),
                 metric_type: MetricType::Gauge,
-                value: MetricValue::Gauge(512.0 * 1024.0 * 1024.0 + (i as f64 * 64.0 * 1024.0 * 1024.0)),
+                value: MetricValue::Gauge(
+                    512.0 * 1024.0 * 1024.0 + (i as f64 * 64.0 * 1024.0 * 1024.0),
+                ),
                 labels: {
                     let mut labels = std::collections::HashMap::new();
                     labels.insert("service".to_string(), format!("service-{}", i));
@@ -115,29 +125,51 @@ impl HudiReader {
     /// Generate sample traces data for demonstration
     fn generate_sample_traces(&self, query: &TracesQuery) -> Vec<TraceData> {
         let mut traces = Vec::new();
-        
+
         for i in 0..10 {
             let start_time = Utc::now();
             let end_time = start_time + chrono::Duration::milliseconds(100 + (i * 10) as i64);
-            
+
             traces.push(TraceData {
                 trace_id: format!("trace-{:016x}", i),
                 span_id: format!("span-{:016x}", i),
-                parent_span_id: if i > 0 { Some(format!("span-{:016x}", i - 1)) } else { None },
+                parent_span_id: if i > 0 {
+                    Some(format!("span-{:016x}", i - 1))
+                } else {
+                    None
+                },
                 name: format!("hudi_operation_{}", i),
-                kind: if i % 2 == 0 { SpanKind::Server } else { SpanKind::Client },
+                kind: if i % 2 == 0 {
+                    SpanKind::Server
+                } else {
+                    SpanKind::Client
+                },
                 start_time,
                 end_time: Some(end_time),
                 duration_ns: Some((100 + (i * 10)) * 1_000_000), // Convert to nanoseconds
                 status: SpanStatus {
-                    code: if i % 5 == 0 { StatusCode::Error } else { StatusCode::Ok },
-                    message: if i % 5 == 0 { Some("Operation failed".to_string()) } else { None },
+                    code: if i % 5 == 0 {
+                        StatusCode::Error
+                    } else {
+                        StatusCode::Ok
+                    },
+                    message: if i % 5 == 0 {
+                        Some("Operation failed".to_string())
+                    } else {
+                        None
+                    },
                 },
                 attributes: {
                     let mut attrs = std::collections::HashMap::new();
-                    attrs.insert("service.name".to_string(), format!("hudi-service-{}", i % 3));
+                    attrs.insert(
+                        "service.name".to_string(),
+                        format!("hudi-service-{}", i % 3),
+                    );
                     attrs.insert("operation.type".to_string(), "read".to_string());
-                    attrs.insert("table.name".to_string(), self.config.table_name().to_string());
+                    attrs.insert(
+                        "table.name".to_string(),
+                        self.config.table_name().to_string(),
+                    );
                     attrs
                 },
                 events: vec![],
@@ -151,7 +183,7 @@ impl HudiReader {
     /// Generate sample logs data for demonstration
     fn generate_sample_logs(&self, query: &LogsQuery) -> Vec<LogData> {
         let mut logs = Vec::new();
-        
+
         let log_messages = vec![
             "Starting Hudi table read operation",
             "Successfully read 1000 records from Hudi table",
@@ -211,24 +243,27 @@ impl HudiReader {
 impl LakehouseReader for HudiReader {
     async fn query_metrics(&self, query: MetricsQuery) -> BridgeResult<MetricsResult> {
         debug!("Querying metrics from Apache Hudi: {:?}", query);
-        
+
         let start_time = Instant::now();
-        
+
         // This would typically involve:
         // 1. Converting query to Hudi format
         // 2. Executing query against Hudi table
         // 3. Processing incremental updates if enabled
         // 4. Converting results back to bridge format
-        
+
         // Simulate query execution time
         tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
-        
+
         let data = self.generate_sample_metrics(&query);
         let data_len = data.len();
         let duration_ms = start_time.elapsed().as_millis() as u64;
-        
-        info!("Successfully queried metrics from Apache Hudi in {}ms", duration_ms);
-        
+
+        info!(
+            "Successfully queried metrics from Apache Hudi in {}ms",
+            duration_ms
+        );
+
         Ok(MetricsResult {
             query_id: uuid::Uuid::new_v4(),
             timestamp: chrono::Utc::now(),
@@ -248,24 +283,27 @@ impl LakehouseReader for HudiReader {
 
     async fn query_traces(&self, query: TracesQuery) -> BridgeResult<TracesResult> {
         debug!("Querying traces from Apache Hudi: {:?}", query);
-        
+
         let start_time = Instant::now();
-        
+
         // This would typically involve:
         // 1. Converting query to Hudi format
         // 2. Executing query against Hudi table
         // 3. Processing incremental updates if enabled
         // 4. Converting results back to bridge format
-        
+
         // Simulate query execution time
         tokio::time::sleep(tokio::time::Duration::from_millis(75)).await;
-        
+
         let data = self.generate_sample_traces(&query);
         let data_len = data.len();
         let duration_ms = start_time.elapsed().as_millis() as u64;
-        
-        info!("Successfully queried traces from Apache Hudi in {}ms", duration_ms);
-        
+
+        info!(
+            "Successfully queried traces from Apache Hudi in {}ms",
+            duration_ms
+        );
+
         Ok(TracesResult {
             query_id: uuid::Uuid::new_v4(),
             timestamp: chrono::Utc::now(),
@@ -285,24 +323,27 @@ impl LakehouseReader for HudiReader {
 
     async fn query_logs(&self, query: LogsQuery) -> BridgeResult<LogsResult> {
         debug!("Querying logs from Apache Hudi: {:?}", query);
-        
+
         let start_time = Instant::now();
-        
+
         // This would typically involve:
         // 1. Converting query to Hudi format
         // 2. Executing query against Hudi table
         // 3. Processing incremental updates if enabled
         // 4. Converting results back to bridge format
-        
+
         // Simulate query execution time
         tokio::time::sleep(tokio::time::Duration::from_millis(60)).await;
-        
+
         let data = self.generate_sample_logs(&query);
         let data_len = data.len();
         let duration_ms = start_time.elapsed().as_millis() as u64;
-        
-        info!("Successfully queried logs from Apache Hudi in {}ms", duration_ms);
-        
+
+        info!(
+            "Successfully queried logs from Apache Hudi in {}ms",
+            duration_ms
+        );
+
         Ok(LogsResult {
             query_id: uuid::Uuid::new_v4(),
             timestamp: chrono::Utc::now(),
@@ -322,22 +363,25 @@ impl LakehouseReader for HudiReader {
 
     async fn execute_query(&self, query: String) -> BridgeResult<serde_json::Value> {
         debug!("Executing custom query on Apache Hudi: {}", query);
-        
+
         let start_time = Instant::now();
-        
+
         // This would typically involve:
         // 1. Validating the query
         // 2. Executing against Hudi table
         // 3. Processing results
         // 4. Returning in JSON format
-        
+
         // Simulate query execution time
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-        
+
         let duration_ms = start_time.elapsed().as_millis() as u64;
-        
-        info!("Successfully executed custom query on Apache Hudi in {}ms", duration_ms);
-        
+
+        info!(
+            "Successfully executed custom query on Apache Hudi in {}ms",
+            duration_ms
+        );
+
         Ok(serde_json::json!({
             "status": "success",
             "message": "Query executed successfully",
@@ -353,7 +397,7 @@ impl LakehouseReader for HudiReader {
         // 1. Collecting read statistics
         // 2. Calculating performance metrics
         // 3. Reporting error counts
-        
+
         Ok(bridge_core::traits::ReaderStats {
             total_reads: 0,
             total_records: 0,
@@ -367,12 +411,12 @@ impl LakehouseReader for HudiReader {
 
     async fn close(&self) -> BridgeResult<()> {
         info!("Closing Apache Hudi reader");
-        
+
         // This would typically involve:
         // 1. Closing connections
         // 2. Cleaning up resources
         // 3. Finalizing any pending operations
-        
+
         info!("Apache Hudi reader closed successfully");
         Ok(())
     }

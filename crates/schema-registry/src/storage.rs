@@ -388,7 +388,7 @@ impl StorageBackend for MemoryStorage {
             let mut name_map = self.name_to_fingerprint.write().await;
             name_map.clear();
         }
-        
+
         tracing::debug!("Memory storage shutdown completed");
         Ok(())
     }
@@ -406,19 +406,16 @@ pub struct PostgresStorage {
 impl PostgresStorage {
     /// Create a new PostgreSQL storage instance
     pub async fn new(database_url: String) -> SchemaRegistryResult<Self> {
-        let pool = sqlx::PgPool::connect(&database_url)
-            .await
-                    .map_err(|e| SchemaRegistryError::Storage {
-            message: format!("Connection error: {}", e),
+        let pool = sqlx::PgPool::connect(&database_url).await.map_err(|e| {
+            SchemaRegistryError::Storage {
+                message: format!("Connection error: {}", e),
+            }
         })?;
 
         // Create database schema if it doesn't exist
         Self::create_schema(&pool).await?;
 
-        Ok(Self {
-            pool,
-            database_url,
-        })
+        Ok(Self { pool, database_url })
     }
 
     /// Create database schema
@@ -545,7 +542,7 @@ impl StorageBackend for PostgresStorage {
     async fn shutdown(&self) -> SchemaRegistryResult<()> {
         // Close the connection pool
         self.pool.close().await;
-        
+
         tracing::debug!("PostgreSQL storage shutdown completed");
         Ok(())
     }
@@ -569,7 +566,10 @@ impl SqliteStorage {
                 message: format!("Connection error: {}", e),
             })?;
         Self::create_schema(&pool).await?;
-        Ok(Self { pool, database_path })
+        Ok(Self {
+            pool,
+            database_path,
+        })
     }
 
     /// Create database schema
@@ -698,7 +698,7 @@ impl StorageBackend for SqliteStorage {
     async fn shutdown(&self) -> SchemaRegistryResult<()> {
         // Close the connection pool
         self.pool.close().await;
-        
+
         tracing::debug!("SQLite storage shutdown completed");
         Ok(())
     }
@@ -765,10 +765,10 @@ impl From<StorageError> for SchemaRegistryError {
 pub struct RedisStorage {
     /// Redis client
     client: redis::Client,
-    
+
     /// Redis connection manager
     connection_manager: redis::aio::ConnectionManager,
-    
+
     /// Key prefix for schema storage
     key_prefix: String,
 }
@@ -776,10 +776,9 @@ pub struct RedisStorage {
 impl RedisStorage {
     /// Create a new Redis storage instance
     pub async fn new(url: String) -> SchemaRegistryResult<Self> {
-        let client = redis::Client::open(url)
-            .map_err(|e| StorageError::ConfigurationError {
-                message: format!("Failed to create Redis client: {}", e),
-            })?;
+        let client = redis::Client::open(url).map_err(|e| StorageError::ConfigurationError {
+            message: format!("Failed to create Redis client: {}", e),
+        })?;
 
         let connection_manager = redis::aio::ConnectionManager::new(client.clone())
             .await
@@ -795,11 +794,14 @@ impl RedisStorage {
     }
 
     /// Create a new Redis storage instance with custom configuration
-    pub async fn new_with_config(config: &crate::config::RedisConfig) -> SchemaRegistryResult<Self> {
-        let client = redis::Client::open(config.url.clone())
-            .map_err(|e| StorageError::ConfigurationError {
+    pub async fn new_with_config(
+        config: &crate::config::RedisConfig,
+    ) -> SchemaRegistryResult<Self> {
+        let client = redis::Client::open(config.url.clone()).map_err(|e| {
+            StorageError::ConfigurationError {
                 message: format!("Failed to create Redis client: {}", e),
-            })?;
+            }
+        })?;
 
         let connection_manager = redis::aio::ConnectionManager::new(client.clone())
             .await
@@ -838,19 +840,19 @@ impl RedisStorage {
 #[async_trait]
 impl StorageBackend for RedisStorage {
     async fn store_schema(&self, schema: Schema) -> SchemaRegistryResult<SchemaVersion> {
-        let schema_json = serde_json::to_string(&schema)
-            .map_err(|e| StorageError::InvalidSchemaData {
+        let schema_json =
+            serde_json::to_string(&schema).map_err(|e| StorageError::InvalidSchemaData {
                 message: format!("Failed to serialize schema: {}", e),
             })?;
 
         let metadata: SchemaMetadata = schema.clone().into();
-        let metadata_json = serde_json::to_string(&metadata)
-            .map_err(|e| StorageError::InvalidSchemaData {
+        let metadata_json =
+            serde_json::to_string(&metadata).map_err(|e| StorageError::InvalidSchemaData {
                 message: format!("Failed to serialize metadata: {}", e),
             })?;
 
         let mut conn = self.connection_manager.clone();
-        
+
         // Store schema
         let schema_key = self.schema_key(&schema.fingerprint);
         let _: () = redis::cmd("SET")
@@ -912,10 +914,11 @@ impl StorageBackend for RedisStorage {
 
         match result {
             Some(schema_json) => {
-                let schema: Schema = serde_json::from_str(&schema_json)
-                    .map_err(|e| StorageError::InvalidSchemaData {
+                let schema: Schema = serde_json::from_str(&schema_json).map_err(|e| {
+                    StorageError::InvalidSchemaData {
                         message: format!("Failed to deserialize schema: {}", e),
-                    })?;
+                    }
+                })?;
                 Ok(Some(schema))
             }
             None => Ok(None),
@@ -946,8 +949,8 @@ impl StorageBackend for RedisStorage {
                 })?;
 
             if let Some(json) = metadata_json {
-                let metadata: SchemaMetadata = serde_json::from_str(&json)
-                    .map_err(|e| StorageError::InvalidSchemaData {
+                let metadata: SchemaMetadata =
+                    serde_json::from_str(&json).map_err(|e| StorageError::InvalidSchemaData {
                         message: format!("Failed to deserialize metadata: {}", e),
                     })?;
                 schemas.push(metadata);
@@ -1091,14 +1094,14 @@ impl StorageBackend for RedisStorage {
 
     async fn get_latest_schema(&self, name: &str) -> SchemaRegistryResult<Option<Schema>> {
         let versions = self.get_schema_versions(name).await?;
-        
+
         if versions.is_empty() {
             return Ok(None);
         }
 
         // Find the latest version
         let latest_version = versions.iter().max().unwrap();
-        
+
         // Find schema with this version
         let mut conn = self.connection_manager.clone();
         let versions_key = self.versions_key(name);
@@ -1123,7 +1126,7 @@ impl StorageBackend for RedisStorage {
 
     async fn health_check(&self) -> SchemaRegistryResult<bool> {
         let mut conn = self.connection_manager.clone();
-        
+
         let _: String = redis::cmd("PING")
             .query_async(&mut conn)
             .await

@@ -100,6 +100,7 @@ impl TelemetryReceiver for StreamingMockReceiver {
             bytes_per_minute: 500,
             error_count: 0,
             last_receive_time: Some(Utc::now()),
+            protocol_stats: None,
         })
     }
 

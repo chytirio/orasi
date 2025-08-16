@@ -8,27 +8,26 @@
 //! over HTTP/REST endpoints.
 
 use async_trait::async_trait;
+use axum::{
+    extract::State,
+    http::HeaderMap,
+    response::Json,
+    routing::{get, post},
+    Router,
+};
 use bridge_core::{
-    traits::ReceiverStats,
-    types::{MetricData, MetricValue, TelemetryData, TelemetryRecord, TelemetryType},
-    BridgeResult, TelemetryBatch, TelemetryReceiver as BridgeTelemetryReceiver,
+    traits::ReceiverStats, BridgeResult, TelemetryBatch,
+    TelemetryReceiver as BridgeTelemetryReceiver,
 };
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use tracing::{error, info, warn};
-use uuid::Uuid;
-use axum::{
-    extract::{Path, State},
-    http::{HeaderMap, StatusCode as HttpStatusCode},
-    response::Json,
-    routing::{post, get},
-    Router,
-};
 use tower_http::cors::CorsLayer;
-use std::net::SocketAddr;
+use tracing::{error, info};
+use uuid::Uuid;
 
 use super::{BaseReceiver, ReceiverConfig};
 
@@ -202,9 +201,7 @@ impl OtlpHttpReceiver {
                 .await
                 .expect("Failed to bind to address");
 
-            axum::serve(listener, router)
-                .await
-                .expect("Server error");
+            axum::serve(listener, router).await.expect("Server error");
         });
 
         self.server_handle = Some(server_handle);
@@ -249,7 +246,11 @@ impl OtlpHttpReceiver {
 
         // Validate content type
         if let Some(content_type) = headers.get("content-type") {
-            if !content_type.to_str().unwrap_or("").contains("application/x-protobuf") {
+            if !content_type
+                .to_str()
+                .unwrap_or("")
+                .contains("application/x-protobuf")
+            {
                 return Json(serde_json::json!({
                     "error": "Invalid content type, expected application/x-protobuf",
                     "code": 400
@@ -261,7 +262,10 @@ impl OtlpHttpReceiver {
         match Self::process_traces_data(&body).await {
             Ok(batch) => {
                 // Store in buffer (in a real implementation, this would be sent to a queue)
-                info!("Processed traces batch with {} records", batch.records.len());
+                info!(
+                    "Processed traces batch with {} records",
+                    batch.records.len()
+                );
                 Json(serde_json::json!({
                     "status": "success",
                     "records_processed": batch.records.len()
@@ -304,7 +308,11 @@ impl OtlpHttpReceiver {
 
         // Validate content type
         if let Some(content_type) = headers.get("content-type") {
-            if !content_type.to_str().unwrap_or("").contains("application/x-protobuf") {
+            if !content_type
+                .to_str()
+                .unwrap_or("")
+                .contains("application/x-protobuf")
+            {
                 return Json(serde_json::json!({
                     "error": "Invalid content type, expected application/x-protobuf",
                     "code": 400
@@ -315,7 +323,10 @@ impl OtlpHttpReceiver {
         // Process metrics data
         match Self::process_metrics_data(&body).await {
             Ok(batch) => {
-                info!("Processed metrics batch with {} records", batch.records.len());
+                info!(
+                    "Processed metrics batch with {} records",
+                    batch.records.len()
+                );
                 Json(serde_json::json!({
                     "status": "success",
                     "records_processed": batch.records.len()
@@ -358,7 +369,11 @@ impl OtlpHttpReceiver {
 
         // Validate content type
         if let Some(content_type) = headers.get("content-type") {
-            if !content_type.to_str().unwrap_or("").contains("application/x-protobuf") {
+            if !content_type
+                .to_str()
+                .unwrap_or("")
+                .contains("application/x-protobuf")
+            {
                 return Json(serde_json::json!({
                     "error": "Invalid content type, expected application/x-protobuf",
                     "code": 400
@@ -395,24 +410,24 @@ impl OtlpHttpReceiver {
 
     /// Process traces data
     async fn process_traces_data(data: &[u8]) -> BridgeResult<TelemetryBatch> {
-        use crate::conversion::{OtlpConverter, TelemetryConverter};
-        
+        use crate::conversion::OtlpConverter;
+
         let converter = OtlpConverter::new();
         converter.convert_from_otlp(data).await
     }
 
     /// Process metrics data
     async fn process_metrics_data(data: &[u8]) -> BridgeResult<TelemetryBatch> {
-        use crate::conversion::{OtlpConverter, TelemetryConverter};
-        
+        use crate::conversion::OtlpConverter;
+
         let converter = OtlpConverter::new();
         converter.convert_from_otlp(data).await
     }
 
     /// Process logs data
     async fn process_logs_data(data: &[u8]) -> BridgeResult<TelemetryBatch> {
-        use crate::conversion::{OtlpConverter, TelemetryConverter};
-        
+        use crate::conversion::OtlpConverter;
+
         let converter = OtlpConverter::new();
         converter.convert_from_otlp(data).await
     }
@@ -423,7 +438,7 @@ impl BridgeTelemetryReceiver for OtlpHttpReceiver {
     async fn receive(&self) -> BridgeResult<TelemetryBatch> {
         // Get data from buffer
         let mut buffer = self.data_buffer.lock().await;
-        
+
         if let Some(batch) = buffer.pop() {
             self.base.update_stats(batch.size, 0).await;
             Ok(batch)
@@ -452,12 +467,12 @@ impl BridgeTelemetryReceiver for OtlpHttpReceiver {
 
     async fn shutdown(&self) -> BridgeResult<()> {
         info!("Shutting down OTLP HTTP receiver");
-        
+
         // Stop server
         if let Some(handle) = &self.server_handle {
             handle.abort();
         }
-        
+
         info!("OTLP HTTP receiver shutdown completed");
         Ok(())
     }

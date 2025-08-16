@@ -92,6 +92,7 @@ impl TelemetryReceiver for SimpleMockReceiver {
             bytes_per_minute: 100,
             error_count: 0,
             last_receive_time: Some(Utc::now()),
+            protocol_stats: None,
         })
     }
 

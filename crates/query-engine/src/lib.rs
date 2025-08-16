@@ -7,14 +7,14 @@
 //! This module provides SQL and query language parsing, optimization,
 //! and execution capabilities for telemetry data.
 
-pub mod parsers;
 pub mod executors;
 pub mod optimizers;
+pub mod parsers;
 
 // Re-export main types
-pub use parsers::{QueryParser, ParsedQuery, QueryAst};
-pub use executors::{QueryExecutor, QueryResult, ExecutionEngine, ExecutorFactory};
-pub use optimizers::{QueryOptimizer, OptimizationResult};
+pub use executors::{ExecutionEngine, ExecutorFactory, QueryExecutor, QueryResult};
+pub use optimizers::{OptimizationResult, QueryOptimizer};
+pub use parsers::{ParsedQuery, QueryAst, QueryParser};
 
 /// Query engine version
 pub const QUERY_ENGINE_VERSION: &str = env!("CARGO_PKG_VERSION");

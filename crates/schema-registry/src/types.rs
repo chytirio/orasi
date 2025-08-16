@@ -17,22 +17,22 @@ use uuid::Uuid;
 pub struct ComponentSchema {
     /// Component name
     pub name: String,
-    
+
     /// Component version
     pub version: String,
-    
+
     /// Component type
     pub component_type: String,
-    
+
     /// Schema content
     pub schema: serde_json::Value,
-    
+
     /// Schema format
     pub format: String,
-    
+
     /// Component description
     pub description: Option<String>,
-    
+
     /// Component tags
     pub tags: Vec<String>,
 }

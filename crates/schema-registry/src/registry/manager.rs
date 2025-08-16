@@ -68,19 +68,19 @@ impl SchemaRegistryManager {
         config: &SchemaRegistryConfig,
     ) -> SchemaRegistryResult<Arc<dyn StorageBackend>> {
         match config.storage.backend {
-            crate::config::StorageBackendType::Memory => {
-                Ok(Arc::new(MemoryStorage::new()?))
-            }
+            crate::config::StorageBackendType::Memory => Ok(Arc::new(MemoryStorage::new()?)),
             crate::config::StorageBackendType::Postgres => {
                 let storage = PostgresStorage::new(config.storage.postgres.url.clone()).await?;
                 Ok(Arc::new(storage))
             }
             crate::config::StorageBackendType::Sqlite => {
-                let storage = SqliteStorage::new(config.storage.sqlite.database_path.clone()).await?;
+                let storage =
+                    SqliteStorage::new(config.storage.sqlite.database_path.clone()).await?;
                 Ok(Arc::new(storage))
             }
             crate::config::StorageBackendType::Redis => {
-                let storage = crate::storage::RedisStorage::new_with_config(&config.storage.redis).await?;
+                let storage =
+                    crate::storage::RedisStorage::new_with_config(&config.storage.redis).await?;
                 Ok(Arc::new(storage))
             }
         }
@@ -134,7 +134,9 @@ impl SchemaRegistryManager {
     pub async fn register_schema(&self, schema: Schema) -> SchemaRegistryResult<SchemaVersion> {
         // Track validation results first
         let validation_result = self.validator.validate_schema(&schema).await?;
-        self.validation_tracker.track_validation_result(&validation_result).await;
+        self.validation_tracker
+            .track_validation_result(&validation_result)
+            .await;
 
         // Register the schema
         let version = self.operations.register_schema(schema).await?;
@@ -197,7 +199,9 @@ impl SchemaRegistryManager {
         let validation_result = self.operations.validate_data(fingerprint, data).await?;
 
         // Track validation results
-        self.validation_tracker.track_validation_result(&validation_result).await;
+        self.validation_tracker
+            .track_validation_result(&validation_result)
+            .await;
 
         Ok(validation_result)
     }
@@ -207,7 +211,9 @@ impl SchemaRegistryManager {
         let validation_result = self.operations.validate_schema(schema).await?;
 
         // Track validation results
-        self.validation_tracker.track_validation_result(&validation_result).await;
+        self.validation_tracker
+            .track_validation_result(&validation_result)
+            .await;
 
         Ok(validation_result)
     }

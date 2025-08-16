@@ -16,17 +16,14 @@ pub use streaming_exporter::StreamingExporter;
 
 use async_trait::async_trait;
 use bridge_core::{
-    traits::LakehouseExporter as BridgeTelemetryExporter, BridgeResult, ExportResult,
-    ProcessedBatch, TelemetryBatch, types::ProcessedRecord,
+    traits::LakehouseExporter as BridgeTelemetryExporter, types::ProcessedRecord, BridgeResult,
+    ExportResult, ProcessedBatch, TelemetryBatch,
 };
-use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use chrono::Utc;
 use std::any::Any;
-use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{error, info, warn};
-use uuid::Uuid;
+use tracing::{error, info};
 
 /// Exporter configuration trait
 #[async_trait]

@@ -155,7 +155,9 @@ impl AuthConfig {
 
         if let Ok(expiration) = std::env::var("AUTH_JWT_EXPIRATION_SECS") {
             config.jwt.expiration_secs = expiration.parse().map_err(|_| {
-                crate::AuthError::internal("AUTH_JWT_EXPIRATION_SECS must be a valid number".to_string())
+                crate::AuthError::internal(
+                    "AUTH_JWT_EXPIRATION_SECS must be a valid number".to_string(),
+                )
             })?;
         }
 
@@ -167,9 +169,12 @@ impl AuthConfig {
                 "RS256" => super::jwt::JwtAlgorithm::RS256,
                 "RS384" => super::jwt::JwtAlgorithm::RS384,
                 "RS512" => super::jwt::JwtAlgorithm::RS512,
-                _ => return Err(crate::AuthError::internal(
-                    format!("Unsupported JWT algorithm: {}", algorithm)
-                )),
+                _ => {
+                    return Err(crate::AuthError::internal(format!(
+                        "Unsupported JWT algorithm: {}",
+                        algorithm
+                    )))
+                }
             };
         }
 
@@ -278,7 +283,11 @@ impl AuthConfig {
     }
 
     /// Add OAuth provider
-    pub fn add_oauth_provider(&mut self, name: String, provider: super::oauth::OAuthProviderConfig) -> crate::AuthResult<()> {
+    pub fn add_oauth_provider(
+        &mut self,
+        name: String,
+        provider: super::oauth::OAuthProviderConfig,
+    ) -> crate::AuthResult<()> {
         provider.validate()?;
         self.oauth.providers.insert(name, provider);
         Ok(())
@@ -293,7 +302,10 @@ mod tests {
     fn test_auth_config_default() {
         let config = AuthConfig::default();
         assert!(!config.jwt.secret.is_empty());
-        assert_eq!(config.jwt.expiration_secs, crate::DEFAULT_JWT_EXPIRATION_SECS);
+        assert_eq!(
+            config.jwt.expiration_secs,
+            crate::DEFAULT_JWT_EXPIRATION_SECS
+        );
         assert!(config.api_keys.enabled);
         assert!(!config.oauth.enabled);
         assert!(config.users.allow_registration);
@@ -320,7 +332,7 @@ mod tests {
     fn test_auth_config_from_env() {
         // Clean up any existing environment variables first
         std::env::remove_var("AUTH_JWT_SECRET");
-        
+
         // Set required environment variable
         std::env::set_var("AUTH_JWT_SECRET", "test-secret-from-env");
 
@@ -341,7 +353,7 @@ mod tests {
 
         let config = AuthConfig::from_env();
         assert!(config.is_err());
-        
+
         // Clean up
         std::env::remove_var("AUTH_JWT_SECRET");
     }

@@ -178,13 +178,17 @@ impl HttpReceiver {
 
         let router = self.router.clone();
         let addr_clone = addr.clone();
-        
+
         // Start the axum server in a separate task
         let server_handle = tokio::spawn(async move {
-            let listener = TcpListener::bind(&addr_clone).await.expect("Failed to bind to address");
+            let listener = TcpListener::bind(&addr_clone)
+                .await
+                .expect("Failed to bind to address");
             info!("HTTP server listening on {}", addr_clone);
-            
-            axum::serve(listener, router).await.expect("HTTP server failed");
+
+            axum::serve(listener, router)
+                .await
+                .expect("HTTP server failed");
         });
 
         self.server_handle = Some(server_handle);
@@ -210,14 +214,14 @@ impl HttpReceiver {
     async fn receive_data(&self) -> BridgeResult<TelemetryBatch> {
         // Implement actual data reception from HTTP requests
         // This would receive data from the HTTP server and convert to TelemetryBatch
-        
+
         // For now, we'll create a simple implementation that simulates receiving data
         // In a real implementation, this would:
         // 1. Listen for incoming HTTP requests
         // 2. Parse the request body as telemetry data
         // 3. Convert to TelemetryBatch format
         // 4. Return the batch
-        
+
         // Simulate receiving a batch of telemetry data
         let records = vec![
             TelemetryRecord {
@@ -260,9 +264,7 @@ impl HttpReceiver {
                     severity_number: Some(6),
                     severity_text: Some("INFO".to_string()),
                 }),
-                attributes: HashMap::from([
-                    ("source".to_string(), "http_receiver".to_string()),
-                ]),
+                attributes: HashMap::from([("source".to_string(), "http_receiver".to_string())]),
                 tags: HashMap::new(),
                 resource: None,
                 service: None,

@@ -10,27 +10,17 @@
 //! - Backpressure handling
 //! - Performance monitoring and metrics
 
-pub mod connection_pool;
 pub mod batch_processor;
+pub mod connection_pool;
 
 pub use connection_pool::{
-    ConnectionPoolConfig,
-    HttpConnectionPool,
-    GrpcConnectionPool,
-    ConnectionPoolManager,
-    PoolStats,
-    CombinedPoolStats,
-    PoolError,
+    CombinedPoolStats, ConnectionPoolConfig, ConnectionPoolManager, GrpcConnectionPool,
+    HttpConnectionPool, PoolError, PoolStats,
 };
 
 pub use batch_processor::{
-    BatchProcessorConfig,
-    MemoryEfficientBatchProcessor,
-    StreamingBatchProcessor,
-    BatchProcessorStats,
-    BackpressureController,
-    BackpressureStats,
-    BatchStream,
+    BackpressureController, BackpressureStats, BatchProcessorConfig, BatchProcessorStats,
+    BatchStream, MemoryEfficientBatchProcessor, StreamingBatchProcessor,
 };
 
 /// Performance optimization manager
@@ -62,7 +52,7 @@ impl PerformanceManager {
     pub async fn start(&self) -> BridgeResult<()> {
         // Start connection pool cleanup
         self.connection_pool_manager.start_cleanup_task().await;
-        
+
         info!("Performance manager started successfully");
         Ok(())
     }

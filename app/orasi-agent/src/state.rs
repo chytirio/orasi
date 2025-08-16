@@ -7,16 +7,16 @@ use std::collections::HashMap;
 pub struct AgentState {
     /// Agent information
     agent_info: AgentInfo,
-    
+
     /// Current health status
     health_status: Option<HealthStatus>,
-    
+
     /// Current load metrics
     load_metrics: AgentLoad,
-    
+
     /// Active tasks
     active_tasks: HashMap<String, Task>,
-    
+
     /// Task queue
     task_queue: Vec<Task>,
 }
@@ -34,7 +34,7 @@ impl AgentState {
             supported_formats: config.capabilities.supported_formats.clone(),
             resource_limits: ResourceLimits {
                 max_cpu_percent: 80.0,
-                max_memory_bytes: 1024 * 1024 * 1024, // 1GB
+                max_memory_bytes: 1024 * 1024 * 1024,    // 1GB
                 max_disk_bytes: 10 * 1024 * 1024 * 1024, // 10GB
             },
         };

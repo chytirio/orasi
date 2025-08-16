@@ -35,7 +35,10 @@ impl Router {
     }
 
     /// Route request
-    pub async fn route_request(&self, _request: RequestContext) -> Result<RouteMatch, GatewayError> {
+    pub async fn route_request(
+        &self,
+        _request: RequestContext,
+    ) -> Result<RouteMatch, GatewayError> {
         // TODO: Implement request routing
         Ok(RouteMatch {
             path: "".to_string(),

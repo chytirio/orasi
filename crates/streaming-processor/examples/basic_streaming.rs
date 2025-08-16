@@ -3,33 +3,37 @@
 //!
 
 //! Basic streaming processor example
-//! 
+//!
 //! This example demonstrates a complete streaming pipeline with:
 //! - HTTP source for data ingestion
 //! - Filter processor for data filtering
 //! - Transform processor for data transformation
 //! - HTTP sink for data output
 
-use streaming_processor::{
-    sources::{SourceFactory, SourceManager, http_source::HttpSourceConfig},
-    processors::{ProcessorFactory, ProcessorPipeline, filter_processor::{FilterProcessorConfig, FilterRule, FilterMode, FilterOperator}, transform_processor::{TransformProcessorConfig, TransformRule, TransformRuleType}},
-    sinks::{SinkFactory, SinkManager, http_sink::HttpSinkConfig},
-};
 use bridge_core::{BridgeResult, TelemetryBatch};
 use std::collections::HashMap;
-use tracing::{info, error};
+use streaming_processor::{
+    processors::{
+        filter_processor::{FilterMode, FilterOperator, FilterProcessorConfig, FilterRule},
+        transform_processor::{TransformProcessorConfig, TransformRule, TransformRuleType},
+        ProcessorFactory, ProcessorPipeline,
+    },
+    sinks::{http_sink::HttpSinkConfig, SinkFactory, SinkManager},
+    sources::{http_source::HttpSourceConfig, SourceFactory, SourceManager},
+};
 use tokio::time::{sleep, Duration};
+use tracing::{error, info};
 
 #[tokio::main]
 async fn main() -> BridgeResult<()> {
     // Initialize logging
     tracing_subscriber::fmt::init();
-    
+
     info!("Starting streaming processor example");
-    
+
     // Create source manager
     let mut source_manager = SourceManager::new();
-    
+
     // Create HTTP source configuration
     let http_source_config = HttpSourceConfig {
         name: "http".to_string(),
@@ -38,7 +42,10 @@ async fn main() -> BridgeResult<()> {
         method: "GET".to_string(),
         headers: {
             let mut headers = HashMap::new();
-            headers.insert("User-Agent".to_string(), "StreamingProcessor/1.0".to_string());
+            headers.insert(
+                "User-Agent".to_string(),
+                "StreamingProcessor/1.0".to_string(),
+            );
             headers
         },
         body: None,
@@ -52,14 +59,14 @@ async fn main() -> BridgeResult<()> {
         retry_delay_ms: 1000,
         rate_limit_requests_per_second: Some(1), // Limit to 1 request per second
     };
-    
+
     // Create HTTP source
     let http_source = SourceFactory::create_source(&http_source_config).await?;
     source_manager.add_source("http_source".to_string(), http_source);
-    
+
     // Create processor pipeline
     let mut processor_pipeline = ProcessorPipeline::new();
-    
+
     // Create filter processor configuration
     let filter_rules = vec![
         FilterRule {
@@ -77,11 +84,11 @@ async fn main() -> BridgeResult<()> {
             enabled: true,
         },
     ];
-    
+
     let filter_config = FilterProcessorConfig::new(filter_rules, FilterMode::Include);
     let filter_processor = ProcessorFactory::create_processor(&filter_config).await?;
     processor_pipeline.add_processor(filter_processor);
-    
+
     // Create transform processor configuration
     let transform_rules = vec![
         TransformRule {
@@ -109,14 +116,14 @@ async fn main() -> BridgeResult<()> {
             enabled: true,
         },
     ];
-    
+
     let transform_config = TransformProcessorConfig::new(transform_rules);
     let transform_processor = ProcessorFactory::create_processor(&transform_config).await?;
     processor_pipeline.add_processor(transform_processor);
-    
+
     // Create sink manager
     let mut sink_manager = SinkManager::new();
-    
+
     // Create HTTP sink configuration
     let http_sink_config = HttpSinkConfig {
         name: "http".to_string(),
@@ -137,30 +144,30 @@ async fn main() -> BridgeResult<()> {
         content_type: "application/json".to_string(),
         rate_limit_requests_per_second: Some(2), // Limit to 2 requests per second
     };
-    
+
     // Create HTTP sink
     let http_sink = SinkFactory::create_sink(&http_sink_config).await?;
     sink_manager.add_sink("http_sink".to_string(), http_sink);
-    
+
     // Start all components
     info!("Starting source manager");
     source_manager.start_all().await?;
-    
+
     info!("Starting sink manager");
     sink_manager.start_all().await?;
-    
+
     // Main processing loop
     let mut running = true;
     let mut iteration = 0;
-    
+
     while running && iteration < 10 {
         iteration += 1;
         info!("Processing iteration {}", iteration);
-        
+
         // Simulate data processing
         // In a real implementation, this would be driven by the source
         let sample_batch = create_sample_batch();
-        
+
         // Convert TelemetryBatch to DataStream for processing
         let input_stream = bridge_core::traits::DataStream {
             stream_id: sample_batch.id.to_string(),
@@ -168,21 +175,26 @@ async fn main() -> BridgeResult<()> {
             metadata: sample_batch.metadata.clone(),
             timestamp: sample_batch.timestamp,
         };
-        
+
         // Process through pipeline
         match processor_pipeline.process_stream(input_stream).await {
             Ok(processed_stream) => {
                 info!("Processed stream: {} records", sample_batch.size);
-                
+
                 // Convert back to TelemetryBatch for sinks
                 let processed_batch = sample_batch; // In real implementation, this would be deserialized from processed_stream
-                
+
                 // Send to all sinks
                 match sink_manager.send_to_all(processed_batch).await {
                     Ok(results) => {
                         let success_count = results.iter().filter(|r| r.is_ok()).count();
                         let error_count = results.len() - success_count;
-                        info!("Sent to {} sinks ({} success, {} errors)", results.len(), success_count, error_count);
+                        info!(
+                            "Sent to {} sinks ({} success, {} errors)",
+                            results.len(),
+                            success_count,
+                            error_count
+                        );
                     }
                     Err(e) => {
                         error!("Failed to send to sinks: {}", e);
@@ -193,41 +205,43 @@ async fn main() -> BridgeResult<()> {
                 error!("Failed to process stream: {}", e);
             }
         }
-        
+
         // Get statistics
         if let Ok(source_stats) = source_manager.get_stats().await {
             info!("Source stats: {:?}", source_stats);
         }
-        
+
         if let Ok(processor_stats) = processor_pipeline.get_stats().await {
             info!("Processor stats: {:?}", processor_stats);
         }
-        
+
         if let Ok(sink_stats) = sink_manager.get_stats().await {
             info!("Sink stats: {:?}", sink_stats);
         }
-        
+
         // Wait before next iteration
         sleep(Duration::from_secs(10)).await;
     }
-    
+
     // Stop all components
     info!("Stopping all components");
-    
+
     source_manager.stop_all().await?;
     sink_manager.stop_all().await?;
-    
+
     info!("Streaming processor example completed");
     Ok(())
 }
 
 /// Create a sample telemetry batch for demonstration
 fn create_sample_batch() -> TelemetryBatch {
-    use bridge_core::types::{TelemetryRecord, TelemetryData, TelemetryType, MetricData, MetricValue, MetricType};
-    use uuid::Uuid;
+    use bridge_core::types::{
+        MetricData, MetricType, MetricValue, TelemetryData, TelemetryRecord, TelemetryType,
+    };
     use chrono::Utc;
     use std::collections::HashMap;
-    
+    use uuid::Uuid;
+
     let records = vec![
         TelemetryRecord {
             id: Uuid::new_v4(),
@@ -294,7 +308,7 @@ fn create_sample_batch() -> TelemetryBatch {
             service: None,
         },
     ];
-    
+
     TelemetryBatch {
         id: Uuid::new_v4(),
         timestamp: Utc::now(),

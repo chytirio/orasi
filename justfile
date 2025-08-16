@@ -13,6 +13,10 @@ build:
 build-release:
     cargo build --release
 
+# Compile all tests
+compile-all-tests:
+    cargo test --workspace --no-run
+
 # Run all tests
 test:
     cargo test
@@ -131,10 +135,6 @@ example-snowflake:
 example-hudi:
     cargo run --example hudi_example
 
-# Run S3 Parquet example
-example-s3-parquet:
-    cargo run --example s3_parquet_example
-
 # Run HTTP server example
 example-http:
     cargo run --example http_server_example
@@ -160,7 +160,7 @@ example-receiver-simple:
 #     cargo run --example kafka_connector_example
 
 # Run all examples
-examples: example-basic example-auth example-delta example-iceberg example-snowflake example-hudi example-s3-parquet example-http example-streaming example-query example-receiver example-receiver-simple
+examples: example-basic example-auth example-delta example-iceberg example-snowflake example-hudi example-http example-streaming example-query example-receiver example-receiver-simple
 
 # Run key examples (most useful for development)
 examples-key: example-basic example-delta example-http example-streaming example-query

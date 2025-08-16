@@ -19,19 +19,19 @@ pub enum GatewayStatus {
 pub struct GatewayInfo {
     /// Gateway identifier
     pub gateway_id: String,
-    
+
     /// Gateway status
     pub status: GatewayStatus,
-    
+
     /// Gateway version
     pub version: String,
-    
+
     /// Gateway endpoint
     pub endpoint: String,
-    
+
     /// Last heartbeat timestamp
     pub last_heartbeat: u64,
-    
+
     /// Gateway metadata
     pub metadata: HashMap<String, String>,
 }
@@ -41,13 +41,13 @@ pub struct GatewayInfo {
 pub struct ServiceInfo {
     /// Service name
     pub name: String,
-    
+
     /// Service endpoints
     pub endpoints: Vec<ServiceEndpoint>,
-    
+
     /// Service health status
     pub health_status: ServiceHealthStatus,
-    
+
     /// Service metadata
     pub metadata: HashMap<String, String>,
 }
@@ -57,13 +57,13 @@ pub struct ServiceInfo {
 pub struct ServiceEndpoint {
     /// Endpoint URL
     pub url: String,
-    
+
     /// Endpoint weight
     pub weight: u32,
-    
+
     /// Endpoint health status
     pub health_status: EndpointHealthStatus,
-    
+
     /// Endpoint metadata
     pub metadata: HashMap<String, String>,
 }
@@ -89,16 +89,16 @@ pub enum EndpointHealthStatus {
 pub struct RequestContext {
     /// Request ID
     pub request_id: String,
-    
+
     /// Client IP address
     pub client_ip: String,
-    
+
     /// User agent
     pub user_agent: Option<String>,
-    
+
     /// Request headers
     pub headers: HashMap<String, String>,
-    
+
     /// Request metadata
     pub metadata: HashMap<String, String>,
 }
@@ -108,10 +108,10 @@ pub struct RequestContext {
 pub struct ResponseContext {
     /// Response status code
     pub status_code: u16,
-    
+
     /// Response headers
     pub headers: HashMap<String, String>,
-    
+
     /// Response metadata
     pub metadata: HashMap<String, String>,
 }
@@ -121,13 +121,13 @@ pub struct ResponseContext {
 pub struct RouteMatch {
     /// Route path
     pub path: String,
-    
+
     /// HTTP method
     pub method: String,
-    
+
     /// Route parameters
     pub parameters: HashMap<String, String>,
-    
+
     /// Route metadata
     pub metadata: HashMap<String, String>,
 }
@@ -137,13 +137,13 @@ pub struct RouteMatch {
 pub struct LoadBalancerState {
     /// Available endpoints
     pub available_endpoints: Vec<ServiceEndpoint>,
-    
+
     /// Current endpoint index
     pub current_index: usize,
-    
+
     /// Endpoint weights
     pub weights: HashMap<String, u32>,
-    
+
     /// Endpoint connection counts
     pub connection_counts: HashMap<String, u32>,
 }
@@ -161,13 +161,13 @@ pub enum CircuitBreakerState {
 pub struct CircuitBreakerInfo {
     /// Circuit breaker state
     pub state: CircuitBreakerState,
-    
+
     /// Failure count
     pub failure_count: u32,
-    
+
     /// Last failure time
     pub last_failure_time: Option<u64>,
-    
+
     /// Next retry time
     pub next_retry_time: Option<u64>,
 }
@@ -177,10 +177,10 @@ pub struct CircuitBreakerInfo {
 pub struct RateLimiterState {
     /// Current request count
     pub current_requests: u32,
-    
+
     /// Last reset time
     pub last_reset_time: u64,
-    
+
     /// Rate limit exceeded
     pub rate_limit_exceeded: bool,
 }
@@ -190,22 +190,22 @@ pub struct RateLimiterState {
 pub struct GatewayMetrics {
     /// Total requests
     pub total_requests: u64,
-    
+
     /// Successful requests
     pub successful_requests: u64,
-    
+
     /// Failed requests
     pub failed_requests: u64,
-    
+
     /// Average response time (ms)
     pub avg_response_time_ms: f64,
-    
+
     /// Current active connections
     pub active_connections: u32,
-    
+
     /// Rate limit violations
     pub rate_limit_violations: u64,
-    
+
     /// Circuit breaker trips
     pub circuit_breaker_trips: u64,
 }
@@ -215,13 +215,13 @@ pub struct GatewayMetrics {
 pub struct HealthStatus {
     /// Service name
     pub service: String,
-    
+
     /// Health status
     pub status: HealthState,
-    
+
     /// Health details
     pub details: HashMap<String, String>,
-    
+
     /// Timestamp
     pub timestamp: u64,
 }

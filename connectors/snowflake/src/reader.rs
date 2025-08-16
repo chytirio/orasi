@@ -3,16 +3,18 @@
 //!
 
 //! Snowflake reader implementation
-//! 
+//!
 //! This module provides the Snowflake reader that implements
 //! the LakehouseReader trait for reading telemetry data from Snowflake tables.
 
 use async_trait::async_trait;
-use tracing::{debug, error, info, warn};
-use bridge_core::traits::LakehouseReader;
-use bridge_core::types::{MetricsQuery, TracesQuery, LogsQuery, MetricsResult, TracesResult, LogsResult};
 use bridge_core::error::BridgeResult;
+use bridge_core::traits::LakehouseReader;
+use bridge_core::types::{
+    LogsQuery, LogsResult, MetricsQuery, MetricsResult, TracesQuery, TracesResult,
+};
 use std::collections::HashMap;
+use tracing::{debug, error, info, warn};
 
 use crate::config::SnowflakeConfig;
 use crate::error::{SnowflakeError, SnowflakeResult};
@@ -29,13 +31,16 @@ pub struct SnowflakeReader {
 impl SnowflakeReader {
     /// Create a new Snowflake reader
     pub async fn new(config: SnowflakeConfig) -> SnowflakeResult<Self> {
-        info!("Creating Snowflake reader for database: {}", config.database());
-        
+        info!(
+            "Creating Snowflake reader for database: {}",
+            config.database()
+        );
+
         let reader = Self {
             config,
             initialized: false,
         };
-        
+
         reader.initialize().await?;
         Ok(reader)
     }
@@ -43,7 +48,7 @@ impl SnowflakeReader {
     /// Initialize the reader
     async fn initialize(&self) -> SnowflakeResult<()> {
         debug!("Initializing Snowflake reader");
-        
+
         // Initialize Snowflake reader components
         // This would typically involve:
         // 1. Setting up the Snowflake connection
@@ -51,7 +56,7 @@ impl SnowflakeReader {
         // 3. Setting up query optimization
         // 4. Initializing connection pools
         // 5. Configuring Snowflake-specific settings (time travel, etc.)
-        
+
         info!("Snowflake reader initialized successfully");
         Ok(())
     }
@@ -67,11 +72,14 @@ impl SnowflakeReader {
     }
 
     /// Generate sample metrics data based on the query
-    async fn generate_sample_metrics_data(&self, _query: &MetricsQuery) -> Vec<bridge_core::types::MetricData> {
+    async fn generate_sample_metrics_data(
+        &self,
+        _query: &MetricsQuery,
+    ) -> Vec<bridge_core::types::MetricData> {
         // In a real implementation, this would convert the query to SQL
         // and execute it against Snowflake to return actual data
         // For now, we'll return sample data
-        
+
         vec![
             bridge_core::types::MetricData {
                 name: "cpu_usage".to_string(),
@@ -101,47 +109,51 @@ impl SnowflakeReader {
     }
 
     /// Generate sample traces data based on the query
-    async fn generate_sample_traces_data(&self, _query: &TracesQuery) -> Vec<bridge_core::types::TraceData> {
+    async fn generate_sample_traces_data(
+        &self,
+        _query: &TracesQuery,
+    ) -> Vec<bridge_core::types::TraceData> {
         // In a real implementation, this would convert the query to SQL
         // and execute it against Snowflake to return actual data
         // For now, we'll return sample data
-        
+
         let trace_id = uuid::Uuid::new_v4();
         let span_id = uuid::Uuid::new_v4();
         let start_time = chrono::Utc::now();
         let end_time = start_time + chrono::Duration::milliseconds(150);
-        
-        vec![
-            bridge_core::types::TraceData {
-                trace_id: trace_id.to_string(),
-                span_id: span_id.to_string(),
-                parent_span_id: None,
-                name: "http_request".to_string(),
-                kind: bridge_core::types::SpanKind::Server,
-                start_time,
-                end_time: Some(end_time),
-                duration_ns: Some(150_000_000), // 150ms in nanoseconds
-                status: bridge_core::types::SpanStatus {
-                    code: bridge_core::types::StatusCode::Ok,
-                    message: None,
-                },
-                attributes: HashMap::from([
-                    ("http.method".to_string(), "GET".to_string()),
-                    ("http.url".to_string(), "/api/users".to_string()),
-                    ("http.status_code".to_string(), "200".to_string()),
-                ]),
-                events: vec![],
-                links: vec![],
+
+        vec![bridge_core::types::TraceData {
+            trace_id: trace_id.to_string(),
+            span_id: span_id.to_string(),
+            parent_span_id: None,
+            name: "http_request".to_string(),
+            kind: bridge_core::types::SpanKind::Server,
+            start_time,
+            end_time: Some(end_time),
+            duration_ns: Some(150_000_000), // 150ms in nanoseconds
+            status: bridge_core::types::SpanStatus {
+                code: bridge_core::types::StatusCode::Ok,
+                message: None,
             },
-        ]
+            attributes: HashMap::from([
+                ("http.method".to_string(), "GET".to_string()),
+                ("http.url".to_string(), "/api/users".to_string()),
+                ("http.status_code".to_string(), "200".to_string()),
+            ]),
+            events: vec![],
+            links: vec![],
+        }]
     }
 
     /// Generate sample logs data based on the query
-    async fn generate_sample_logs_data(&self, _query: &LogsQuery) -> Vec<bridge_core::types::LogData> {
+    async fn generate_sample_logs_data(
+        &self,
+        _query: &LogsQuery,
+    ) -> Vec<bridge_core::types::LogData> {
         // In a real implementation, this would convert the query to SQL
         // and execute it against Snowflake to return actual data
         // For now, we'll return sample data
-        
+
         vec![
             bridge_core::types::LogData {
                 timestamp: chrono::Utc::now(),
@@ -176,24 +188,24 @@ impl SnowflakeReader {
 impl LakehouseReader for SnowflakeReader {
     async fn query_metrics(&self, query: MetricsQuery) -> BridgeResult<MetricsResult> {
         debug!("Querying metrics from Snowflake: {:?}", query);
-        
+
         let start_time = std::time::Instant::now();
-        
+
         // This would typically involve:
         // 1. Converting query to SQL
         // 2. Executing query against Snowflake
         // 3. Processing time travel if specified
         // 4. Converting results back to bridge format
-        
+
         // Simulate query execution
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-        
+
         // Generate sample metrics data based on the query
         let sample_data = self.generate_sample_metrics_data(&query).await;
-        
+
         let duration = start_time.elapsed();
         info!("Successfully queried metrics from Snowflake");
-        
+
         Ok(MetricsResult {
             query_id: uuid::Uuid::new_v4(),
             timestamp: chrono::Utc::now(),
@@ -207,24 +219,24 @@ impl LakehouseReader for SnowflakeReader {
 
     async fn query_traces(&self, query: TracesQuery) -> BridgeResult<TracesResult> {
         debug!("Querying traces from Snowflake: {:?}", query);
-        
+
         let start_time = std::time::Instant::now();
-        
+
         // This would typically involve:
         // 1. Converting query to SQL
         // 2. Executing query against Snowflake
         // 3. Processing time travel if specified
         // 4. Converting results back to bridge format
-        
+
         // Simulate query execution
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-        
+
         // Generate sample traces data based on the query
         let sample_data = self.generate_sample_traces_data(&query).await;
-        
+
         let duration = start_time.elapsed();
         info!("Successfully queried traces from Snowflake");
-        
+
         Ok(TracesResult {
             query_id: uuid::Uuid::new_v4(),
             timestamp: chrono::Utc::now(),
@@ -238,24 +250,24 @@ impl LakehouseReader for SnowflakeReader {
 
     async fn query_logs(&self, query: LogsQuery) -> BridgeResult<LogsResult> {
         debug!("Querying logs from Snowflake: {:?}", query);
-        
+
         let start_time = std::time::Instant::now();
-        
+
         // This would typically involve:
         // 1. Converting query to SQL
         // 2. Executing query against Snowflake
         // 3. Processing time travel if specified
         // 4. Converting results back to bridge format
-        
+
         // Simulate query execution
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-        
+
         // Generate sample logs data based on the query
         let sample_data = self.generate_sample_logs_data(&query).await;
-        
+
         let duration = start_time.elapsed();
         info!("Successfully queried logs from Snowflake");
-        
+
         Ok(LogsResult {
             query_id: uuid::Uuid::new_v4(),
             timestamp: chrono::Utc::now(),
@@ -269,15 +281,15 @@ impl LakehouseReader for SnowflakeReader {
 
     async fn execute_query(&self, query: String) -> BridgeResult<serde_json::Value> {
         debug!("Executing custom query on Snowflake: {}", query);
-        
+
         // This would typically involve:
         // 1. Validating the SQL query
         // 2. Executing against Snowflake
         // 3. Processing results
         // 4. Returning in JSON format
-        
+
         info!("Successfully executed custom query on Snowflake");
-        
+
         Ok(serde_json::json!({
             "status": "success",
             "message": "Query executed successfully",
@@ -285,14 +297,12 @@ impl LakehouseReader for SnowflakeReader {
         }))
     }
 
-
-
     async fn get_stats(&self) -> BridgeResult<bridge_core::traits::ReaderStats> {
         // This would typically involve:
         // 1. Collecting read statistics
         // 2. Calculating performance metrics
         // 3. Reporting error counts
-        
+
         Ok(bridge_core::traits::ReaderStats {
             total_reads: 0,
             total_records: 0,
@@ -306,12 +316,12 @@ impl LakehouseReader for SnowflakeReader {
 
     async fn close(&self) -> BridgeResult<()> {
         info!("Closing Snowflake reader");
-        
+
         // This would typically involve:
         // 1. Closing connections
         // 2. Cleaning up resources
         // 3. Finalizing any pending operations
-        
+
         info!("Snowflake reader closed successfully");
         Ok(())
     }

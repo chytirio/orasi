@@ -7,7 +7,7 @@
 //! This example demonstrates the OTAP receiver functionality with actual data reception
 //! from the OTAP protocol handler.
 
-use bridge_core::BridgeResult;
+use bridge_core::{BridgeResult, TelemetryReceiver};
 use ingestion::{
     protocols::otap::{OtapConfig, OtapProtocol},
     receivers::otap_receiver::{OtapReceiver, OtapReceiverConfig},
@@ -24,16 +24,16 @@ async fn main() -> BridgeResult<()> {
 
     // Create OTAP receiver configuration
     let config = OtapReceiverConfig::new("localhost".to_string(), 8080);
-    
+
     // Create OTAP receiver
     let mut receiver = OtapReceiver::new(&config).await?;
-    
+
     // Initialize the receiver
     receiver.init().await?;
-    
+
     // Start the receiver
     receiver.start().await?;
-    
+
     info!("OTAP receiver started successfully");
 
     // Get the protocol handler to simulate incoming data
@@ -43,7 +43,7 @@ async fn main() -> BridgeResult<()> {
             // Simulate incoming OTAP data
             info!("Simulating incoming OTAP data...");
             otap_handler.simulate_incoming_data().await?;
-            
+
             // Wait a moment for the data to be processed
             tokio::time::sleep(Duration::from_millis(100)).await;
         }
@@ -51,22 +51,26 @@ async fn main() -> BridgeResult<()> {
 
     // Receive data from the receiver
     info!("Receiving data from OTAP receiver...");
-    
+
     for i in 0..5 {
         match receiver.receive().await {
             Ok(batch) => {
                 info!(
                     "Received batch #{}: {} records from {}",
-                    i + 1, batch.size, batch.source
+                    i + 1,
+                    batch.size,
+                    batch.source
                 );
-                
+
                 // Print some details about the received data
                 for (j, record) in batch.records.iter().enumerate() {
                     info!(
                         "Record {}: Type={:?}, ID={}",
-                        j + 1, record.record_type, record.id
+                        j + 1,
+                        record.record_type,
+                        record.id
                     );
-                    
+
                     match &record.data {
                         bridge_core::types::TelemetryData::Metric(metric) => {
                             info!("  Metric: {} = {:?}", metric.name, metric.value);
@@ -75,7 +79,10 @@ async fn main() -> BridgeResult<()> {
                             info!("  Log: {} ({:?})", log.message, log.level);
                         }
                         bridge_core::types::TelemetryData::Trace(trace) => {
-                            info!("  Trace: {} spans", trace.spans.len());
+                            info!("  Trace: {} events", trace.events.len());
+                        }
+                        bridge_core::types::TelemetryData::Event(event) => {
+                            info!("  Event: {} at {}", event.name, event.timestamp);
                         }
                     }
                 }
@@ -84,7 +91,7 @@ async fn main() -> BridgeResult<()> {
                 error!("Error receiving data: {}", e);
             }
         }
-        
+
         // Wait between receives
         tokio::time::sleep(Duration::from_millis(500)).await;
     }
@@ -106,7 +113,10 @@ async fn main() -> BridgeResult<()> {
     // Check receiver health
     match receiver.health_check().await {
         Ok(healthy) => {
-            info!("Receiver health check: {}", if healthy { "OK" } else { "FAILED" });
+            info!(
+                "Receiver health check: {}",
+                if healthy { "OK" } else { "FAILED" }
+            );
         }
         Err(e) => {
             error!("Error checking receiver health: {}", e);
@@ -115,11 +125,11 @@ async fn main() -> BridgeResult<()> {
 
     // Stop the receiver
     receiver.stop().await?;
-    
+
     // Shutdown the receiver
     receiver.shutdown().await?;
-    
+
     info!("OTAP receiver example completed successfully");
-    
+
     Ok(())
 }

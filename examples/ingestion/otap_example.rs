@@ -9,9 +9,12 @@
 
 use bridge_core::BridgeResult;
 use ingestion::{
-    OtapReceiver, OtapReceiverConfig, ReceiverFactory, ReceiverManager,
-    BatchProcessor, BatchProcessorConfig, ProcessorFactory, ProcessorPipeline,
-    BatchExporter, BatchExporterConfig, ExporterFactory, ExporterPipeline,
+    exporters::batch_exporter::BatchExporterConfig,
+    exporters::{BatchExporter, ExporterFactory, ExporterPipeline},
+    processors::batch_processor::BatchProcessorConfig,
+    processors::{BatchProcessor, ProcessorFactory, ProcessorPipeline},
+    receivers::otap_receiver::OtapReceiverConfig,
+    receivers::{OtapReceiver, ReceiverFactory, ReceiverManager},
 };
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -69,41 +72,48 @@ impl OtapTelemetryIngestionPipeline {
     }
 
     /// Add OTAP receiver to the pipeline
-    pub fn add_otap_receiver(&mut self, name: String, endpoint: String, port: u16) -> BridgeResult<()> {
+    pub async fn add_otap_receiver(
+        &mut self,
+        name: String,
+        endpoint: String,
+        port: u16,
+    ) -> BridgeResult<()> {
         info!("Adding OTAP receiver: {} on {}:{}", name, endpoint, port);
 
         let config = OtapReceiverConfig::new(endpoint, port);
-        let receiver = OtapReceiver::new(&config)?;
-        let receiver = Arc::new(receiver);
+        let receiver = OtapReceiver::new(&config).await?;
+        let receiver = Box::new(receiver);
 
         self.receiver_manager.add_receiver(name, receiver);
         Ok(())
     }
 
     /// Add batch processor to the pipeline
-    pub fn add_batch_processor(&mut self, name: String) -> BridgeResult<()> {
+    pub async fn add_batch_processor(&mut self, name: String) -> BridgeResult<()> {
         info!("Adding batch processor: {}", name);
 
-        let config = BatchProcessorConfig::new(
-            self.config.max_batch_size,
-            self.config.flush_interval_ms,
-        );
-        let processor = BatchProcessor::new(&config)?;
-        let processor = Arc::new(processor);
+        let config =
+            BatchProcessorConfig::new(self.config.max_batch_size, self.config.flush_interval_ms);
+        let processor = BatchProcessor::new(&config).await?;
+        let processor = Box::new(processor);
 
-        self.processor_pipeline.add_processor(name, processor);
+        self.processor_pipeline.add_processor(processor);
         Ok(())
     }
 
     /// Add batch exporter to the pipeline
-    pub fn add_batch_exporter(&mut self, name: String, destination: String) -> BridgeResult<()> {
+    pub async fn add_batch_exporter(
+        &mut self,
+        name: String,
+        destination: String,
+    ) -> BridgeResult<()> {
         info!("Adding batch exporter: {} to {}", name, destination);
 
-        let config = BatchExporterConfig::new(destination);
-        let exporter = BatchExporter::new(&config)?;
-        let exporter = Arc::new(exporter);
+        let config = BatchExporterConfig::new(destination, 1000); // Default batch size
+        let exporter = BatchExporter::new(&config).await?;
+        let exporter = Box::new(exporter);
 
-        self.exporter_pipeline.add_exporter(name, exporter);
+        self.exporter_pipeline.add_exporter(exporter);
         Ok(())
     }
 
@@ -116,7 +126,7 @@ impl OtapTelemetryIngestionPipeline {
         drop(is_running);
 
         // Start receiver manager
-        self.receiver_manager.start().await?;
+        self.receiver_manager.start_all().await?;
 
         // Start processor pipeline
         self.processor_pipeline.start().await?;
@@ -143,7 +153,7 @@ impl OtapTelemetryIngestionPipeline {
         self.processor_pipeline.stop().await?;
 
         // Stop receiver manager
-        self.receiver_manager.stop().await?;
+        self.receiver_manager.stop_all().await?;
 
         info!("OTAP telemetry ingestion pipeline stopped successfully");
         Ok(())
@@ -167,9 +177,8 @@ impl OtapTelemetryIngestionPipeline {
         let processor_stats = self.processor_pipeline.get_stats().await?;
         info!("Processor Stats: {:?}", processor_stats);
 
-        // Get exporter statistics
-        let exporter_stats = self.exporter_pipeline.get_stats().await?;
-        info!("Exporter Stats: {:?}", exporter_stats);
+        // Get exporter statistics (not available on ExporterPipeline)
+        info!("Exporter Stats: Not available on ExporterPipeline");
 
         Ok(())
     }
@@ -190,20 +199,22 @@ async fn main() -> BridgeResult<()> {
     let mut pipeline = OtapTelemetryIngestionPipeline::new(config);
 
     // Add OTAP receiver
-    pipeline.add_otap_receiver(
-        "otap-receiver".to_string(),
-        "0.0.0.0".to_string(),
-        4319,
-    )?;
+    pipeline
+        .add_otap_receiver("otap-receiver".to_string(), "0.0.0.0".to_string(), 4319)
+        .await?;
 
     // Add batch processor
-    pipeline.add_batch_processor("batch-processor".to_string())?;
+    pipeline
+        .add_batch_processor("batch-processor".to_string())
+        .await?;
 
     // Add batch exporter (example: export to file)
-    pipeline.add_batch_exporter(
-        "file-exporter".to_string(),
-        "file:///tmp/otap-telemetry.json".to_string(),
-    )?;
+    pipeline
+        .add_batch_exporter(
+            "file-exporter".to_string(),
+            "file:///tmp/otap-telemetry.json".to_string(),
+        )
+        .await?;
 
     // Start pipeline
     pipeline.start().await?;
@@ -246,22 +257,24 @@ mod tests {
         let mut pipeline = OtapTelemetryIngestionPipeline::new(config);
 
         // Test adding OTAP receiver
-        let result = pipeline.add_otap_receiver(
-            "test-receiver".to_string(),
-            "127.0.0.1".to_string(),
-            4319,
-        );
+        let result = pipeline
+            .add_otap_receiver("test-receiver".to_string(), "127.0.0.1".to_string(), 4319)
+            .await;
         assert!(result.is_ok());
 
         // Test adding batch processor
-        let result = pipeline.add_batch_processor("test-processor".to_string());
+        let result = pipeline
+            .add_batch_processor("test-processor".to_string())
+            .await;
         assert!(result.is_ok());
 
         // Test adding batch exporter
-        let result = pipeline.add_batch_exporter(
-            "test-exporter".to_string(),
-            "file:///tmp/test.json".to_string(),
-        );
+        let result = pipeline
+            .add_batch_exporter(
+                "test-exporter".to_string(),
+                "file:///tmp/test.json".to_string(),
+            )
+            .await;
         assert!(result.is_ok());
     }
 
@@ -271,9 +284,21 @@ mod tests {
         let mut pipeline = OtapTelemetryIngestionPipeline::new(config);
 
         // Add components
-        pipeline.add_otap_receiver("test-receiver".to_string(), "127.0.0.1".to_string(), 4319).unwrap();
-        pipeline.add_batch_processor("test-processor".to_string()).unwrap();
-        pipeline.add_batch_exporter("test-exporter".to_string(), "file:///tmp/test.json".to_string()).unwrap();
+        pipeline
+            .add_otap_receiver("test-receiver".to_string(), "127.0.0.1".to_string(), 4319)
+            .await
+            .unwrap();
+        pipeline
+            .add_batch_processor("test-processor".to_string())
+            .await
+            .unwrap();
+        pipeline
+            .add_batch_exporter(
+                "test-exporter".to_string(),
+                "file:///tmp/test.json".to_string(),
+            )
+            .await
+            .unwrap();
 
         // Test start
         let result = pipeline.start().await;

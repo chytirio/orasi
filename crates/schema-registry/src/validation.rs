@@ -6,8 +6,8 @@
 //!
 //! This module provides validation functionality for schemas and telemetry data.
 
-use crate::error::{SchemaRegistryError, SchemaRegistryResult};
-use crate::schema::{Schema, SchemaFormat, SchemaType, SchemaVersion};
+use crate::error::SchemaRegistryResult;
+use crate::schema::{Schema, SchemaFormat};
 use async_trait::async_trait;
 use bridge_core::types::TelemetryBatch;
 use std::collections::HashMap;

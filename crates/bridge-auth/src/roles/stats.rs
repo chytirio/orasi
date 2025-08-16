@@ -66,15 +66,15 @@ mod tests {
     #[test]
     fn test_role_stats_increment() {
         let mut stats = RoleStats::new();
-        
+
         stats.increment_roles_created();
         assert_eq!(stats.roles_created, 1);
         assert!(stats.last_role_created.is_some());
-        
+
         stats.increment_role_assignments();
         assert_eq!(stats.role_assignments, 1);
         assert!(stats.last_role_assignment.is_some());
-        
+
         stats.increment_role_removals();
         assert_eq!(stats.role_removals, 1);
     }

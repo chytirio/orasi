@@ -8,7 +8,6 @@
 //! the bridge.
 
 use std::error::Error as StdError;
-use std::fmt;
 use thiserror::Error;
 
 /// Result type for bridge operations

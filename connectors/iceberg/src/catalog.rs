@@ -3,14 +3,14 @@
 //!
 
 //! Apache Iceberg catalog implementation
-//! 
+//!
 //! This module provides the Apache Iceberg catalog that manages
 //! table metadata, transactions, and schema operations.
 
+use arrow::datatypes::Schema;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tracing::{debug, info, warn};
-use arrow::datatypes::Schema;
 
 use crate::config::IcebergCatalogConfig;
 use crate::error::{IcebergError, IcebergResult};
@@ -40,7 +40,7 @@ impl IcebergCatalog {
 
         // This is a placeholder implementation
         // In a real implementation, you would check the catalog for table existence
-        
+
         debug!("Table existence check completed for: {}", table_name);
         Ok(false) // Placeholder: assume table doesn't exist
     }
@@ -57,7 +57,7 @@ impl IcebergCatalog {
 
         // This is a placeholder implementation
         // In a real implementation, you would create the table in the catalog
-        
+
         info!("Successfully created Iceberg table: {}", table_name);
         Ok(())
     }
@@ -68,7 +68,7 @@ impl IcebergCatalog {
 
         // This is a placeholder implementation
         // In a real implementation, you would load the table from the catalog
-        
+
         Ok(Arc::new(IcebergTable {
             name: table_name.to_string(),
         }))
@@ -80,7 +80,7 @@ impl IcebergCatalog {
 
         // This is a placeholder implementation
         // In a real implementation, you would drop the table from the catalog
-        
+
         info!("Successfully dropped Iceberg table: {}", table_name);
         Ok(())
     }
@@ -91,7 +91,7 @@ impl IcebergCatalog {
 
         // This is a placeholder implementation
         // In a real implementation, you would list tables from the catalog
-        
+
         Ok(Vec::new()) // Placeholder: return empty list
     }
 
@@ -161,9 +161,9 @@ impl IcebergTransaction {
     pub async fn add_file(&mut self, _parquet_data: Vec<u8>) -> IcebergResult<()> {
         // This is a placeholder implementation
         // In a real implementation, you would add the file to the transaction
-        
+
         debug!("Adding file to transaction for table: {}", self.table_name);
-        
+
         // For now, just log the operation
         // This would be replaced with actual file addition logic
         Ok(())
@@ -175,8 +175,11 @@ impl IcebergTransaction {
 
         // This is a placeholder implementation
         // In a real implementation, you would commit the transaction
-        
-        info!("Successfully committed transaction for table: {}", self.table_name);
+
+        info!(
+            "Successfully committed transaction for table: {}",
+            self.table_name
+        );
         Ok(())
     }
 }
@@ -191,7 +194,7 @@ impl IcebergScan {
     pub async fn add_filter(&mut self, filter: &str) -> IcebergResult<()> {
         // This is a placeholder implementation
         debug!("Adding filter to scan: {}", filter);
-        
+
         // For now, just log the operation
         // This would be replaced with actual filter addition logic
         Ok(())
@@ -201,7 +204,7 @@ impl IcebergScan {
     pub async fn select_columns(&mut self, columns: &[String]) -> IcebergResult<()> {
         // This is a placeholder implementation
         debug!("Selecting columns for scan: {:?}", columns);
-        
+
         // For now, just log the operation
         // This would be replaced with actual column selection logic
         Ok(())
@@ -211,7 +214,7 @@ impl IcebergScan {
     pub async fn limit(&mut self, limit: usize) -> IcebergResult<()> {
         // This is a placeholder implementation
         debug!("Setting limit for scan: {}", limit);
-        
+
         // For now, just log the operation
         // This would be replaced with actual limit setting logic
         Ok(())
@@ -221,7 +224,7 @@ impl IcebergScan {
     pub async fn execute(&self) -> IcebergResult<Vec<arrow::record_batch::RecordBatch>> {
         // This is a placeholder implementation
         debug!("Executing scan for table: {}", self.table_name);
-        
+
         // For now, return empty batches
         // This would be replaced with actual scan execution logic
         Ok(Vec::new())

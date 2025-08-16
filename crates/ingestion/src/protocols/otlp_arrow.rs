@@ -7,13 +7,15 @@
 //! This module provides support for ingesting OpenTelemetry data in Arrow format
 //! over HTTP/gRPC endpoints.
 
+use arrow_array::{ArrayRef, RecordBatch};
+use arrow_ipc::reader::StreamReader;
 use async_trait::async_trait;
 use axum::{
     body::Body,
     extract::State,
     http::{HeaderMap, StatusCode},
     response::Response,
-    routing::{post, get},
+    routing::{get, post},
     Router,
 };
 use bridge_core::{
@@ -23,15 +25,13 @@ use bridge_core::{
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::io::Cursor;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{info, error, warn};
+use tracing::{error, info, warn};
 use uuid::Uuid;
-use arrow_array::{RecordBatch, ArrayRef};
-use arrow_ipc::reader::StreamReader;
-use std::io::Cursor;
 
-use super::{MessageHandler, ProtocolConfig, ProtocolHandler, ProtocolMessage, ProtocolStats, MessagePayload};
+use super::{MessageHandler, ProtocolConfig, ProtocolHandler, ProtocolMessage, ProtocolStats};
 
 /// OTLP Arrow protocol configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -231,7 +231,10 @@ impl OtlpArrowProtocol {
         // Try to decode as Arrow IPC format
         match self.decode_arrow_ipc(data).await {
             Ok(records) => {
-                info!("Successfully decoded {} records from Arrow IPC", records.len());
+                info!(
+                    "Successfully decoded {} records from Arrow IPC",
+                    records.len()
+                );
                 Ok(TelemetryBatch {
                     id: Uuid::new_v4(),
                     timestamp: Utc::now(),
@@ -256,15 +259,17 @@ impl OtlpArrowProtocol {
     /// Decode Arrow IPC format data
     async fn decode_arrow_ipc(&self, data: &[u8]) -> BridgeResult<Vec<TelemetryRecord>> {
         let cursor = Cursor::new(data);
-        let reader = StreamReader::try_new(cursor, None)
-            .map_err(|e| bridge_core::BridgeError::configuration(format!("Arrow IPC decode error: {}", e)))?;
+        let reader = StreamReader::try_new(cursor, None).map_err(|e| {
+            bridge_core::BridgeError::configuration(format!("Arrow IPC decode error: {}", e))
+        })?;
 
         let mut records = Vec::new();
-        
+
         for batch_result in reader {
-            let batch = batch_result
-                .map_err(|e| bridge_core::BridgeError::configuration(format!("Arrow batch error: {}", e)))?;
-            
+            let batch = batch_result.map_err(|e| {
+                bridge_core::BridgeError::configuration(format!("Arrow batch error: {}", e))
+            })?;
+
             let batch_records = self.convert_record_batch_to_telemetry(batch).await?;
             records.extend(batch_records);
         }
@@ -273,7 +278,10 @@ impl OtlpArrowProtocol {
     }
 
     /// Convert Arrow RecordBatch to TelemetryRecord
-    async fn convert_record_batch_to_telemetry(&self, batch: RecordBatch) -> BridgeResult<Vec<TelemetryRecord>> {
+    async fn convert_record_batch_to_telemetry(
+        &self,
+        batch: RecordBatch,
+    ) -> BridgeResult<Vec<TelemetryRecord>> {
         let schema = batch.schema();
         let num_rows = batch.num_rows();
         let mut records = Vec::with_capacity(num_rows);
@@ -349,19 +357,31 @@ impl OtlpArrowProtocol {
     }
 
     /// Extract timestamp from Arrow array
-    fn extract_timestamp_from_array(&self, _array: &ArrayRef, _row_idx: usize) -> BridgeResult<chrono::DateTime<Utc>> {
+    fn extract_timestamp_from_array(
+        &self,
+        _array: &ArrayRef,
+        _row_idx: usize,
+    ) -> BridgeResult<chrono::DateTime<Utc>> {
         // This is a simplified implementation - in practice you'd handle different timestamp types
         Ok(Utc::now())
     }
 
     /// Extract string from Arrow array
-    fn extract_string_from_array(&self, _array: &ArrayRef, row_idx: usize) -> BridgeResult<Option<String>> {
+    fn extract_string_from_array(
+        &self,
+        _array: &ArrayRef,
+        row_idx: usize,
+    ) -> BridgeResult<Option<String>> {
         // This is a simplified implementation - in practice you'd handle different string types
         Ok(Some(format!("value_{}", row_idx)))
     }
 
     /// Extract value from Arrow array
-    fn extract_value_from_array(&self, _array: &ArrayRef, row_idx: usize) -> BridgeResult<MetricValue> {
+    fn extract_value_from_array(
+        &self,
+        _array: &ArrayRef,
+        row_idx: usize,
+    ) -> BridgeResult<MetricValue> {
         // This is a simplified implementation - in practice you'd handle different numeric types
         Ok(MetricValue::Gauge(row_idx as f64))
     }
@@ -410,9 +430,7 @@ impl OtlpArrowProtocol {
                     severity_number: Some(9),
                     severity_text: Some("INFO".to_string()),
                 }),
-                attributes: HashMap::from([
-                    ("protocol".to_string(), "otlp-arrow".to_string()),
-                ]),
+                attributes: HashMap::from([("protocol".to_string(), "otlp-arrow".to_string())]),
                 tags: HashMap::new(),
                 resource: None,
                 service: None,
@@ -437,7 +455,7 @@ impl OtlpArrowProtocol {
     async fn add_to_queue(&self, batch: TelemetryBatch) {
         let mut queue = self.data_queue.write().await;
         queue.push(batch);
-        
+
         // Update stats
         let mut stats = self.stats.write().await;
         stats.total_messages += 1;
@@ -542,10 +560,10 @@ impl OtlpArrowMessageHandler {
     async fn decode_arrow_data(&self, payload: &[u8]) -> BridgeResult<Vec<TelemetryRecord>> {
         // Implement Arrow decoding
         // Use the arrow crate to decode the payload
-        
+
         // For now, we'll create a simple implementation that simulates Arrow decoding
         // In a real implementation, this would use the arrow crate to decode the data
-        
+
         // Simulate decoding Arrow-encoded telemetry data
         let records = vec![
             TelemetryRecord {
@@ -588,15 +606,13 @@ impl OtlpArrowMessageHandler {
                     severity_number: Some(9),
                     severity_text: Some("INFO".to_string()),
                 }),
-                attributes: HashMap::from([
-                    ("protocol".to_string(), "otlp-arrow".to_string()),
-                ]),
+                attributes: HashMap::from([("protocol".to_string(), "otlp-arrow".to_string())]),
                 tags: HashMap::new(),
                 resource: None,
                 service: None,
             },
         ];
-        
+
         Ok(records)
     }
 }
@@ -680,11 +696,7 @@ async fn handle_metrics(
 }
 
 /// Handle logs endpoint
-async fn handle_logs(
-    State(state): State<ServerState>,
-    headers: HeaderMap,
-    body: Body,
-) -> Response {
+async fn handle_logs(State(state): State<ServerState>, headers: HeaderMap, body: Body) -> Response {
     match process_telemetry_data(state, headers, body, "logs").await {
         Ok(_) => Response::builder()
             .status(StatusCode::OK)
@@ -718,8 +730,9 @@ async fn process_telemetry_data(
     info!("Processing {} data", data_type);
 
     // Extract body bytes
-    let bytes = axum::body::to_bytes(body, usize::MAX).await
-        .map_err(|e| bridge_core::BridgeError::configuration(format!("Failed to read body: {}", e)))?;
+    let bytes = axum::body::to_bytes(body, usize::MAX).await.map_err(|e| {
+        bridge_core::BridgeError::configuration(format!("Failed to read body: {}", e))
+    })?;
 
     // Check content type
     let content_type = headers
@@ -727,11 +740,17 @@ async fn process_telemetry_data(
         .and_then(|v| v.to_str().ok())
         .unwrap_or("application/octet-stream");
 
-    info!("Received {} data with content-type: {}, size: {} bytes", 
-          data_type, content_type, bytes.len());
+    info!(
+        "Received {} data with content-type: {}, size: {} bytes",
+        data_type,
+        content_type,
+        bytes.len()
+    );
 
     // Process the data based on content type
-    let batch = if content_type.contains("application/x-arrow") || content_type.contains("application/octet-stream") {
+    let batch = if content_type.contains("application/x-arrow")
+        || content_type.contains("application/octet-stream")
+    {
         state.protocol.process_arrow_data(&bytes).await?
     } else {
         // For other content types, try to process as Arrow anyway
@@ -747,6 +766,7 @@ async fn process_telemetry_data(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::protocols::MessagePayload;
     use bridge_core::BridgeResult;
 
     #[tokio::test]
@@ -786,10 +806,10 @@ mod tests {
             payload: MessagePayload::Arrow(vec![1, 2, 3, 4]),
             metadata: HashMap::new(),
         };
-        
+
         let result = handler.handle_message(message).await;
         assert!(result.is_ok());
-        
+
         let batch = result.unwrap();
         assert_eq!(batch.source, "otlp-arrow");
         assert!(!batch.records.is_empty());
@@ -799,11 +819,11 @@ mod tests {
     async fn test_otlp_arrow_fallback_processing() {
         let config = OtlpArrowConfig::new("127.0.0.1".to_string(), 8080);
         let protocol = OtlpArrowProtocol::new(&config).await.unwrap();
-        
+
         let test_data = vec![1, 2, 3, 4, 5];
         let result = protocol.process_arrow_data_fallback(&test_data).await;
         assert!(result.is_ok());
-        
+
         let batch = result.unwrap();
         assert_eq!(batch.source, "otlp-arrow");
         assert_eq!(batch.size, 2); // Should have 2 records (metric + log)

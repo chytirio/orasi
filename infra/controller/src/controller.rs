@@ -3,7 +3,7 @@
 
 //! Main controller logic for the Orasi controller
 
-use crate::{Document, ControllerResult, Metrics};
+use crate::{ControllerResult, Document, Metrics};
 use std::sync::Arc;
 use tracing::{info, warn};
 
@@ -38,9 +38,7 @@ impl Controller {
         // Time the reconciliation
         let result = self
             .metrics
-            .time_reconciliation_async(|| async {
-                self.process_document(doc).await
-            })
+            .time_reconciliation_async(|| async { self.process_document(doc).await })
             .await;
 
         match result {
@@ -64,10 +62,18 @@ impl Controller {
         // Update status based on hidden field
         if let Some(hidden) = spec.hidden {
             info!("Document hidden status: {}", hidden);
-            
+
             // Create event based on hidden status
-            let event_type = if hidden { "DocumentHidden" } else { "DocumentVisible" };
-            info!("Event: {} - Document is {}", event_type, if hidden { "hidden" } else { "visible" });
+            let event_type = if hidden {
+                "DocumentHidden"
+            } else {
+                "DocumentVisible"
+            };
+            info!(
+                "Event: {} - Document is {}",
+                event_type,
+                if hidden { "hidden" } else { "visible" }
+            );
         }
 
         // Simulate processing time

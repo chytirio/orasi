@@ -6,10 +6,10 @@
 use std::sync::Arc;
 use std::time::SystemTime;
 use tokio::sync::RwLock;
-use tracing::{info, warn, error};
+use tracing::info;
 
-use bridge_core::{BridgeResult, BridgeConfig};
-use crate::config_service::{ComponentRestartHandler, ComponentStatus, ComponentState};
+use crate::config_service::{ComponentRestartHandler, ComponentState, ComponentStatus};
+use bridge_core::{BridgeConfig, BridgeResult};
 
 /// Query Engine component restart handler
 pub struct QueryEngineHandler {
@@ -40,7 +40,7 @@ impl ComponentRestartHandler for QueryEngineHandler {
 
     async fn restart(&self, config: &BridgeConfig) -> BridgeResult<()> {
         info!("Restarting Query Engine component");
-        
+
         // Stop the current instance
         {
             let mut running = self.is_running.write().await;
@@ -114,21 +114,27 @@ impl QueryEngineHandler {
     async fn apply_query_engine_config(&self, config: &BridgeConfig) -> BridgeResult<()> {
         // Apply query engine specific configuration
         let processing_config = &config.processing;
-        
+
         info!("Applying Query Engine configuration:");
         info!("  - Worker threads: {}", processing_config.worker_threads);
-        info!("  - Query timeout: {}s", processing_config.query_timeout_secs);
-        info!("  - Enable query caching: {}", processing_config.enable_query_caching);
-        
+        info!(
+            "  - Query timeout: {}s",
+            processing_config.query_timeout_secs
+        );
+        info!(
+            "  - Enable query caching: {}",
+            processing_config.enable_query_caching
+        );
+
         // Here you would typically:
         // 1. Update the query engine's internal configuration
         // 2. Reinitialize the query executor
         // 3. Update connection pools
         // 4. Restart background workers
-        
+
         // Simulate configuration application
         tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
-        
+
         Ok(())
     }
 }
@@ -162,7 +168,7 @@ impl ComponentRestartHandler for StreamingProcessorHandler {
 
     async fn restart(&self, config: &BridgeConfig) -> BridgeResult<()> {
         info!("Restarting Streaming Processor component");
-        
+
         // Stop the current instance
         {
             let mut running = self.is_running.write().await;
@@ -236,24 +242,39 @@ impl StreamingProcessorHandler {
     async fn apply_streaming_config(&self, config: &BridgeConfig) -> BridgeResult<()> {
         // Apply streaming processor specific configuration
         let processing_config = &config.processing;
-        
+
         info!("Applying Streaming Processor configuration:");
-        info!("  - Enable streaming: {}", processing_config.enable_streaming);
-        info!("  - Stream window: {}ms", processing_config.stream_window_ms);
-        info!("  - Enable transformation: {}", processing_config.enable_transformation);
-        info!("  - Enable filtering: {}", processing_config.enable_filtering);
-        info!("  - Enable aggregation: {}", processing_config.enable_aggregation);
-        
+        info!(
+            "  - Enable streaming: {}",
+            processing_config.enable_streaming
+        );
+        info!(
+            "  - Stream window: {}ms",
+            processing_config.stream_window_ms
+        );
+        info!(
+            "  - Enable transformation: {}",
+            processing_config.enable_transformation
+        );
+        info!(
+            "  - Enable filtering: {}",
+            processing_config.enable_filtering
+        );
+        info!(
+            "  - Enable aggregation: {}",
+            processing_config.enable_aggregation
+        );
+
         // Here you would typically:
         // 1. Stop current streaming jobs
         // 2. Update transformation rules
         // 3. Update filter rules
         // 4. Update aggregation rules
         // 5. Restart streaming jobs with new configuration
-        
+
         // Simulate configuration application
         tokio::time::sleep(tokio::time::Duration::from_millis(75)).await;
-        
+
         Ok(())
     }
 }
@@ -287,7 +308,7 @@ impl ComponentRestartHandler for IngestionHandler {
 
     async fn restart(&self, config: &BridgeConfig) -> BridgeResult<()> {
         info!("Restarting Ingestion component");
-        
+
         // Stop the current instance
         {
             let mut running = self.is_running.write().await;
@@ -361,26 +382,38 @@ impl IngestionHandler {
     async fn apply_ingestion_config(&self, config: &BridgeConfig) -> BridgeResult<()> {
         // Apply ingestion specific configuration
         let ingestion_config = &config.ingestion;
-        
+
         info!("Applying Ingestion configuration:");
         info!("  - OTLP endpoint: {}", ingestion_config.otlp_endpoint);
         info!("  - Batch size: {}", ingestion_config.batch_size);
-        info!("  - Flush interval: {}ms", ingestion_config.flush_interval_ms);
+        info!(
+            "  - Flush interval: {}ms",
+            ingestion_config.flush_interval_ms
+        );
         info!("  - Buffer size: {}", ingestion_config.buffer_size);
-        info!("  - Compression level: {}", ingestion_config.compression_level);
-        info!("  - Enable persistence: {}", ingestion_config.enable_persistence);
-        info!("  - Enable backpressure: {}", ingestion_config.enable_backpressure);
-        
+        info!(
+            "  - Compression level: {}",
+            ingestion_config.compression_level
+        );
+        info!(
+            "  - Enable persistence: {}",
+            ingestion_config.enable_persistence
+        );
+        info!(
+            "  - Enable backpressure: {}",
+            ingestion_config.enable_backpressure
+        );
+
         // Here you would typically:
         // 1. Stop current receivers
         // 2. Update batch processing settings
         // 3. Update buffer settings
         // 4. Update persistence settings
         // 5. Restart receivers with new configuration
-        
+
         // Simulate configuration application
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-        
+
         Ok(())
     }
 }
@@ -414,7 +447,7 @@ impl ComponentRestartHandler for SchemaRegistryHandler {
 
     async fn restart(&self, config: &BridgeConfig) -> BridgeResult<()> {
         info!("Restarting Schema Registry component");
-        
+
         // Stop the current instance
         {
             let mut running = self.is_running.write().await;
@@ -489,19 +522,19 @@ impl SchemaRegistryHandler {
         // Apply schema registry specific configuration
         // Note: plugin configuration is not available in the current BridgeConfig
         // This would need to be added to the configuration structure if needed
-        
+
         info!("Applying Schema Registry configuration");
-        
+
         // Here you would typically:
         // 1. Stop current schema registry service
         // 2. Update storage configuration
         // 3. Update validation settings
         // 4. Update security settings
         // 5. Restart schema registry service
-        
+
         // Simulate configuration application
         tokio::time::sleep(tokio::time::Duration::from_millis(60)).await;
-        
+
         Ok(())
     }
 }

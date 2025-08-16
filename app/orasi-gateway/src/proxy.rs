@@ -35,7 +35,11 @@ impl Proxy {
     }
 
     /// Forward request
-    pub async fn forward_request(&self, _request: RequestContext, _endpoint: ServiceEndpoint) -> Result<ResponseContext, GatewayError> {
+    pub async fn forward_request(
+        &self,
+        _request: RequestContext,
+        _endpoint: ServiceEndpoint,
+    ) -> Result<ResponseContext, GatewayError> {
         // TODO: Implement request forwarding
         Ok(ResponseContext {
             status_code: 200,

@@ -7,12 +7,13 @@
 //! This example demonstrates how to use the Snowflake connector to write
 //! and read telemetry data from Snowflake.
 
-use lakehouse_snowflake::{SnowflakeConfig, SnowflakeConnector};
-use bridge_core::traits::{LakehouseConnector, LakehouseWriter, LakehouseReader};
-use bridge_core::types::{MetricsBatch, MetricData, MetricType, MetricValue};
+use bridge_core::traits::{LakehouseConnector, LakehouseReader, LakehouseWriter};
+use bridge_core::types::{MetricData, MetricType, MetricValue, MetricsBatch};
 use chrono::Utc;
-use uuid::Uuid;
+use lakehouse_snowflake::{SnowflakeConfig, SnowflakeConnector};
+use num_cpus;
 use std::collections::HashMap;
+use uuid::Uuid;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -136,26 +137,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Write metrics to Snowflake
     let write_result = writer.write_metrics(metrics_batch).await?;
-    println!("✅ Successfully wrote {} metrics records to Snowflake", write_result.records_written);
+    println!(
+        "✅ Successfully wrote {} metrics records to Snowflake",
+        write_result.records_written
+    );
 
     // Create a simple query
     let query = bridge_core::types::MetricsQuery {
-        query_id: Uuid::new_v4(),
+        id: Uuid::new_v4(),
         timestamp: Utc::now(),
-        filters: vec![
-            bridge_core::types::Filter {
-                field: "service".to_string(),
-                operator: bridge_core::types::FilterOperator::Equals,
-                value: bridge_core::types::FilterValue::String("web-server".to_string()),
-            },
-        ],
-        aggregations: vec![
-            bridge_core::types::Aggregation {
-                field: "value".to_string(),
-                function: bridge_core::types::AggregationFunction::Average,
-                alias: Some("avg_cpu_usage".to_string()),
-            },
-        ],
+        filters: vec![bridge_core::types::Filter {
+            field: "service".to_string(),
+            operator: bridge_core::types::FilterOperator::Equals,
+            value: bridge_core::types::FilterValue::String("web-server".to_string()),
+        }],
+        aggregations: vec![bridge_core::types::Aggregation {
+            field: "value".to_string(),
+            function: bridge_core::types::AggregationFunction::Average,
+            alias: Some("avg_cpu_usage".to_string()),
+            parameters: None,
+        }],
         time_range: bridge_core::types::TimeRange {
             start: Utc::now() - chrono::Duration::hours(1),
             end: Utc::now(),
@@ -169,7 +170,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Query metrics from Snowflake
     let query_result = reader.query_metrics(query).await?;
-    println!("✅ Successfully queried {} metrics records from Snowflake", query_result.data.len());
+    println!(
+        "✅ Successfully queried {} metrics records from Snowflake",
+        query_result.data.len()
+    );
 
     // Get connector statistics
     let stats = connector.get_stats().await?;
@@ -182,7 +186,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Health check
     let is_healthy = connector.health_check().await?;
-    println!("🏥 Connector health: {}", if is_healthy { "✅ Healthy" } else { "❌ Unhealthy" });
+    println!(
+        "🏥 Connector health: {}",
+        if is_healthy {
+            "✅ Healthy"
+        } else {
+            "❌ Unhealthy"
+        }
+    );
 
     // Shutdown the connector
     connector.shutdown().await?;

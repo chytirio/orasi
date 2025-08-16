@@ -3,12 +3,12 @@
 //!
 
 //! Error handling for the Apache Hudi connector
-//! 
+//!
 //! This module provides structured error types with context and recovery strategies
 //! for the Apache Hudi connector.
 
-use std::fmt;
 use std::error::Error as StdError;
+use std::fmt;
 use thiserror::Error;
 
 /// Result type for Hudi operations
@@ -19,51 +19,87 @@ pub type HudiResult<T> = Result<T, HudiError>;
 pub enum HudiError {
     /// Configuration errors
     #[error("Hudi configuration error: {message}")]
-    Configuration { message: String, source: Option<Box<dyn StdError + Send + Sync>> },
+    Configuration {
+        message: String,
+        source: Option<Box<dyn StdError + Send + Sync>>,
+    },
 
     /// Connection errors
     #[error("Hudi connection error: {message}")]
-    Connection { message: String, source: Option<Box<dyn StdError + Send + Sync>> },
+    Connection {
+        message: String,
+        source: Option<Box<dyn StdError + Send + Sync>>,
+    },
 
     /// Table operation errors
     #[error("Hudi table operation error: {message}")]
-    TableOperation { message: String, source: Option<Box<dyn StdError + Send + Sync>> },
+    TableOperation {
+        message: String,
+        source: Option<Box<dyn StdError + Send + Sync>>,
+    },
 
     /// Schema errors
     #[error("Hudi schema error: {message}")]
-    Schema { message: String, source: Option<Box<dyn StdError + Send + Sync>> },
+    Schema {
+        message: String,
+        source: Option<Box<dyn StdError + Send + Sync>>,
+    },
 
     /// Write operation errors
     #[error("Hudi write error: {message}")]
-    Write { message: String, source: Option<Box<dyn StdError + Send + Sync>> },
+    Write {
+        message: String,
+        source: Option<Box<dyn StdError + Send + Sync>>,
+    },
 
     /// Read operation errors
     #[error("Hudi read error: {message}")]
-    Read { message: String, source: Option<Box<dyn StdError + Send + Sync>> },
+    Read {
+        message: String,
+        source: Option<Box<dyn StdError + Send + Sync>>,
+    },
 
     /// Storage errors
     #[error("Hudi storage error: {message}")]
-    Storage { message: String, source: Option<Box<dyn StdError + Send + Sync>> },
+    Storage {
+        message: String,
+        source: Option<Box<dyn StdError + Send + Sync>>,
+    },
 
     /// Serialization/deserialization errors
     #[error("Hudi serialization error: {message}")]
-    Serialization { message: String, source: Option<Box<dyn StdError + Send + Sync>> },
+    Serialization {
+        message: String,
+        source: Option<Box<dyn StdError + Send + Sync>>,
+    },
 
     /// Validation errors
     #[error("Hudi validation error: {message}")]
-    Validation { message: String, source: Option<Box<dyn StdError + Send + Sync>> },
+    Validation {
+        message: String,
+        source: Option<Box<dyn StdError + Send + Sync>>,
+    },
 
     /// Timeout errors
     #[error("Hudi timeout error: {message}")]
-    Timeout { message: String, source: Option<Box<dyn StdError + Send + Sync>> },
+    Timeout {
+        message: String,
+        source: Option<Box<dyn StdError + Send + Sync>>,
+    },
 
     /// Internal errors
     #[error("Hudi internal error: {message}")]
-    Internal { message: String, source: Option<Box<dyn StdError + Send + Sync>> },
+    Internal {
+        message: String,
+        source: Option<Box<dyn StdError + Send + Sync>>,
+    },
 
     /// Unknown errors
     #[error("Hudi unknown error: {message}")]
-    Unknown { message: String, source: Option<Box<dyn StdError + Send + Sync>> },
+    Unknown {
+        message: String,
+        source: Option<Box<dyn StdError + Send + Sync>>,
+    },
 }
 
 impl HudiError {
@@ -299,9 +335,7 @@ impl HudiError {
     pub fn is_retryable(&self) -> bool {
         matches!(
             self,
-            HudiError::Connection { .. }
-                | HudiError::Timeout { .. }
-                | HudiError::Storage { .. }
+            HudiError::Connection { .. } | HudiError::Timeout { .. } | HudiError::Storage { .. }
         )
     }
 
@@ -309,9 +343,7 @@ impl HudiError {
     pub fn is_transient(&self) -> bool {
         matches!(
             self,
-            HudiError::Connection { .. }
-                | HudiError::Timeout { .. }
-                | HudiError::Storage { .. }
+            HudiError::Connection { .. } | HudiError::Timeout { .. } | HudiError::Storage { .. }
         )
     }
 

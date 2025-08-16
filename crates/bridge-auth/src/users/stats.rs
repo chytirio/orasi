@@ -66,15 +66,15 @@ mod tests {
     #[test]
     fn test_user_stats_increment() {
         let mut stats = UserStats::new();
-        
+
         stats.increment_users_created();
         assert_eq!(stats.users_created, 1);
         assert!(stats.last_user_created.is_some());
-        
+
         stats.increment_password_verifications();
         assert_eq!(stats.password_verifications, 1);
         assert!(stats.last_password_verification.is_some());
-        
+
         stats.increment_failed_login_attempts();
         assert_eq!(stats.failed_login_attempts, 1);
     }

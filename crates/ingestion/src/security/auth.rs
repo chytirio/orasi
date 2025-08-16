@@ -7,17 +7,17 @@
 //! This module provides comprehensive authentication and authorization
 //! features including JWT, OAuth, RBAC, and permission management.
 
+use chrono::{DateTime, Utc};
+use hmac::{Hmac, Mac};
+use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
+use serde::{Deserialize, Serialize};
+use sha2::Sha256;
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use tokio::sync::RwLock;
-use tracing::{debug, error, info, warn};
-use serde::{Deserialize, Serialize};
-use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation, Algorithm};
-use hmac::{Hmac, Mac};
-use sha2::Sha256;
+use tracing::info;
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
 
 /// Authentication manager
 pub struct AuthenticationManager {
@@ -261,9 +261,13 @@ impl AuthenticationManager {
     }
 
     /// Authenticate user with username and password
-    pub async fn authenticate_user(&self, username: &str, password: &str) -> BridgeResult<AuthResult> {
+    pub async fn authenticate_user(
+        &self,
+        username: &str,
+        password: &str,
+    ) -> BridgeResult<AuthResult> {
         let users = self.users.read().await;
-        
+
         if let Some(user) = users.get(username) {
             if !user.active {
                 return Ok(AuthResult {
@@ -416,7 +420,7 @@ impl AuthenticationManager {
     pub async fn authorize(&self, user: &User, action: &str, resource: &str) -> AuthzResult {
         // Check if user has the required permission
         let required_permission = format!("{}:{}", action, resource);
-        
+
         if user.permissions.contains(&required_permission) {
             AuthzResult {
                 allowed: true,
@@ -433,7 +437,10 @@ impl AuthenticationManager {
             } else {
                 AuthzResult {
                     allowed: false,
-                    reason: Some(format!("User does not have permission: {}", required_permission)),
+                    reason: Some(format!(
+                        "User does not have permission: {}",
+                        required_permission
+                    )),
                 }
             }
         }
@@ -450,9 +457,15 @@ impl AuthenticationManager {
     }
 
     /// Create user
-    pub async fn create_user(&self, username: String, email: String, password: String, roles: Vec<String>) -> BridgeResult<User> {
+    pub async fn create_user(
+        &self,
+        username: String,
+        email: String,
+        password: String,
+        roles: Vec<String>,
+    ) -> BridgeResult<User> {
         let password_hash = self.hash_password(&password)?;
-        
+
         let user = User {
             id: Uuid::new_v4().to_string(),
             username: username.clone(),
@@ -476,7 +489,7 @@ impl AuthenticationManager {
     /// Update user
     pub async fn update_user(&self, user_id: &str, updates: UserUpdates) -> BridgeResult<User> {
         let mut users = self.users.write().await;
-        
+
         if let Some(user) = users.get_mut(user_id) {
             if let Some(email) = updates.email {
                 user.email = email;
@@ -495,33 +508,41 @@ impl AuthenticationManager {
             info!("Updated user: {}", user.username);
             Ok(user.clone())
         } else {
-            Err(bridge_core::BridgeError::configuration(format!("User not found: {}", user_id)))
+            Err(bridge_core::BridgeError::configuration(format!(
+                "User not found: {}",
+                user_id
+            )))
         }
     }
 
     /// Delete user
     pub async fn delete_user(&self, user_id: &str) -> BridgeResult<()> {
         let mut users = self.users.write().await;
-        
+
         if users.remove(user_id).is_some() {
             info!("Deleted user: {}", user_id);
             Ok(())
         } else {
-            Err(bridge_core::BridgeError::configuration(format!("User not found: {}", user_id)))
+            Err(bridge_core::BridgeError::configuration(format!(
+                "User not found: {}",
+                user_id
+            )))
         }
     }
 
     /// Logout user
     pub async fn logout(&self, token: &str) -> BridgeResult<()> {
         let mut sessions = self.sessions.write().await;
-        
+
         // Find and remove session
         let session_id = self.get_session_id_from_token(token)?;
         if sessions.remove(&session_id).is_some() {
             info!("User logged out successfully");
             Ok(())
         } else {
-            Err(bridge_core::BridgeError::configuration("Session not found".to_string()))
+            Err(bridge_core::BridgeError::configuration(
+                "Session not found".to_string(),
+            ))
         }
     }
 
@@ -544,7 +565,10 @@ impl AuthenticationManager {
             &Header::default(),
             &claims,
             &EncodingKey::from_secret(self.jwt_secret.as_ref()),
-        ).map_err(|e| bridge_core::BridgeError::authentication(format!("Failed to generate JWT token: {}", e)))?;
+        )
+        .map_err(|e| {
+            bridge_core::BridgeError::authentication(format!("Failed to generate JWT token: {}", e))
+        })?;
 
         Ok(token)
     }
@@ -561,7 +585,10 @@ impl AuthenticationManager {
             token,
             &DecodingKey::from_secret(self.jwt_secret.as_ref()),
             &Validation::default(),
-        ).map_err(|e| bridge_core::BridgeError::authentication(format!("Failed to validate JWT token: {}", e)))?;
+        )
+        .map_err(|e| {
+            bridge_core::BridgeError::authentication(format!("Failed to validate JWT token: {}", e))
+        })?;
 
         Ok(token_data.claims)
     }
@@ -569,13 +596,14 @@ impl AuthenticationManager {
     /// Hash password
     fn hash_password(&self, password: &str) -> BridgeResult<String> {
         let salt = Uuid::new_v4().to_string();
-        let mut mac = Hmac::<Sha256>::new_from_slice(salt.as_bytes())
-            .map_err(|e| bridge_core::BridgeError::authentication(format!("Failed to create HMAC: {}", e)))?;
-        
+        let mut mac = Hmac::<Sha256>::new_from_slice(salt.as_bytes()).map_err(|e| {
+            bridge_core::BridgeError::authentication(format!("Failed to create HMAC: {}", e))
+        })?;
+
         mac.update(password.as_bytes());
         let result = mac.finalize();
         let hash = format!("{}:{}", salt, hex::encode(result.into_bytes()));
-        
+
         Ok(hash)
     }
 
@@ -589,9 +617,10 @@ impl AuthenticationManager {
         let salt = parts[0];
         let stored_hash = parts[1];
 
-        let mut mac = Hmac::<Sha256>::new_from_slice(salt.as_bytes())
-            .map_err(|e| bridge_core::BridgeError::authentication(format!("Failed to create HMAC: {}", e)))?;
-        
+        let mut mac = Hmac::<Sha256>::new_from_slice(salt.as_bytes()).map_err(|e| {
+            bridge_core::BridgeError::authentication(format!("Failed to create HMAC: {}", e))
+        })?;
+
         mac.update(password.as_bytes());
         let result = mac.finalize();
         let computed_hash = hex::encode(result.into_bytes());
@@ -600,14 +629,20 @@ impl AuthenticationManager {
     }
 
     /// Create session
-    async fn create_session(&self, user: &User, token: &str, refresh_token: &str) -> BridgeResult<()> {
+    async fn create_session(
+        &self,
+        user: &User,
+        token: &str,
+        refresh_token: &str,
+    ) -> BridgeResult<()> {
         let session = Session {
             id: Uuid::new_v4().to_string(),
             user_id: user.id.clone(),
             token: token.to_string(),
             refresh_token: Some(refresh_token.to_string()),
             created_at: Utc::now(),
-            expires_at: Utc::now() + chrono::Duration::seconds(self.config.session.timeout.as_secs() as i64),
+            expires_at: Utc::now()
+                + chrono::Duration::seconds(self.config.session.timeout.as_secs() as i64),
             ip_address: None,
             user_agent: None,
             active: true,
@@ -636,7 +671,7 @@ impl AuthenticationManager {
             let mut interval = tokio::time::interval(cleanup_interval);
             loop {
                 interval.tick().await;
-                
+
                 let mut sessions_write = sessions.write().await;
                 let now = Utc::now();
                 let expired_sessions: Vec<String> = sessions_write
@@ -645,10 +680,10 @@ impl AuthenticationManager {
                     .map(|(id, _)| id.clone())
                     .collect();
 
-                                for session_id in &expired_sessions {
+                for session_id in &expired_sessions {
                     sessions_write.remove(session_id);
                 }
-                
+
                 if !expired_sessions.is_empty() {
                     info!("Cleaned up {} expired sessions", expired_sessions.len());
                 }

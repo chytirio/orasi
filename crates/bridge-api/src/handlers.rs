@@ -9,7 +9,7 @@ use axum::{
     response::Json,
 };
 use std::collections::HashMap;
-use std::time::{Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Instant, SystemTime};
 use uuid::Uuid;
 
 use crate::{
@@ -17,7 +17,7 @@ use crate::{
     rest::AppState,
     types::*,
 };
-use bridge_core::types::analytics::{AnalyticsStatus, AnalyticsError};
+use bridge_core::types::analytics::{AnalyticsError, AnalyticsStatus};
 
 use std::sync::OnceLock;
 
@@ -33,11 +33,7 @@ pub fn init_server_start_time() {
 fn get_server_uptime() -> u64 {
     SERVER_START_TIME
         .get()
-        .and_then(|start_time| {
-            SystemTime::now()
-                .duration_since(*start_time)
-                .ok()
-        })
+        .and_then(|start_time| SystemTime::now().duration_since(*start_time).ok())
         .map(|duration| duration.as_secs())
         .unwrap_or(0)
 }
@@ -45,25 +41,21 @@ fn get_server_uptime() -> u64 {
 /// Check database health by attempting a simple connection test
 pub async fn check_database_health() -> ComponentHealth {
     let now = chrono::Utc::now();
-    
+
     match std::env::var("DATABASE_URL") {
         Ok(database_url) => {
             // Implement actual database connection test
             match test_database_connection(&database_url).await {
-                Ok(_) => {
-                    ComponentHealth {
-                        status: HealthStatus::Healthy,
-                        message: Some("Database connection is healthy".to_string()),
-                        last_check: now,
-                    }
-                }
-                Err(e) => {
-                    ComponentHealth {
-                        status: HealthStatus::Unhealthy,
-                        message: Some(format!("Database connection failed: {}", e)),
-                        last_check: now,
-                    }
-                }
+                Ok(_) => ComponentHealth {
+                    status: HealthStatus::Healthy,
+                    message: Some("Database connection is healthy".to_string()),
+                    last_check: now,
+                },
+                Err(e) => ComponentHealth {
+                    status: HealthStatus::Unhealthy,
+                    message: Some(format!("Database connection failed: {}", e)),
+                    last_check: now,
+                },
             }
         }
         Err(_) => {
@@ -96,16 +88,16 @@ async fn test_postgresql_connection(database_url: &str) -> Result<(), String> {
     // For now, we'll implement a basic connection test
     // In a real implementation, you would use a PostgreSQL client library
     // like `sqlx` or `tokio-postgres`
-    
+
     // Simulate connection test
     tokio::time::sleep(std::time::Duration::from_millis(10)).await;
-    
+
     // For demonstration, we'll assume the connection is successful
     // In practice, you would:
     // 1. Create a connection pool
     // 2. Execute a simple query (e.g., SELECT 1)
     // 3. Check connection pool health
-    
+
     Ok(())
 }
 
@@ -126,25 +118,21 @@ async fn test_sqlite_connection(database_url: &str) -> Result<(), String> {
 /// Check cache health by attempting a simple operation
 pub async fn check_cache_health() -> ComponentHealth {
     let now = chrono::Utc::now();
-    
+
     match std::env::var("CACHE_URL") {
         Ok(cache_url) => {
             // Implement actual cache connection test
             match test_cache_connection(&cache_url).await {
-                Ok(_) => {
-                    ComponentHealth {
-                        status: HealthStatus::Healthy,
-                        message: Some("Cache is healthy".to_string()),
-                        last_check: now,
-                    }
-                }
-                Err(e) => {
-                    ComponentHealth {
-                        status: HealthStatus::Unhealthy,
-                        message: Some(format!("Cache connection failed: {}", e)),
-                        last_check: now,
-                    }
-                }
+                Ok(_) => ComponentHealth {
+                    status: HealthStatus::Healthy,
+                    message: Some("Cache is healthy".to_string()),
+                    last_check: now,
+                },
+                Err(e) => ComponentHealth {
+                    status: HealthStatus::Unhealthy,
+                    message: Some(format!("Cache connection failed: {}", e)),
+                    last_check: now,
+                },
             }
         }
         Err(_) => {
@@ -175,10 +163,10 @@ async fn test_redis_connection(cache_url: &str) -> Result<(), String> {
     // For now, we'll implement a basic connection test
     // In a real implementation, you would use a Redis client library
     // like `redis` or `redis-rs`
-    
+
     // Simulate connection test
     tokio::time::sleep(std::time::Duration::from_millis(10)).await;
-    
+
     // For demonstration, we'll assume the connection is successful
     // In practice, you would:
     // 1. Create a Redis client
@@ -186,7 +174,7 @@ async fn test_redis_connection(cache_url: &str) -> Result<(), String> {
     // 3. Get the test value
     // 4. Delete the test key
     // 5. Check client health
-    
+
     Ok(())
 }
 
@@ -201,38 +189,42 @@ async fn test_memcached_connection(cache_url: &str) -> Result<(), String> {
 async fn calculate_config_hash() -> String {
     use std::collections::hash_map::DefaultHasher;
     use std::hash::{Hash, Hasher};
-    
+
     // Get current configuration from environment or default
     let mut hasher = DefaultHasher::new();
-    
+
     // Hash relevant configuration values
     let config_values = [
         std::env::var("DATABASE_URL").unwrap_or_default(),
         std::env::var("CACHE_URL").unwrap_or_default(),
-        std::env::var("BRIDGE_API_VERSION").unwrap_or_else(|_| crate::BRIDGE_API_VERSION.to_string()),
-        std::env::var("BRIDGE_CORE_VERSION").unwrap_or_else(|_| bridge_core::BRIDGE_VERSION.to_string()),
+        std::env::var("BRIDGE_API_VERSION")
+            .unwrap_or_else(|_| crate::BRIDGE_API_VERSION.to_string()),
+        std::env::var("BRIDGE_CORE_VERSION")
+            .unwrap_or_else(|_| bridge_core::BRIDGE_VERSION.to_string()),
     ];
-    
+
     for value in &config_values {
         value.hash(&mut hasher);
     }
-    
+
     // Add timestamp to make hash unique
     chrono::Utc::now().timestamp().hash(&mut hasher);
-    
+
     format!("{:x}", hasher.finish())
 }
 
 /// Process telemetry batch through the pipeline
-async fn process_telemetry_batch(batch: &bridge_core::types::TelemetryBatch) -> Result<bridge_core::types::WriteResult, Box<dyn std::error::Error + Send + Sync>> {
+async fn process_telemetry_batch(
+    batch: &bridge_core::types::TelemetryBatch,
+) -> Result<bridge_core::types::WriteResult, Box<dyn std::error::Error + Send + Sync>> {
     // Create a simple pipeline for processing telemetry data
     // In a real implementation, this would use the bridge_core::pipeline module
-    
+
     let start_time = std::time::Instant::now();
     let mut records_written = 0;
     let mut records_failed = 0;
     let mut errors = Vec::new();
-    
+
     // Process each record in the batch
     for record in &batch.records {
         match process_telemetry_record(record).await {
@@ -247,9 +239,9 @@ async fn process_telemetry_batch(batch: &bridge_core::types::TelemetryBatch) -> 
             }
         }
     }
-    
+
     let duration_ms = start_time.elapsed().as_millis() as u64;
-    
+
     let status = if records_failed == 0 {
         bridge_core::types::WriteStatus::Success
     } else if records_written > 0 {
@@ -257,7 +249,7 @@ async fn process_telemetry_batch(batch: &bridge_core::types::TelemetryBatch) -> 
     } else {
         bridge_core::types::WriteStatus::Failed
     };
-    
+
     Ok(bridge_core::types::WriteResult {
         timestamp: chrono::Utc::now(),
         status,
@@ -270,7 +262,9 @@ async fn process_telemetry_batch(batch: &bridge_core::types::TelemetryBatch) -> 
 }
 
 /// Process individual telemetry record
-async fn process_telemetry_record(record: &bridge_core::types::TelemetryRecord) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn process_telemetry_record(
+    record: &bridge_core::types::TelemetryRecord,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Basic validation and processing
     match &record.data {
         bridge_core::types::TelemetryData::Metric(metric_data) => {
@@ -295,13 +289,13 @@ async fn process_telemetry_record(record: &bridge_core::types::TelemetryRecord) 
             // Event data validation can be added here
         }
     }
-    
+
     // TODO: In a real implementation, this would:
     // 1. Apply filters and transformations
     // 2. Route to appropriate exporters
     // 3. Store in lakehouse
     // 4. Update metrics and monitoring
-    
+
     Ok(())
 }
 
@@ -322,7 +316,7 @@ fn check_cache_hit(request: &QueryRequest) -> bool {
     // 1. Checking if the query parameters match a cached result
     // 2. Verifying the cache entry is still valid
     // 3. Checking cache hit/miss metrics
-    
+
     // For now, return false as placeholder
     false
 }
@@ -335,13 +329,13 @@ fn generate_query_plan(request: &QueryRequest) -> Option<String> {
     // 2. Determining the execution strategy
     // 3. Estimating resource usage
     // 4. Formatting the plan as a string
-    
+
     // For now, return a basic plan as placeholder
     Some(format!(
         "Query Plan: {} query over time range {} to {}",
         match request.query_type {
             QueryType::Metrics => "Metrics",
-            QueryType::Traces => "Traces", 
+            QueryType::Traces => "Traces",
             QueryType::Logs => "Logs",
             QueryType::Analytics => "Analytics",
         },
@@ -351,14 +345,16 @@ fn generate_query_plan(request: &QueryRequest) -> Option<String> {
 }
 
 /// Execute analytics processing
-async fn execute_analytics_processing(request: &AnalyticsRequest) -> Result<bridge_core::types::AnalyticsResponse, Box<dyn std::error::Error + Send + Sync>> {
+async fn execute_analytics_processing(
+    request: &AnalyticsRequest,
+) -> Result<bridge_core::types::AnalyticsResponse, Box<dyn std::error::Error + Send + Sync>> {
     // TODO: Implement actual analytics processing
     // This would typically involve:
     // 1. Collecting data from various sources
     // 2. Applying analytics algorithms
     // 3. Generating insights and visualizations
     // 4. Checking for anomalies and alerts
-    
+
     // For now, return a placeholder response
     Ok(bridge_core::types::AnalyticsResponse {
         request_id: Uuid::new_v4(),
@@ -405,20 +401,23 @@ fn check_for_alerts(results: &bridge_core::types::AnalyticsResponse) -> Vec<Stri
     // 1. Checking for anomalies in the data
     // 2. Evaluating alert conditions
     // 3. Returning triggered alerts
-    
+
     // For now, return empty vector as placeholder
     Vec::new()
 }
 
 /// Apply configuration changes
-async fn apply_configuration_changes(state: &AppState, request: &ConfigRequest) -> Result<ConfigResponse, Box<dyn std::error::Error + Send + Sync>> {
+async fn apply_configuration_changes(
+    state: &AppState,
+    request: &ConfigRequest,
+) -> Result<ConfigResponse, Box<dyn std::error::Error + Send + Sync>> {
     // TODO: Implement actual configuration management
     // This would typically involve:
     // 1. Validating the configuration changes
     // 2. Applying the changes to the system
     // 3. Restarting affected components if necessary
     // 4. Recording the changes in a configuration history
-    
+
     // For now, return a placeholder response
     Ok(ConfigResponse {
         status: "applied".to_string(),
@@ -439,9 +438,9 @@ async fn get_component_status(component_name: &str) -> ComponentStatusResponse {
     // 2. Getting component health status
     // 3. Collecting component metrics
     // 4. Retrieving recent logs if requested
-    
+
     let health = check_component_health(component_name).await;
-    
+
     ComponentStatusResponse {
         component_name: component_name.to_string(),
         status: if health.status == HealthStatus::Healthy {
@@ -451,27 +450,30 @@ async fn get_component_status(component_name: &str) -> ComponentStatusResponse {
         },
         health,
         metrics: Some(HashMap::new()), // TODO: Get actual metrics
-        logs: None, // TODO: Get recent logs if needed
+        logs: None,                    // TODO: Get recent logs if needed
     }
 }
 
 /// Restart component
-async fn restart_component(component_name: &str, request: &ComponentRestartRequest) -> Result<ComponentRestartResponse, Box<dyn std::error::Error + Send + Sync>> {
+async fn restart_component(
+    component_name: &str,
+    request: &ComponentRestartRequest,
+) -> Result<ComponentRestartResponse, Box<dyn std::error::Error + Send + Sync>> {
     // TODO: Implement actual component restart logic
     // This would typically involve:
     // 1. Stopping the component gracefully
     // 2. Waiting for shutdown to complete
     // 3. Starting the component again
     // 4. Verifying the component is healthy after restart
-    
+
     let start_time = std::time::Instant::now();
     let previous_status = ComponentStatus::Running; // TODO: Get actual previous status
-    
+
     // Simulate restart process
     tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-    
+
     let new_status = ComponentStatus::Running; // TODO: Verify actual new status
-    
+
     Ok(ComponentRestartResponse {
         component_name: component_name.to_string(),
         status: "success".to_string(),
@@ -484,7 +486,7 @@ async fn restart_component(component_name: &str, request: &ComponentRestartReque
 /// Check component health
 async fn check_component_health(component_name: &str) -> ComponentHealth {
     let now = chrono::Utc::now();
-    
+
     match component_name {
         "api" => ComponentHealth {
             status: HealthStatus::Healthy,
@@ -495,10 +497,10 @@ async fn check_component_health(component_name: &str) -> ComponentHealth {
             // Check bridge core health
             match bridge_core::get_bridge_status().await {
                 Ok(status) => ComponentHealth {
-                    status: if status.status == "healthy" { 
-                        HealthStatus::Healthy 
-                    } else { 
-                        HealthStatus::Unhealthy 
+                    status: if status.status == "healthy" {
+                        HealthStatus::Healthy
+                    } else {
+                        HealthStatus::Unhealthy
                     },
                     message: Some(format!("Bridge core status: {}", status.status)),
                     last_check: now,
@@ -509,7 +511,7 @@ async fn check_component_health(component_name: &str) -> ComponentHealth {
                     last_check: now,
                 },
             }
-        },
+        }
         "database" => check_database_health().await,
         "cache" => check_cache_health().await,
         _ => ComponentHealth {
@@ -535,25 +537,34 @@ async fn check_component_health(component_name: &str) -> ComponentHealth {
 ))]
 pub async fn health_live_handler() -> ApiResult<Json<ApiResponse<HealthResponse>>> {
     let start_time = Instant::now();
-    
+
     // Basic health check - check core components
     let mut components = HashMap::new();
-    
+
     // Check API component
     components.insert("api".to_string(), check_component_health("api").await);
-    
+
     // Check bridge core component
-    components.insert("bridge_core".to_string(), check_component_health("bridge_core").await);
-    
+    components.insert(
+        "bridge_core".to_string(),
+        check_component_health("bridge_core").await,
+    );
+
     // Determine overall status based on component health
-    let overall_status = if components.values().all(|c| c.status == HealthStatus::Healthy) {
+    let overall_status = if components
+        .values()
+        .all(|c| c.status == HealthStatus::Healthy)
+    {
         HealthStatus::Healthy
-    } else if components.values().any(|c| c.status == HealthStatus::Unhealthy) {
+    } else if components
+        .values()
+        .any(|c| c.status == HealthStatus::Unhealthy)
+    {
         HealthStatus::Unhealthy
     } else {
         HealthStatus::Degraded
     };
-    
+
     let health_response = HealthResponse {
         status: overall_status,
         name: crate::BRIDGE_API_NAME.to_string(),
@@ -564,21 +575,27 @@ pub async fn health_live_handler() -> ApiResult<Json<ApiResponse<HealthResponse>
 
     let processing_time = start_time.elapsed().as_millis() as u64;
     let response = ApiResponse::new(health_response, Uuid::new_v4().to_string(), processing_time);
-    
+
     Ok(Json(response))
 }
 
 /// Readiness check handler
 pub async fn health_ready_handler() -> ApiResult<Json<ApiResponse<HealthResponse>>> {
     let start_time = Instant::now();
-    
+
     // Readiness check - check if all components are ready
     let mut components = HashMap::new();
-    
+
     // Check all critical components for readiness
     components.insert("api".to_string(), check_component_health("api").await);
-    components.insert("bridge_core".to_string(), check_component_health("bridge_core").await);
-    components.insert("database".to_string(), check_component_health("database").await);
+    components.insert(
+        "bridge_core".to_string(),
+        check_component_health("bridge_core").await,
+    );
+    components.insert(
+        "database".to_string(),
+        check_component_health("database").await,
+    );
     components.insert("cache".to_string(), check_component_health("cache").await);
 
     let health_response = HealthResponse {
@@ -591,16 +608,17 @@ pub async fn health_ready_handler() -> ApiResult<Json<ApiResponse<HealthResponse
 
     let processing_time = start_time.elapsed().as_millis() as u64;
     let response = ApiResponse::new(health_response, Uuid::new_v4().to_string(), processing_time);
-    
+
     Ok(Json(response))
 }
 
 /// Status handler
 pub async fn status_handler() -> ApiResult<Json<ApiResponse<StatusResponse>>> {
     let start_time = Instant::now();
-    
+
     // Get bridge status from core
-    let bridge_status = bridge_core::get_bridge_status().await
+    let bridge_status = bridge_core::get_bridge_status()
+        .await
         .map_err(|e| ApiError::Internal(format!("Failed to get bridge status: {}", e)))?;
 
     let status_response = StatusResponse {
@@ -614,7 +632,7 @@ pub async fn status_handler() -> ApiResult<Json<ApiResponse<StatusResponse>>> {
 
     let processing_time = start_time.elapsed().as_millis() as u64;
     let response = ApiResponse::new(status_response, Uuid::new_v4().to_string(), processing_time);
-    
+
     Ok(Json(response))
 }
 
@@ -625,15 +643,17 @@ pub async fn telemetry_ingestion_handler(
 ) -> ApiResult<Json<ApiResponse<TelemetryIngestionResponse>>> {
     let start_time = Instant::now();
     let request_id = Uuid::new_v4().to_string();
-    
+
     // Validate request
     if request.batch.records.is_empty() {
-        return Err(ApiError::BadRequest("Telemetry batch cannot be empty".to_string()));
+        return Err(ApiError::BadRequest(
+            "Telemetry batch cannot be empty".to_string(),
+        ));
     }
 
     // Process telemetry batch
     let processing_start = Instant::now();
-    
+
     // Integrate with actual telemetry processing pipeline
     let result = match process_telemetry_batch(&request.batch).await {
         Ok(write_result) => write_result,
@@ -656,7 +676,7 @@ pub async fn telemetry_ingestion_handler(
     };
 
     let processing_time = processing_start.elapsed();
-    
+
     // Record metrics
     let telemetry_type = match request.batch.records.first() {
         Some(record) => match record.record_type {
@@ -667,8 +687,12 @@ pub async fn telemetry_ingestion_handler(
         },
         None => "unknown",
     };
-    
-    state.metrics.record_processing(telemetry_type, processing_time, matches!(result.status, bridge_core::types::WriteStatus::Success));
+
+    state.metrics.record_processing(
+        telemetry_type,
+        processing_time,
+        matches!(result.status, bridge_core::types::WriteStatus::Success),
+    );
 
     let response = TelemetryIngestionResponse {
         result,
@@ -679,7 +703,7 @@ pub async fn telemetry_ingestion_handler(
 
     let total_time = start_time.elapsed().as_millis() as u64;
     let api_response = ApiResponse::new(response, request_id, total_time);
-    
+
     Ok(Json(api_response))
 }
 
@@ -690,29 +714,33 @@ pub async fn otlp_traces_handler(
 ) -> ApiResult<Json<ApiResponse<TelemetryIngestionResponse>>> {
     let start_time = Instant::now();
     let request_id = Uuid::new_v4().to_string();
-    
+
     // Parse OTLP traces request
     let traces_request = serde_json::from_value::<OtlpTracesRequest>(request)
         .map_err(|e| ApiError::BadRequest(format!("Invalid OTLP traces request: {}", e)))?;
-    
+
     // Convert OTLP traces to internal format
     let mut records = Vec::new();
     let mut errors = Vec::new();
-    
+
     for resource_spans in traces_request.resource_spans {
         for scope_spans in resource_spans.scope_spans {
             for span in scope_spans.spans {
-                match convert_otlp_span_to_record(span, &resource_spans.resource, &scope_spans.scope) {
+                match convert_otlp_span_to_record(
+                    span,
+                    &resource_spans.resource,
+                    &scope_spans.scope,
+                ) {
                     Ok(record) => records.push(record),
                     Err(e) => errors.push(e),
                 }
             }
         }
     }
-    
+
     // Get counts before moving records
     let records_count = records.len();
-    
+
     // Create telemetry batch
     let batch = bridge_core::types::TelemetryBatch {
         id: Uuid::new_v4(),
@@ -722,34 +750,39 @@ pub async fn otlp_traces_handler(
         records,
         metadata: HashMap::new(),
     };
-    
+
     // Process the batch
     let processing_start = Instant::now();
     let errors_count = errors.len();
     let is_success = errors.is_empty();
-    
+
     let result = bridge_core::types::WriteResult {
         timestamp: chrono::Utc::now(),
-        status: if is_success { 
-            bridge_core::types::WriteStatus::Success 
-        } else { 
-            bridge_core::types::WriteStatus::Partial 
+        status: if is_success {
+            bridge_core::types::WriteStatus::Success
+        } else {
+            bridge_core::types::WriteStatus::Partial
         },
         records_written: records_count,
         records_failed: errors_count,
         duration_ms: processing_start.elapsed().as_millis() as u64,
         metadata: HashMap::new(),
-        errors: errors.into_iter().map(|e| bridge_core::types::WriteError {
-            code: "CONVERSION_ERROR".to_string(),
-            message: e,
-            details: None,
-        }).collect(),
+        errors: errors
+            .into_iter()
+            .map(|e| bridge_core::types::WriteError {
+                code: "CONVERSION_ERROR".to_string(),
+                message: e,
+                details: None,
+            })
+            .collect(),
     };
-    
+
     let processing_time = processing_start.elapsed();
-    
+
     // Record metrics
-    state.metrics.record_processing("trace", processing_time, is_success);
+    state
+        .metrics
+        .record_processing("trace", processing_time, is_success);
 
     let response = TelemetryIngestionResponse {
         result,
@@ -760,7 +793,7 @@ pub async fn otlp_traces_handler(
 
     let total_time = start_time.elapsed().as_millis() as u64;
     let api_response = ApiResponse::new(response, request_id, total_time);
-    
+
     Ok(Json(api_response))
 }
 
@@ -781,31 +814,56 @@ fn convert_otlp_span_to_record(
             parent_span_id: None,
             name: span.name,
             kind: bridge_core::types::SpanKind::Internal, // Default to Internal
-            start_time: chrono::DateTime::from_timestamp_millis(span.start_time_unix_nano as i64).unwrap_or_else(|| chrono::Utc::now()),
-            end_time: Some(chrono::DateTime::from_timestamp_millis(span.end_time_unix_nano as i64).unwrap_or_else(|| chrono::Utc::now())),
+            start_time: chrono::DateTime::from_timestamp_millis(span.start_time_unix_nano as i64)
+                .unwrap_or_else(|| chrono::Utc::now()),
+            end_time: Some(
+                chrono::DateTime::from_timestamp_millis(span.end_time_unix_nano as i64)
+                    .unwrap_or_else(|| chrono::Utc::now()),
+            ),
             duration_ns: Some(span.end_time_unix_nano - span.start_time_unix_nano),
             status: bridge_core::types::SpanStatus {
                 code: bridge_core::types::StatusCode::Ok,
                 message: span.status.and_then(|s| s.message),
             },
-            attributes: span.attributes.into_iter().map(|(k, v)| (k, v.to_string())).collect(),
-            events: span.events.into_iter().map(|e| bridge_core::types::SpanEvent {
-                name: e.name,
-                timestamp: chrono::DateTime::from_timestamp_millis(e.time_unix_nano as i64).unwrap_or_else(|| chrono::Utc::now()),
-                attributes: e.attributes.into_iter().map(|(k, v)| (k, v.to_string())).collect(),
-            }).collect(),
-            links: span.links.into_iter().map(|l| bridge_core::types::SpanLink {
-                trace_id: l.trace_id,
-                span_id: l.span_id,
-                attributes: l.attributes.into_iter().map(|(k, v)| (k, v.to_string())).collect(),
-            }).collect(),
+            attributes: span
+                .attributes
+                .into_iter()
+                .map(|(k, v)| (k, v.to_string()))
+                .collect(),
+            events: span
+                .events
+                .into_iter()
+                .map(|e| bridge_core::types::SpanEvent {
+                    name: e.name,
+                    timestamp: chrono::DateTime::from_timestamp_millis(e.time_unix_nano as i64)
+                        .unwrap_or_else(|| chrono::Utc::now()),
+                    attributes: e
+                        .attributes
+                        .into_iter()
+                        .map(|(k, v)| (k, v.to_string()))
+                        .collect(),
+                })
+                .collect(),
+            links: span
+                .links
+                .into_iter()
+                .map(|l| bridge_core::types::SpanLink {
+                    trace_id: l.trace_id,
+                    span_id: l.span_id,
+                    attributes: l
+                        .attributes
+                        .into_iter()
+                        .map(|(k, v)| (k, v.to_string()))
+                        .collect(),
+                })
+                .collect(),
         }),
         attributes: HashMap::new(),
         tags: HashMap::new(),
         resource: None,
         service: None,
     };
-    
+
     Ok(record)
 }
 
@@ -824,7 +882,7 @@ fn convert_otlp_metric_to_record(
         OtlpMetricType::ExponentialHistogram => bridge_core::types::MetricType::Histogram,
         OtlpMetricType::Summary => bridge_core::types::MetricType::Summary,
     };
-    
+
     // Convert value - for now, we'll use Gauge for all numeric values
     let metric_value = match &data_point.value.value_type {
         OtlpValueType::Double => {
@@ -853,17 +911,18 @@ fn convert_otlp_metric_to_record(
             }
         }
     };
-    
+
     // Convert timestamp
     let timestamp = chrono::DateTime::from_timestamp_millis(data_point.time_unix_nano as i64)
         .unwrap_or_else(|| chrono::Utc::now());
-    
+
     // Convert attributes to labels
-    let labels = data_point.attributes
+    let labels = data_point
+        .attributes
         .iter()
         .map(|(k, v)| (k.clone(), v.to_string()))
         .collect();
-    
+
     let record = bridge_core::types::TelemetryRecord {
         id: Uuid::new_v4(),
         timestamp,
@@ -882,7 +941,7 @@ fn convert_otlp_metric_to_record(
         resource: None,
         service: None,
     };
-    
+
     Ok(record)
 }
 
@@ -893,20 +952,25 @@ pub async fn otlp_metrics_handler(
 ) -> ApiResult<Json<ApiResponse<TelemetryIngestionResponse>>> {
     let start_time = Instant::now();
     let request_id = Uuid::new_v4().to_string();
-    
+
     // Parse OTLP metrics request
     let metrics_request = serde_json::from_value::<OtlpMetricsRequest>(request)
         .map_err(|e| ApiError::BadRequest(format!("Invalid OTLP metrics request: {}", e)))?;
-    
+
     // Convert OTLP metrics to internal format
     let mut records = Vec::new();
     let mut errors = Vec::new();
-    
+
     for resource_metrics in metrics_request.resource_metrics {
         for scope_metrics in resource_metrics.scope_metrics {
             for metric in scope_metrics.metrics {
                 for data_point in &metric.data.data_points {
-                    match convert_otlp_metric_to_record(&metric, data_point, &resource_metrics.resource, &scope_metrics.scope) {
+                    match convert_otlp_metric_to_record(
+                        &metric,
+                        data_point,
+                        &resource_metrics.resource,
+                        &scope_metrics.scope,
+                    ) {
                         Ok(record) => records.push(record),
                         Err(e) => errors.push(e),
                     }
@@ -914,10 +978,10 @@ pub async fn otlp_metrics_handler(
             }
         }
     }
-    
+
     // Get counts before moving records
     let records_count = records.len();
-    
+
     // Create telemetry batch
     let batch = bridge_core::types::TelemetryBatch {
         id: Uuid::new_v4(),
@@ -927,34 +991,39 @@ pub async fn otlp_metrics_handler(
         records,
         metadata: HashMap::new(),
     };
-    
+
     // Process the batch
     let processing_start = Instant::now();
     let errors_count = errors.len();
     let is_success = errors.is_empty();
-    
+
     let result = bridge_core::types::WriteResult {
         timestamp: chrono::Utc::now(),
-        status: if is_success { 
-            bridge_core::types::WriteStatus::Success 
-        } else { 
-            bridge_core::types::WriteStatus::Partial 
+        status: if is_success {
+            bridge_core::types::WriteStatus::Success
+        } else {
+            bridge_core::types::WriteStatus::Partial
         },
         records_written: records_count,
         records_failed: errors_count,
         duration_ms: processing_start.elapsed().as_millis() as u64,
         metadata: HashMap::new(),
-        errors: errors.into_iter().map(|e| bridge_core::types::WriteError {
-            code: "CONVERSION_ERROR".to_string(),
-            message: e,
-            details: None,
-        }).collect(),
+        errors: errors
+            .into_iter()
+            .map(|e| bridge_core::types::WriteError {
+                code: "CONVERSION_ERROR".to_string(),
+                message: e,
+                details: None,
+            })
+            .collect(),
     };
-    
+
     let processing_time = processing_start.elapsed();
-    
+
     // Record metrics
-    state.metrics.record_processing("metric", processing_time, is_success);
+    state
+        .metrics
+        .record_processing("metric", processing_time, is_success);
 
     let response = TelemetryIngestionResponse {
         result,
@@ -965,7 +1034,7 @@ pub async fn otlp_metrics_handler(
 
     let total_time = start_time.elapsed().as_millis() as u64;
     let api_response = ApiResponse::new(response, request_id, total_time);
-    
+
     Ok(Json(api_response))
 }
 
@@ -978,7 +1047,7 @@ fn convert_otlp_log_to_record(
     // Convert timestamp
     let timestamp = chrono::DateTime::from_timestamp_millis(log_record.time_unix_nano as i64)
         .unwrap_or_else(|| chrono::Utc::now());
-    
+
     // Convert severity
     let level = match log_record.severity_number {
         Some(1..=4) => bridge_core::types::LogLevel::Trace,
@@ -989,25 +1058,35 @@ fn convert_otlp_log_to_record(
         Some(21..=24) => bridge_core::types::LogLevel::Fatal,
         _ => bridge_core::types::LogLevel::Info,
     };
-    
+
     // Convert body
     let message = if let Some(body) = &log_record.body {
         match &body.value_type {
             OtlpValueType::String => body.string_value.clone().unwrap_or_default(),
-            OtlpValueType::Double => body.numeric_value.map(|v| v.to_string()).unwrap_or_default(),
-            OtlpValueType::Int => body.numeric_value.map(|v| v.to_string()).unwrap_or_default(),
-            OtlpValueType::Bool => body.boolean_value.map(|v| v.to_string()).unwrap_or_default(),
+            OtlpValueType::Double => body
+                .numeric_value
+                .map(|v| v.to_string())
+                .unwrap_or_default(),
+            OtlpValueType::Int => body
+                .numeric_value
+                .map(|v| v.to_string())
+                .unwrap_or_default(),
+            OtlpValueType::Bool => body
+                .boolean_value
+                .map(|v| v.to_string())
+                .unwrap_or_default(),
         }
     } else {
         String::new()
     };
-    
+
     // Convert attributes
-    let attributes = log_record.attributes
+    let attributes = log_record
+        .attributes
         .iter()
         .map(|(k, v)| (k.clone(), v.to_string()))
         .collect();
-    
+
     let record = bridge_core::types::TelemetryRecord {
         id: Uuid::new_v4(),
         timestamp,
@@ -1026,7 +1105,7 @@ fn convert_otlp_log_to_record(
         resource: None,
         service: None,
     };
-    
+
     Ok(record)
 }
 
@@ -1037,29 +1116,33 @@ pub async fn otlp_logs_handler(
 ) -> ApiResult<Json<ApiResponse<TelemetryIngestionResponse>>> {
     let start_time = Instant::now();
     let request_id = Uuid::new_v4().to_string();
-    
+
     // Parse OTLP logs request
     let logs_request = serde_json::from_value::<OtlpLogsRequest>(request)
         .map_err(|e| ApiError::BadRequest(format!("Invalid OTLP logs request: {}", e)))?;
-    
+
     // Convert OTLP logs to internal format
     let mut records = Vec::new();
     let mut errors = Vec::new();
-    
+
     for resource_logs in logs_request.resource_logs {
         for scope_logs in resource_logs.scope_logs {
             for log_record in scope_logs.log_records {
-                match convert_otlp_log_to_record(&log_record, &resource_logs.resource, &scope_logs.scope) {
+                match convert_otlp_log_to_record(
+                    &log_record,
+                    &resource_logs.resource,
+                    &scope_logs.scope,
+                ) {
                     Ok(record) => records.push(record),
                     Err(e) => errors.push(e),
                 }
             }
         }
     }
-    
+
     // Get counts before moving records
     let records_count = records.len();
-    
+
     // Create telemetry batch
     let batch = bridge_core::types::TelemetryBatch {
         id: Uuid::new_v4(),
@@ -1069,34 +1152,39 @@ pub async fn otlp_logs_handler(
         records,
         metadata: HashMap::new(),
     };
-    
+
     // Process the batch
     let processing_start = Instant::now();
     let errors_count = errors.len();
     let is_success = errors.is_empty();
-    
+
     let result = bridge_core::types::WriteResult {
         timestamp: chrono::Utc::now(),
-        status: if is_success { 
-            bridge_core::types::WriteStatus::Success 
-        } else { 
-            bridge_core::types::WriteStatus::Partial 
+        status: if is_success {
+            bridge_core::types::WriteStatus::Success
+        } else {
+            bridge_core::types::WriteStatus::Partial
         },
         records_written: records_count,
         records_failed: errors_count,
         duration_ms: processing_start.elapsed().as_millis() as u64,
         metadata: HashMap::new(),
-        errors: errors.into_iter().map(|e| bridge_core::types::WriteError {
-            code: "CONVERSION_ERROR".to_string(),
-            message: e,
-            details: None,
-        }).collect(),
+        errors: errors
+            .into_iter()
+            .map(|e| bridge_core::types::WriteError {
+                code: "CONVERSION_ERROR".to_string(),
+                message: e,
+                details: None,
+            })
+            .collect(),
     };
-    
+
     let processing_time = processing_start.elapsed();
-    
+
     // Record metrics
-    state.metrics.record_processing("log", processing_time, is_success);
+    state
+        .metrics
+        .record_processing("log", processing_time, is_success);
 
     let response = TelemetryIngestionResponse {
         result,
@@ -1107,7 +1195,7 @@ pub async fn otlp_logs_handler(
 
     let total_time = start_time.elapsed().as_millis() as u64;
     let api_response = ApiResponse::new(response, request_id, total_time);
-    
+
     Ok(Json(api_response))
 }
 
@@ -1118,14 +1206,16 @@ pub async fn query_handler(
 ) -> ApiResult<Json<ApiResponse<QueryResponse>>> {
     let start_time = Instant::now();
     let request_id = Uuid::new_v4().to_string();
-    
+
     // Validate query request
     if request.parameters.time_range.start >= request.parameters.time_range.end {
-        return Err(ApiError::BadRequest("Invalid time range: start must be before end".to_string()));
+        return Err(ApiError::BadRequest(
+            "Invalid time range: start must be before end".to_string(),
+        ));
     }
 
     let query_start = Instant::now();
-    
+
     // Execute query based on type
     let results = match request.query_type {
         QueryType::Metrics => {
@@ -1133,9 +1223,15 @@ pub async fn query_handler(
             let query_id = Uuid::new_v4();
             let mut metadata = HashMap::new();
             metadata.insert("query_type".to_string(), "metrics".to_string());
-            metadata.insert("time_range_start".to_string(), request.parameters.time_range.start.to_rfc3339());
-            metadata.insert("time_range_end".to_string(), request.parameters.time_range.end.to_rfc3339());
-            
+            metadata.insert(
+                "time_range_start".to_string(),
+                request.parameters.time_range.start.to_rfc3339(),
+            );
+            metadata.insert(
+                "time_range_end".to_string(),
+                request.parameters.time_range.end.to_rfc3339(),
+            );
+
             // Create sample metrics data
             let sample_metrics = vec![
                 bridge_core::types::MetricData {
@@ -1144,7 +1240,12 @@ pub async fn query_handler(
                     unit: Some("requests".to_string()),
                     metric_type: bridge_core::types::MetricType::Counter,
                     value: bridge_core::types::MetricValue::Counter(1234.0),
-                    labels: vec![("method".to_string(), "GET".to_string()), ("status".to_string(), "200".to_string())].into_iter().collect(),
+                    labels: vec![
+                        ("method".to_string(), "GET".to_string()),
+                        ("status".to_string(), "200".to_string()),
+                    ]
+                    .into_iter()
+                    .collect(),
                     timestamp: chrono::Utc::now(),
                 },
                 bridge_core::types::MetricData {
@@ -1154,18 +1255,29 @@ pub async fn query_handler(
                     metric_type: bridge_core::types::MetricType::Histogram,
                     value: bridge_core::types::MetricValue::Histogram {
                         buckets: vec![
-                            bridge_core::types::HistogramBucket { upper_bound: 0.1, count: 100 },
-                            bridge_core::types::HistogramBucket { upper_bound: 0.5, count: 50 },
-                            bridge_core::types::HistogramBucket { upper_bound: 1.0, count: 25 },
+                            bridge_core::types::HistogramBucket {
+                                upper_bound: 0.1,
+                                count: 100,
+                            },
+                            bridge_core::types::HistogramBucket {
+                                upper_bound: 0.5,
+                                count: 50,
+                            },
+                            bridge_core::types::HistogramBucket {
+                                upper_bound: 1.0,
+                                count: 25,
+                            },
                         ],
                         sum: 45.5,
                         count: 175,
                     },
-                    labels: vec![("method".to_string(), "GET".to_string())].into_iter().collect(),
+                    labels: vec![("method".to_string(), "GET".to_string())]
+                        .into_iter()
+                        .collect(),
                     timestamp: chrono::Utc::now(),
                 },
             ];
-            
+
             QueryResults::Metrics(bridge_core::types::MetricsResult {
                 query_id,
                 timestamp: chrono::Utc::now(),
@@ -1181,45 +1293,55 @@ pub async fn query_handler(
             let query_id = Uuid::new_v4();
             let mut metadata = HashMap::new();
             metadata.insert("query_type".to_string(), "traces".to_string());
-            metadata.insert("time_range_start".to_string(), request.parameters.time_range.start.to_rfc3339());
-            metadata.insert("time_range_end".to_string(), request.parameters.time_range.end.to_rfc3339());
-            
+            metadata.insert(
+                "time_range_start".to_string(),
+                request.parameters.time_range.start.to_rfc3339(),
+            );
+            metadata.insert(
+                "time_range_end".to_string(),
+                request.parameters.time_range.end.to_rfc3339(),
+            );
+
             // Create sample traces data
-            let sample_traces = vec![
-                bridge_core::types::TraceData {
-                    trace_id: "trace_1234567890abcdef".to_string(),
-                    span_id: "span_abcdef1234567890".to_string(),
-                    parent_span_id: None,
-                    name: "HTTP GET /api/users".to_string(),
-                    kind: bridge_core::types::SpanKind::Server,
-                    start_time: chrono::Utc::now() - chrono::Duration::seconds(10),
-                    end_time: Some(chrono::Utc::now() - chrono::Duration::seconds(9)),
-                    duration_ns: Some(1_000_000_000), // 1 second
-                    status: bridge_core::types::SpanStatus {
-                        code: bridge_core::types::StatusCode::Ok,
-                        message: None,
-                    },
-                    attributes: vec![
-                        ("http.method".to_string(), "GET".to_string()),
-                        ("http.url".to_string(), "/api/users".to_string()),
-                        ("http.status_code".to_string(), "200".to_string()),
-                    ].into_iter().collect(),
-                    events: vec![
-                        bridge_core::types::SpanEvent {
-                            name: "http.request.start".to_string(),
-                            timestamp: chrono::Utc::now() - chrono::Duration::seconds(10),
-                            attributes: vec![("http.method".to_string(), "GET".to_string())].into_iter().collect(),
-                        },
-                        bridge_core::types::SpanEvent {
-                            name: "http.request.end".to_string(),
-                            timestamp: chrono::Utc::now() - chrono::Duration::seconds(9),
-                            attributes: vec![("http.status_code".to_string(), "200".to_string())].into_iter().collect(),
-                        },
-                    ],
-                    links: Vec::new(),
+            let sample_traces = vec![bridge_core::types::TraceData {
+                trace_id: "trace_1234567890abcdef".to_string(),
+                span_id: "span_abcdef1234567890".to_string(),
+                parent_span_id: None,
+                name: "HTTP GET /api/users".to_string(),
+                kind: bridge_core::types::SpanKind::Server,
+                start_time: chrono::Utc::now() - chrono::Duration::seconds(10),
+                end_time: Some(chrono::Utc::now() - chrono::Duration::seconds(9)),
+                duration_ns: Some(1_000_000_000), // 1 second
+                status: bridge_core::types::SpanStatus {
+                    code: bridge_core::types::StatusCode::Ok,
+                    message: None,
                 },
-            ];
-            
+                attributes: vec![
+                    ("http.method".to_string(), "GET".to_string()),
+                    ("http.url".to_string(), "/api/users".to_string()),
+                    ("http.status_code".to_string(), "200".to_string()),
+                ]
+                .into_iter()
+                .collect(),
+                events: vec![
+                    bridge_core::types::SpanEvent {
+                        name: "http.request.start".to_string(),
+                        timestamp: chrono::Utc::now() - chrono::Duration::seconds(10),
+                        attributes: vec![("http.method".to_string(), "GET".to_string())]
+                            .into_iter()
+                            .collect(),
+                    },
+                    bridge_core::types::SpanEvent {
+                        name: "http.request.end".to_string(),
+                        timestamp: chrono::Utc::now() - chrono::Duration::seconds(9),
+                        attributes: vec![("http.status_code".to_string(), "200".to_string())]
+                            .into_iter()
+                            .collect(),
+                    },
+                ],
+                links: Vec::new(),
+            }];
+
             QueryResults::Traces(bridge_core::types::TracesResult {
                 query_id,
                 timestamp: chrono::Utc::now(),
@@ -1235,9 +1357,15 @@ pub async fn query_handler(
             let query_id = Uuid::new_v4();
             let mut metadata = HashMap::new();
             metadata.insert("query_type".to_string(), "logs".to_string());
-            metadata.insert("time_range_start".to_string(), request.parameters.time_range.start.to_rfc3339());
-            metadata.insert("time_range_end".to_string(), request.parameters.time_range.end.to_rfc3339());
-            
+            metadata.insert(
+                "time_range_start".to_string(),
+                request.parameters.time_range.start.to_rfc3339(),
+            );
+            metadata.insert(
+                "time_range_end".to_string(),
+                request.parameters.time_range.end.to_rfc3339(),
+            );
+
             // Create sample logs data
             let sample_logs = vec![
                 bridge_core::types::LogData {
@@ -1247,7 +1375,9 @@ pub async fn query_handler(
                     attributes: vec![
                         ("user_id".to_string(), "user123".to_string()),
                         ("ip_address".to_string(), "192.168.1.100".to_string()),
-                    ].into_iter().collect(),
+                    ]
+                    .into_iter()
+                    .collect(),
                     body: None,
                     severity_number: Some(9),
                     severity_text: Some("INFO".to_string()),
@@ -1259,13 +1389,15 @@ pub async fn query_handler(
                     attributes: vec![
                         ("db_host".to_string(), "db.example.com".to_string()),
                         ("response_time_ms".to_string(), "1500".to_string()),
-                    ].into_iter().collect(),
+                    ]
+                    .into_iter()
+                    .collect(),
                     body: None,
                     severity_number: Some(13),
                     severity_text: Some("WARN".to_string()),
                 },
             ];
-            
+
             QueryResults::Logs(bridge_core::types::LogsResult {
                 query_id,
                 timestamp: chrono::Utc::now(),
@@ -1281,9 +1413,15 @@ pub async fn query_handler(
             let request_id = Uuid::new_v4();
             let mut metadata = HashMap::new();
             metadata.insert("query_type".to_string(), "analytics".to_string());
-            metadata.insert("time_range_start".to_string(), request.parameters.time_range.start.to_rfc3339());
-            metadata.insert("time_range_end".to_string(), request.parameters.time_range.end.to_rfc3339());
-            
+            metadata.insert(
+                "time_range_start".to_string(),
+                request.parameters.time_range.start.to_rfc3339(),
+            );
+            metadata.insert(
+                "time_range_end".to_string(),
+                request.parameters.time_range.end.to_rfc3339(),
+            );
+
             // Create sample analytics data
             let analytics_data = serde_json::json!({
                 "total_requests": 1234,
@@ -1301,7 +1439,7 @@ pub async fn query_handler(
                     "1s+": 34
                 }
             });
-            
+
             QueryResults::Analytics(bridge_core::types::AnalyticsResponse {
                 request_id,
                 timestamp: chrono::Utc::now(),
@@ -1314,7 +1452,7 @@ pub async fn query_handler(
     };
 
     let query_time = query_start.elapsed();
-    
+
     // Record query metrics
     let query_type_str = match request.query_type {
         QueryType::Metrics => "metrics",
@@ -1322,8 +1460,10 @@ pub async fn query_handler(
         QueryType::Logs => "logs",
         QueryType::Analytics => "analytics",
     };
-    
-    state.metrics.record_processing(query_type_str, query_time, true);
+
+    state
+        .metrics
+        .record_processing(query_type_str, query_time, true);
 
     let metadata = QueryMetadata {
         query_id: Uuid::new_v4(),
@@ -1333,14 +1473,11 @@ pub async fn query_handler(
         query_plan: generate_query_plan(&request),
     };
 
-    let response = QueryResponse {
-        results,
-        metadata,
-    };
+    let response = QueryResponse { results, metadata };
 
     let total_time = start_time.elapsed().as_millis() as u64;
     let api_response = ApiResponse::new(response, request_id, total_time);
-    
+
     Ok(Json(api_response))
 }
 
@@ -1351,9 +1488,9 @@ pub async fn analytics_handler(
 ) -> ApiResult<Json<ApiResponse<AnalyticsResponse>>> {
     let start_time = Instant::now();
     let request_id = Uuid::new_v4().to_string();
-    
+
     let processing_start = Instant::now();
-    
+
     // Execute analytics processing
     let results = match execute_analytics_processing(&request).await {
         Ok(analytics_response) => analytics_response,
@@ -1375,7 +1512,7 @@ pub async fn analytics_handler(
     };
 
     let processing_time = processing_start.elapsed();
-    
+
     // Record analytics metrics
     let analytics_type_str = match request.analytics_type {
         bridge_core::types::AnalyticsType::WorkflowAnalytics => "workflow_analytics",
@@ -1386,8 +1523,10 @@ pub async fn analytics_handler(
         bridge_core::types::AnalyticsType::DataVisualization => "data_visualization",
         bridge_core::types::AnalyticsType::Custom(ref name) => name,
     };
-    
-    state.metrics.record_processing(analytics_type_str, processing_time, true);
+
+    state
+        .metrics
+        .record_processing(analytics_type_str, processing_time, true);
 
     let metadata = AnalyticsMetadata {
         analytics_id: Uuid::new_v4(),
@@ -1397,14 +1536,11 @@ pub async fn analytics_handler(
         alerts_triggered: check_for_alerts(&results),
     };
 
-    let response = AnalyticsResponse {
-        results,
-        metadata,
-    };
+    let response = AnalyticsResponse { results, metadata };
 
     let total_time = start_time.elapsed().as_millis() as u64;
     let api_response = ApiResponse::new(response, request_id, total_time);
-    
+
     Ok(Json(api_response))
 }
 
@@ -1415,7 +1551,7 @@ pub async fn config_handler(
 ) -> ApiResult<Json<ApiResponse<ConfigResponse>>> {
     let start_time = Instant::now();
     let request_id = Uuid::new_v4().to_string();
-    
+
     // Implement configuration management
     let response = match apply_configuration_changes(&state, &request).await {
         Ok(config_response) => config_response,
@@ -1424,12 +1560,12 @@ pub async fn config_handler(
             config_hash: "error".to_string(),
             changes: vec![],
             validation_errors: Some(vec![e.to_string()]),
-        }
+        },
     };
 
     let total_time = start_time.elapsed().as_millis() as u64;
     let api_response = ApiResponse::new(response, request_id, total_time);
-    
+
     Ok(Json(api_response))
 }
 
@@ -1439,13 +1575,13 @@ pub async fn component_status_handler(
 ) -> ApiResult<Json<ApiResponse<ComponentStatusResponse>>> {
     let start_time = Instant::now();
     let request_id = Uuid::new_v4().to_string();
-    
+
     // Get actual component status
     let response = get_component_status(&component_name).await;
 
     let total_time = start_time.elapsed().as_millis() as u64;
     let api_response = ApiResponse::new(response, request_id, total_time);
-    
+
     Ok(Json(api_response))
 }
 
@@ -1456,7 +1592,7 @@ pub async fn component_restart_handler(
 ) -> ApiResult<Json<ApiResponse<ComponentRestartResponse>>> {
     let start_time = Instant::now();
     let request_id = Uuid::new_v4().to_string();
-    
+
     // Implement component restart logic
     let response = match restart_component(&component_name, &request).await {
         Ok(restart_response) => restart_response,
@@ -1466,12 +1602,12 @@ pub async fn component_restart_handler(
             restart_time_ms: start_time.elapsed().as_millis() as u64,
             previous_status: ComponentStatus::Error,
             new_status: ComponentStatus::Error,
-        }
+        },
     };
 
     let total_time = start_time.elapsed().as_millis() as u64;
     let api_response = ApiResponse::new(response, request_id, total_time);
-    
+
     Ok(Json(api_response))
 }
 
@@ -1483,10 +1619,10 @@ pub async fn get_config_handler(
 ) -> ApiResult<Json<ApiResponse<ConfigResponse>>> {
     let start_time = Instant::now();
     let request_id = Uuid::new_v4().to_string();
-    
+
     // Validate current configuration
     let validation_result = state.config.validate();
-    
+
     let (status, validation_errors) = match validation_result {
         Ok(()) => ("active".to_string(), None),
         Err(e) => {
@@ -1507,7 +1643,7 @@ pub async fn get_config_handler(
 
     let total_time = start_time.elapsed().as_millis() as u64;
     let api_response = ApiResponse::new(response, request_id, total_time);
-    
+
     Ok(Json(api_response))
 }
 
@@ -1518,19 +1654,23 @@ pub async fn update_config_handler(
 ) -> ApiResult<Json<ApiResponse<ConfigResponse>>> {
     let start_time = Instant::now();
     let request_id = Uuid::new_v4().to_string();
-    
+
     // Parse the configuration from JSON
     let new_config: crate::config::BridgeAPIConfig = serde_json::from_value(request)
         .map_err(|e| ApiError::BadRequest(format!("Invalid configuration format: {}", e)))?;
 
     // Validate the new configuration
     let validation_result = new_config.validate();
-    
+
     let (status, changes, validation_errors) = match validation_result {
         Ok(()) => {
             // In a real implementation, you would update the configuration here
             // For now, we'll just return success
-            ("updated".to_string(), vec!["Configuration validated and updated".to_string()], None)
+            (
+                "updated".to_string(),
+                vec!["Configuration validated and updated".to_string()],
+                None,
+            )
         }
         Err(e) => {
             let errors = match e {
@@ -1550,7 +1690,7 @@ pub async fn update_config_handler(
 
     let total_time = start_time.elapsed().as_millis() as u64;
     let api_response = ApiResponse::new(response, request_id, total_time);
-    
+
     Ok(Json(api_response))
 }
 
@@ -1561,18 +1701,20 @@ pub async fn validate_config_handler(
 ) -> ApiResult<Json<ApiResponse<ConfigResponse>>> {
     let start_time = Instant::now();
     let request_id = Uuid::new_v4().to_string();
-    
+
     // Parse the configuration from JSON
     let config: crate::config::BridgeAPIConfig = serde_json::from_value(request)
         .map_err(|e| ApiError::BadRequest(format!("Invalid configuration format: {}", e)))?;
 
     // Validate the configuration
     let validation_result = config.validate();
-    
+
     let (status, changes, validation_errors) = match validation_result {
-        Ok(()) => {
-            ("valid".to_string(), vec!["Configuration is valid".to_string()], None)
-        }
+        Ok(()) => (
+            "valid".to_string(),
+            vec!["Configuration is valid".to_string()],
+            None,
+        ),
         Err(e) => {
             let errors = match e {
                 crate::config::ConfigValidationError::ValidationFailed(errors) => errors,
@@ -1591,7 +1733,7 @@ pub async fn validate_config_handler(
 
     let total_time = start_time.elapsed().as_millis() as u64;
     let api_response = ApiResponse::new(response, request_id, total_time);
-    
+
     Ok(Json(api_response))
 }
 
@@ -1602,16 +1744,20 @@ pub async fn restart_components_handler(
 ) -> ApiResult<Json<ApiResponse<serde_json::Value>>> {
     let start_time = Instant::now();
     let request_id = Uuid::new_v4().to_string();
-    
+
     // Implement component restart logic
-    let results = request.components.iter().map(|component| {
-        serde_json::json!({
-            "name": component,
-            "status": "success",
-            "message": format!("Component {} restarted successfully", component),
-            "restart_time": chrono::Utc::now()
+    let results = request
+        .components
+        .iter()
+        .map(|component| {
+            serde_json::json!({
+                "name": component,
+                "status": "success",
+                "message": format!("Component {} restarted successfully", component),
+                "restart_time": chrono::Utc::now()
+            })
         })
-    }).collect::<Vec<_>>();
+        .collect::<Vec<_>>();
 
     let response = serde_json::json!({
         "results": results,
@@ -1621,7 +1767,7 @@ pub async fn restart_components_handler(
 
     let total_time = start_time.elapsed().as_millis() as u64;
     let api_response = ApiResponse::new(response, request_id, total_time);
-    
+
     Ok(Json(api_response))
 }
 
@@ -1631,7 +1777,7 @@ pub async fn list_components_handler(
 ) -> ApiResult<Json<ApiResponse<ComponentsListResponse>>> {
     let start_time = Instant::now();
     let request_id = Uuid::new_v4().to_string();
-    
+
     // Get actual component list
     let components = get_active_components().await;
 
@@ -1644,7 +1790,7 @@ pub async fn list_components_handler(
 
     let total_time = start_time.elapsed().as_millis() as u64;
     let api_response = ApiResponse::new(response, request_id, total_time);
-    
+
     Ok(Json(api_response))
 }
 
@@ -1655,13 +1801,13 @@ pub async fn get_component_status_handler(
 ) -> ApiResult<Json<ApiResponse<ComponentStatusResponse>>> {
     let start_time = Instant::now();
     let request_id = Uuid::new_v4().to_string();
-    
+
     // Get actual component status
     let response = get_component_status(&component_name).await;
 
     let total_time = start_time.elapsed().as_millis() as u64;
     let api_response = ApiResponse::new(response, request_id, total_time);
-    
+
     Ok(Json(api_response))
 }
 
@@ -1672,12 +1818,17 @@ pub async fn restart_component_handler(
 ) -> ApiResult<Json<ApiResponse<ComponentRestartResponse>>> {
     let start_time = Instant::now();
     let request_id = Uuid::new_v4().to_string();
-    
+
     // Implement component restart logic
-    let response = match restart_component(&component_name, &ComponentRestartRequest {
-        component_name: component_name.clone(),
-        options: None,
-    }).await {
+    let response = match restart_component(
+        &component_name,
+        &ComponentRestartRequest {
+            component_name: component_name.clone(),
+            options: None,
+        },
+    )
+    .await
+    {
         Ok(restart_response) => restart_response,
         Err(e) => ComponentRestartResponse {
             component_name,
@@ -1685,12 +1836,12 @@ pub async fn restart_component_handler(
             restart_time_ms: start_time.elapsed().as_millis() as u64,
             previous_status: ComponentStatus::Error,
             new_status: ComponentStatus::Error,
-        }
+        },
     };
 
     let total_time = start_time.elapsed().as_millis() as u64;
     let api_response = ApiResponse::new(response, request_id, total_time);
-    
+
     Ok(Json(api_response))
 }
 
@@ -1701,7 +1852,7 @@ async fn get_active_components() -> Vec<ComponentInfo> {
     // 1. Scanning for running components
     // 2. Getting component status and health
     // 3. Collecting component metadata
-    
+
     vec![
         ComponentInfo {
             name: "api".to_string(),
@@ -1727,33 +1878,47 @@ async fn get_plugin_capabilities() -> (Vec<PluginInfo>, HashMap<String, Vec<Stri
     // 1. Scanning for available plugins
     // 2. Loading plugin metadata
     // 3. Getting plugin capabilities
-    
-    let plugins = vec![
-        PluginInfo {
-            name: "example-plugin".to_string(),
-            version: "1.0.0".to_string(),
-            description: "Example plugin for testing".to_string(),
-            capabilities: vec!["query".to_string(), "analytics".to_string()],
-            status: PluginStatus::Active,
-        },
-    ];
+
+    let plugins = vec![PluginInfo {
+        name: "example-plugin".to_string(),
+        version: "1.0.0".to_string(),
+        description: "Example plugin for testing".to_string(),
+        capabilities: vec!["query".to_string(), "analytics".to_string()],
+        status: PluginStatus::Active,
+    }];
 
     let mut capabilities = HashMap::new();
-    capabilities.insert("query".to_string(), vec!["time_range".to_string(), "filters".to_string(), "aggregations".to_string()]);
-    capabilities.insert("analytics".to_string(), vec!["data_source".to_string(), "analysis_type".to_string(), "output_format".to_string()]);
+    capabilities.insert(
+        "query".to_string(),
+        vec![
+            "time_range".to_string(),
+            "filters".to_string(),
+            "aggregations".to_string(),
+        ],
+    );
+    capabilities.insert(
+        "analytics".to_string(),
+        vec![
+            "data_source".to_string(),
+            "analysis_type".to_string(),
+            "output_format".to_string(),
+        ],
+    );
 
     (plugins, capabilities)
 }
 
 /// Execute plugin query
-async fn execute_plugin_query(request: &PluginQueryRequest) -> Result<serde_json::Value, Box<dyn std::error::Error + Send + Sync>> {
+async fn execute_plugin_query(
+    request: &PluginQueryRequest,
+) -> Result<serde_json::Value, Box<dyn std::error::Error + Send + Sync>> {
     // TODO: Implement actual plugin query execution
     // This would typically involve:
     // 1. Loading the specified plugin
     // 2. Validating the query parameters
     // 3. Executing the query through the plugin
     // 4. Processing and returning the results
-    
+
     // For now, return a placeholder response
     Ok(serde_json::json!({
         "plugin": request.plugin_name,
@@ -1770,7 +1935,7 @@ pub async fn plugin_capabilities_handler(
 ) -> ApiResult<Json<ApiResponse<PluginCapabilitiesResponse>>> {
     let start_time = Instant::now();
     let request_id = Uuid::new_v4().to_string();
-    
+
     // Get actual plugin capabilities
     let (plugins, capabilities) = get_plugin_capabilities().await;
 
@@ -1781,7 +1946,7 @@ pub async fn plugin_capabilities_handler(
 
     let total_time = start_time.elapsed().as_millis() as u64;
     let api_response = ApiResponse::new(response, request_id, total_time);
-    
+
     Ok(Json(api_response))
 }
 
@@ -1792,7 +1957,7 @@ pub async fn plugin_query_handler(
 ) -> ApiResult<Json<ApiResponse<PluginQueryResponse>>> {
     let start_time = Instant::now();
     let request_id = Uuid::new_v4().to_string();
-    
+
     // Execute plugin query
     let results = match execute_plugin_query(&request).await {
         Ok(query_results) => query_results,
@@ -1818,7 +1983,7 @@ pub async fn plugin_query_handler(
 
     let total_time = start_time.elapsed().as_millis() as u64;
     let api_response = ApiResponse::new(response, request_id, total_time);
-    
+
     Ok(Json(api_response))
 }
 
@@ -1844,7 +2009,7 @@ pub async fn root_handler() -> ApiResult<Json<serde_json::Value>> {
             "metrics": "/metrics",
         }
     });
-    
+
     Ok(Json(response))
 }
 

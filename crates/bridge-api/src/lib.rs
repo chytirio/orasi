@@ -7,29 +7,29 @@
 //! This module provides REST and gRPC API interfaces for
 //! the bridge system.
 
-pub mod server;
-pub mod rest;
+pub mod component_handlers;
+pub mod config;
+pub mod config_service;
+pub mod error;
 pub mod grpc;
 pub mod handlers;
-pub mod middleware;
-pub mod config;
-pub mod error;
-pub mod types;
-pub mod metrics;
-pub mod proto;
-pub mod query_service;
-pub mod config_service;
-pub mod component_handlers;
-pub mod status_service;
-pub mod query_engine_integration;
 pub mod health_monitoring_integration;
+pub mod metrics;
+pub mod middleware;
+pub mod proto;
+pub mod query_engine_integration;
+pub mod query_service;
+pub mod rest;
+pub mod server;
+pub mod status_service;
+pub mod types;
 
 #[cfg(feature = "openapi")]
 pub mod openapi;
 
 // Re-export main types
-pub use bridge_core::types::{ProcessedBatch, TelemetryBatch};
 pub use bridge_auth::{config as auth_config, jwt};
+pub use bridge_core::types::{ProcessedBatch, TelemetryBatch};
 pub use config::BridgeAPIConfig;
 pub use error::ApiError;
 pub use server::BridgeAPIServer;
@@ -83,7 +83,7 @@ pub async fn shutdown_bridge_api() -> ApiResult<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bridge_core::types::{TelemetryQuery, TimeRange, Filter, FilterOperator, FilterValue};
+    use bridge_core::types::{Filter, FilterOperator, FilterValue, TelemetryQuery, TimeRange};
     use chrono::Utc;
     use uuid::Uuid;
 
@@ -107,17 +107,16 @@ mod tests {
             issuer: "test_issuer".to_string(),
             audience: "test_audience".to_string(),
             expiration_secs: 3600,
-            require_auth: true,
+            algorithm: auth_config::JwtAlgorithm::HS256,
+            enable_refresh_tokens: true,
+            refresh_token_expiration_secs: 86400,
         };
 
-
-
         let validator = jwt::JwtManager::new(jwt_config).unwrap();
-        let token = validator.generate_token(
-            "test_user".to_string(),
-            vec!["user".to_string()],
-            None
-        ).await.unwrap();
+        let token = validator
+            .generate_token("test_user".to_string(), vec!["user".to_string()], None)
+            .await
+            .unwrap();
 
         // Validate the token
         let result = validator.validate_token(&token).await;
@@ -134,17 +133,12 @@ mod tests {
             id: Uuid::new_v4(),
             timestamp: Utc::now(),
             query_type: bridge_core::types::TelemetryQueryType::Metrics,
-            time_range: TimeRange::new(
-                Utc::now() - chrono::Duration::hours(1),
-                Utc::now(),
-            ),
-            filters: vec![
-                Filter {
-                    field: "type".to_string(),
-                    operator: FilterOperator::Equals,
-                    value: FilterValue::String("metric".to_string()),
-                }
-            ],
+            time_range: TimeRange::new(Utc::now() - chrono::Duration::hours(1), Utc::now()),
+            filters: vec![Filter {
+                field: "type".to_string(),
+                operator: FilterOperator::Equals,
+                value: FilterValue::String("metric".to_string()),
+            }],
             aggregations: vec![],
             limit: Some(100),
             offset: None,

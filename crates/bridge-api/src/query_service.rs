@@ -1,42 +1,38 @@
 //! Query service for integrating gRPC telemetry queries with the query engine
 
 use bridge_core::{
-    BridgeResult, BridgeError,
+    traits::{QueryResultStatus, TelemetryQueryResult},
     types::{
-        TelemetryQuery, TelemetryRecord, TelemetryData,
-        TelemetryType, MetricData, MetricValue, MetricType, TraceData, SpanKind, SpanStatus,
-        LogData, LogLevel, ServiceInfo, TelemetryBatch, StatusCode, EventData,
-        TimeRange, Filter
+        EventData, Filter, LogData, LogLevel, MetricData, MetricType, MetricValue, SpanKind,
+        SpanStatus, StatusCode, TelemetryBatch, TelemetryData, TelemetryQuery, TelemetryRecord,
+        TelemetryType, TimeRange, TraceData,
     },
-    traits::{TelemetryQueryResult, QueryResultStatus}
+    BridgeResult,
 };
+use chrono::{DateTime, Utc};
+use serde_json::Value;
+use std::collections::HashMap;
+use std::time::Duration;
+use std::time::Instant;
 use streaming_processor::{
-    sources::{SourceManager, http_source::HttpSourceConfig},
-    processors::{ProcessorPipeline, filter_processor::{FilterProcessorConfig, FilterRule, FilterMode, FilterOperator}},
-    sinks::{SinkManager, http_sink::HttpSinkConfig},
+    processors::{
+        filter_processor::{FilterMode, FilterOperator, FilterProcessorConfig, FilterRule},
+        ProcessorPipeline,
+    },
+    sinks::{http_sink::HttpSinkConfig, SinkManager},
+    sources::{http_source::HttpSourceConfig, SourceManager},
     StreamingProcessorConfig,
 };
-use std::collections::HashMap;
-use std::sync::Arc;
-use std::time::Instant;
-use tokio::sync::RwLock;
-use tracing::{info, error, warn};
+use tracing::{error, info};
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
-use std::time::Duration;
-use serde_json::Value;
 
 use crate::{
     config::BridgeAPIConfig,
     metrics::ApiMetrics,
     proto::{
-        QueryTelemetryRequest, QueryTelemetryResponse, StreamTelemetryResponse,
-        QueryStatus, TelemetryRecord as GrpcTelemetryRecord,
-        HealthCheckRequest, HealthCheckResponse, ComponentStatus, ComponentState,
-        SystemMetrics, GetMetricsRequest, GetMetricsResponse,
-        StreamTelemetryRequest,
+        QueryStatus, QueryTelemetryRequest, QueryTelemetryResponse, StreamTelemetryRequest,
+        StreamTelemetryResponse, TelemetryRecord as GrpcTelemetryRecord,
     },
-    error::ApiError,
     query_engine_integration::QueryEngineIntegration,
 };
 
@@ -60,10 +56,11 @@ impl QueryService {
     /// Initialize the query engine integration
     pub async fn init_query_engine(&mut self) -> BridgeResult<()> {
         tracing::info!("Initializing query engine integration");
-        
-        let query_engine = QueryEngineIntegration::new(self.config.clone(), self.metrics.clone()).await?;
+
+        let query_engine =
+            QueryEngineIntegration::new(self.config.clone(), self.metrics.clone()).await?;
         self.query_engine = Some(query_engine);
-        
+
         tracing::info!("Query engine integration initialized successfully");
         Ok(())
     }
@@ -74,23 +71,27 @@ impl QueryService {
         query_request: &QueryTelemetryRequest,
     ) -> BridgeResult<QueryTelemetryResponse> {
         let start_time = Instant::now();
-        
-        tracing::info!("Processing telemetry query: type={}", query_request.query_type);
-        
+
+        tracing::info!(
+            "Processing telemetry query: type={}",
+            query_request.query_type
+        );
+
         // Convert gRPC request to bridge-core query
         let telemetry_query = self.convert_grpc_to_telemetry_query(query_request)?;
-        
+
         // Execute the query
         let query_result = self.execute_telemetry_query(&telemetry_query).await?;
-        
+
         // Convert result back to gRPC response
         let response = self.convert_telemetry_result_to_grpc(query_result, start_time.elapsed())?;
-        
+
         // Record metrics
-        self.metrics.record_processing("telemetry_query", start_time.elapsed(), true);
-        
+        self.metrics
+            .record_processing("telemetry_query", start_time.elapsed(), true);
+
         tracing::info!("Telemetry query completed successfully");
-        
+
         Ok(response)
     }
 
@@ -100,9 +101,12 @@ impl QueryService {
         stream_request: &StreamTelemetryRequest,
     ) -> BridgeResult<Vec<StreamTelemetryResponse>> {
         let start_time = Instant::now();
-        
-        tracing::info!("Processing telemetry stream: type={}", stream_request.query_type);
-        
+
+        tracing::info!(
+            "Processing telemetry stream: type={}",
+            stream_request.query_type
+        );
+
         // Convert gRPC request to bridge-core query
         let telemetry_query = self.convert_grpc_to_telemetry_query(&QueryTelemetryRequest {
             query_type: stream_request.query_type.clone(),
@@ -113,18 +117,21 @@ impl QueryService {
             sort_by: String::new(),
             sort_order: String::new(),
         })?;
-        
+
         // Execute the query with streaming
-        let query_results = self.execute_telemetry_stream(&telemetry_query, stream_request.batch_size).await?;
-        
+        let query_results = self
+            .execute_telemetry_stream(&telemetry_query, stream_request.batch_size)
+            .await?;
+
         // Convert results to gRPC streaming responses
         let responses = self.convert_stream_results_to_grpc(query_results)?;
-        
+
         // Record metrics
-        self.metrics.record_processing("telemetry_stream", start_time.elapsed(), true);
-        
+        self.metrics
+            .record_processing("telemetry_stream", start_time.elapsed(), true);
+
         tracing::info!("Telemetry stream completed successfully");
-        
+
         Ok(responses)
     }
 
@@ -138,15 +145,16 @@ impl QueryService {
             TimeRange::new(
                 DateTime::from_timestamp(grpc_time_range.start_time, 0)
                     .unwrap_or_else(|| Utc::now() - chrono::Duration::hours(1)),
-                DateTime::from_timestamp(grpc_time_range.end_time, 0)
-                    .unwrap_or_else(|| Utc::now()),
+                DateTime::from_timestamp(grpc_time_range.end_time, 0).unwrap_or_else(|| Utc::now()),
             )
         } else {
             TimeRange::last_hours(1)
         };
 
         // Convert filters
-        let filters: Vec<Filter> = query_request.filters.iter()
+        let filters: Vec<Filter> = query_request
+            .filters
+            .iter()
             .map(|f| {
                 // Convert string operator to FilterOperator enum
                 let operator = match f.operator.as_str() {
@@ -160,10 +168,10 @@ impl QueryService {
                     "regex" => bridge_core::types::FilterOperator::Contains, // Map regex to contains for now
                     _ => bridge_core::types::FilterOperator::Equals,
                 };
-                
+
                 // Convert string value to FilterValue enum
                 let value = bridge_core::types::FilterValue::String(f.value.clone());
-                
+
                 Filter {
                     field: f.field.clone(),
                     operator,
@@ -207,12 +215,15 @@ impl QueryService {
             tracing::info!("Using real query engine for query: {:?}", query.id);
             return query_engine.execute_query(query).await;
         }
-        
+
         // Fallback to mock data if query engine not initialized
-        tracing::warn!("Query engine not initialized, using mock data for query: {:?}", query.id);
-        
+        tracing::warn!(
+            "Query engine not initialized, using mock data for query: {:?}",
+            query.id
+        );
+
         let query_type = self.determine_query_type(query)?;
-        
+
         match query_type.as_str() {
             "traces" => self.execute_traces_query(query).await,
             "metrics" => self.execute_metrics_query(query).await,
@@ -229,15 +240,15 @@ impl QueryService {
         batch_size: i32,
     ) -> BridgeResult<Vec<TelemetryQueryResult>> {
         info!("Executing telemetry stream query: {}", query.id);
-        
+
         // Create streaming processor configuration
         let streaming_config = self.create_streaming_config(query, batch_size).await?;
-        
+
         // Initialize streaming processor components
         let mut source_manager = SourceManager::new();
         let mut sink_manager = SinkManager::new();
         let mut pipeline = ProcessorPipeline::new();
-        
+
         // Create HTTP source for data ingestion
         let http_source_config = HttpSourceConfig {
             name: "query_source".to_string(),
@@ -247,7 +258,10 @@ impl QueryService {
             headers: {
                 let mut headers = HashMap::new();
                 headers.insert("Content-Type".to_string(), "application/json".to_string());
-                headers.insert("Authorization".to_string(), format!("Bearer {}", self.config.auth.api_key.header_name));
+                headers.insert(
+                    "Authorization".to_string(),
+                    format!("Bearer {}", self.config.auth.api_key.header_name),
+                );
                 headers
             },
             body: Some(serde_json::to_string(query)?),
@@ -261,16 +275,18 @@ impl QueryService {
             retry_delay_ms: 1000,
             rate_limit_requests_per_second: Some(10),
         };
-        
+
         // Create and add HTTP source
-        let http_source = streaming_processor::sources::HttpSource::new(&http_source_config).await?;
+        let http_source =
+            streaming_processor::sources::HttpSource::new(&http_source_config).await?;
         source_manager.add_source("http_source".to_string(), Box::new(http_source));
-        
+
         // Create filter processor based on query filters
         let filter_config = self.create_filter_config(query).await?;
-        let filter_processor = streaming_processor::processors::FilterProcessor::new(&filter_config).await?;
+        let filter_processor =
+            streaming_processor::processors::FilterProcessor::new(&filter_config).await?;
         pipeline.add_processor(Box::new(filter_processor));
-        
+
         // Create HTTP sink for results
         let http_sink_config = HttpSinkConfig {
             name: "query_sink".to_string(),
@@ -292,38 +308,40 @@ impl QueryService {
             content_type: "application/json".to_string(),
             rate_limit_requests_per_second: Some(10),
         };
-        
+
         // Create and add HTTP sink
         let http_sink = streaming_processor::sinks::HttpSink::new(&http_sink_config).await?;
         sink_manager.add_sink("http_sink".to_string(), Box::new(http_sink));
-        
+
         // Start streaming components
         source_manager.start_all().await?;
         sink_manager.start_all().await?;
-        
+
         // Process streaming data with real streaming processor
         let mut results = Vec::new();
         let mut batch_count = 0;
         let max_batches = 10; // Limit to prevent infinite streaming
         let timeout = Duration::from_secs(30); // 30 second timeout
         let start_time = Instant::now();
-        
+
         while batch_count < max_batches && start_time.elapsed() < timeout {
             // Get data from source
             if let Some(source) = source_manager.get_source("http_source") {
                 // Process data through pipeline
                 let input_stream = self.create_data_stream_from_source(source).await?;
                 let processed_stream = pipeline.process_stream(input_stream).await?;
-                
+
                 // Convert processed stream to query result
-                let batch_result = self.convert_stream_to_query_result(processed_stream, query).await?;
+                let batch_result = self
+                    .convert_stream_to_query_result(processed_stream, query)
+                    .await?;
                 results.push(batch_result);
-                
+
                 batch_count += 1;
-                
+
                 // Small delay between batches
                 tokio::time::sleep(Duration::from_millis(100)).await;
-                
+
                 // Check if we have enough data
                 if batch_count >= 3 {
                     break;
@@ -333,15 +351,18 @@ impl QueryService {
                 break;
             }
         }
-        
+
         // Stop streaming components
         source_manager.stop_all().await?;
         sink_manager.stop_all().await?;
-        
-        info!("Completed telemetry stream query: {} batches processed", batch_count);
+
+        info!(
+            "Completed telemetry stream query: {} batches processed",
+            batch_count
+        );
         Ok(results)
     }
-    
+
     /// Create streaming processor configuration
     async fn create_streaming_config(
         &self,
@@ -349,13 +370,13 @@ impl QueryService {
         batch_size: i32,
     ) -> BridgeResult<StreamingProcessorConfig> {
         let mut config = StreamingProcessorConfig::default();
-        
+
         // Set configuration
         config.name = format!("query_processor_{}", query.id);
         config.version = "1.0.0".to_string();
-        
+
         // Add source configuration
-        let mut source_config = streaming_processor::config::SourceConfig {
+        let source_config = streaming_processor::config::SourceConfig {
             source_type: streaming_processor::config::SourceType::Http,
             name: "http_source".to_string(),
             version: "1.0.0".to_string(),
@@ -363,8 +384,10 @@ impl QueryService {
             auth: None,
             connection: streaming_processor::config::ConnectionConfig::default(),
         };
-        config.sources.insert("http_source".to_string(), source_config);
-        
+        config
+            .sources
+            .insert("http_source".to_string(), source_config);
+
         // Add processor configuration
         let processor_config = streaming_processor::config::ProcessorConfig {
             processor_type: streaming_processor::config::ProcessorType::Filter,
@@ -374,9 +397,9 @@ impl QueryService {
             order: 1,
         };
         config.processors.push(processor_config);
-        
+
         // Add sink configuration
-        let mut sink_config = streaming_processor::config::SinkConfig {
+        let sink_config = streaming_processor::config::SinkConfig {
             sink_type: streaming_processor::config::SinkType::Http,
             name: "http_sink".to_string(),
             version: "1.0.0".to_string(),
@@ -385,14 +408,14 @@ impl QueryService {
             connection: streaming_processor::config::ConnectionConfig::default(),
         };
         config.sinks.insert("http_sink".to_string(), sink_config);
-        
+
         // Set processing configuration
         config.processing.batch_size = batch_size as usize;
         config.processing.buffer_size = 1000;
-        
+
         Ok(config)
     }
-    
+
     /// Create data stream from source
     async fn create_data_stream_from_source(
         &self,
@@ -405,23 +428,21 @@ impl QueryService {
             timestamp: Utc::now(),
             source: "mock_source".to_string(),
             size: 1,
-            records: vec![
-                TelemetryRecord::new(
-                    TelemetryType::Metric,
-                    TelemetryData::Metric(MetricData {
-                        name: "streaming_metric".to_string(),
-                        description: Some("Streaming metric data".to_string()),
-                        unit: Some("count".to_string()),
-                        metric_type: MetricType::Counter,
-                        value: MetricValue::Counter(1.0),
-                        labels: HashMap::new(),
-                        timestamp: Utc::now(),
-                    })
-                )
-            ],
+            records: vec![TelemetryRecord::new(
+                TelemetryType::Metric,
+                TelemetryData::Metric(MetricData {
+                    name: "streaming_metric".to_string(),
+                    description: Some("Streaming metric data".to_string()),
+                    unit: Some("count".to_string()),
+                    metric_type: MetricType::Counter,
+                    value: MetricValue::Counter(1.0),
+                    labels: HashMap::new(),
+                    timestamp: Utc::now(),
+                }),
+            )],
             metadata: HashMap::new(),
         };
-        
+
         Ok(bridge_core::traits::DataStream {
             stream_id: "mock_stream".to_string(),
             data: serde_json::to_vec(&mock_batch)?,
@@ -429,7 +450,7 @@ impl QueryService {
             timestamp: Utc::now(),
         })
     }
-    
+
     /// Convert stream to query result
     async fn convert_stream_to_query_result(
         &self,
@@ -440,7 +461,7 @@ impl QueryService {
         let batch: TelemetryBatch = serde_json::from_slice(&stream.data)?;
         let records = batch.records.clone();
         let data = serde_json::to_value(records)?;
-        
+
         Ok(TelemetryQueryResult {
             query_id: query.id,
             timestamp: Utc::now(),
@@ -453,11 +474,14 @@ impl QueryService {
             errors: Vec::new(),
         })
     }
-    
+
     /// Create filter configuration based on query filters
-    async fn create_filter_config(&self, query: &TelemetryQuery) -> BridgeResult<FilterProcessorConfig> {
+    async fn create_filter_config(
+        &self,
+        query: &TelemetryQuery,
+    ) -> BridgeResult<FilterProcessorConfig> {
         let mut filter_rules = Vec::new();
-        
+
         // Convert query filters to filter rules
         for filter in &query.filters {
             let operator = match filter.operator {
@@ -467,8 +491,12 @@ impl QueryService {
                 bridge_core::types::FilterOperator::NotContains => FilterOperator::NotContains,
                 bridge_core::types::FilterOperator::GreaterThan => FilterOperator::GreaterThan,
                 bridge_core::types::FilterOperator::LessThan => FilterOperator::LessThan,
-                bridge_core::types::FilterOperator::GreaterThanOrEqual => FilterOperator::GreaterThanOrEqual,
-                bridge_core::types::FilterOperator::LessThanOrEqual => FilterOperator::LessThanOrEqual,
+                bridge_core::types::FilterOperator::GreaterThanOrEqual => {
+                    FilterOperator::GreaterThanOrEqual
+                }
+                bridge_core::types::FilterOperator::LessThanOrEqual => {
+                    FilterOperator::LessThanOrEqual
+                }
                 bridge_core::types::FilterOperator::In => FilterOperator::In,
                 bridge_core::types::FilterOperator::NotIn => FilterOperator::NotIn,
                 bridge_core::types::FilterOperator::StartsWith => FilterOperator::Contains, // Map to Contains for now
@@ -477,7 +505,7 @@ impl QueryService {
                 bridge_core::types::FilterOperator::Exists => FilterOperator::Equals, // Map to Equals for now
                 bridge_core::types::FilterOperator::NotExists => FilterOperator::NotEquals, // Map to NotEquals for now
             };
-            
+
             let value = match &filter.value {
                 bridge_core::types::FilterValue::String(s) => s.clone(),
                 bridge_core::types::FilterValue::Number(n) => n.to_string(),
@@ -497,7 +525,7 @@ impl QueryService {
                 }
                 bridge_core::types::FilterValue::Null => "null".to_string(),
             };
-            
+
             filter_rules.push(FilterRule {
                 name: format!("filter_{}", filter.field),
                 field: filter.field.clone(),
@@ -506,7 +534,7 @@ impl QueryService {
                 enabled: true,
             });
         }
-        
+
         Ok(FilterProcessorConfig {
             name: "query_filter".to_string(),
             version: "1.0.0".to_string(),
@@ -527,44 +555,45 @@ impl QueryService {
                 }
             }
         }
-        
+
         // Check metadata for type information
         if let Some(query_type) = query.metadata.get("type") {
             return Ok(query_type.clone());
         }
-        
+
         // Default to generic query
         Ok("generic".to_string())
     }
 
     /// Execute traces query
-    async fn execute_traces_query(&self, query: &TelemetryQuery) -> BridgeResult<TelemetryQueryResult> {
+    async fn execute_traces_query(
+        &self,
+        query: &TelemetryQuery,
+    ) -> BridgeResult<TelemetryQueryResult> {
         // Create mock trace data
-        let mock_traces = vec![
-            TelemetryRecord::new(
-                TelemetryType::Trace,
-                TelemetryData::Trace(TraceData {
-                    trace_id: "trace-123".to_string(),
-                    span_id: "span-456".to_string(),
-                    parent_span_id: None,
-                    name: "mock-operation".to_string(),
-                    kind: SpanKind::Internal,
-                    start_time: Utc::now() - chrono::Duration::minutes(5),
-                    end_time: Some(Utc::now()),
-                    duration_ns: Some(1000000), // 1ms
-                    status: SpanStatus {
-                        code: StatusCode::Ok,
-                        message: None,
-                    },
-                    attributes: HashMap::new(),
-                    events: Vec::new(),
-                    links: Vec::new(),
-                })
-            )
-        ];
+        let mock_traces = vec![TelemetryRecord::new(
+            TelemetryType::Trace,
+            TelemetryData::Trace(TraceData {
+                trace_id: "trace-123".to_string(),
+                span_id: "span-456".to_string(),
+                parent_span_id: None,
+                name: "mock-operation".to_string(),
+                kind: SpanKind::Internal,
+                start_time: Utc::now() - chrono::Duration::minutes(5),
+                end_time: Some(Utc::now()),
+                duration_ns: Some(1000000), // 1ms
+                status: SpanStatus {
+                    code: StatusCode::Ok,
+                    message: None,
+                },
+                attributes: HashMap::new(),
+                events: Vec::new(),
+                links: Vec::new(),
+            }),
+        )];
 
         let data = serde_json::to_value(mock_traces)?;
-        
+
         Ok(TelemetryQueryResult {
             query_id: query.id,
             timestamp: Utc::now(),
@@ -576,28 +605,29 @@ impl QueryService {
     }
 
     /// Execute metrics query
-    async fn execute_metrics_query(&self, query: &TelemetryQuery) -> BridgeResult<TelemetryQueryResult> {
+    async fn execute_metrics_query(
+        &self,
+        query: &TelemetryQuery,
+    ) -> BridgeResult<TelemetryQueryResult> {
         // Create mock metric data
-        let mock_metrics = vec![
-            TelemetryRecord::new(
-                TelemetryType::Metric,
-                TelemetryData::Metric(MetricData {
-                    name: "cpu_usage".to_string(),
-                    description: Some("CPU usage percentage".to_string()),
-                    unit: Some("percent".to_string()),
-                    metric_type: MetricType::Gauge,
-                    value: MetricValue::Gauge(75.5),
-                    labels: HashMap::from([
-                        ("host".to_string(), "server-1".to_string()),
-                        ("service".to_string(), "api".to_string()),
-                    ]),
-                    timestamp: Utc::now(),
-                })
-            )
-        ];
+        let mock_metrics = vec![TelemetryRecord::new(
+            TelemetryType::Metric,
+            TelemetryData::Metric(MetricData {
+                name: "cpu_usage".to_string(),
+                description: Some("CPU usage percentage".to_string()),
+                unit: Some("percent".to_string()),
+                metric_type: MetricType::Gauge,
+                value: MetricValue::Gauge(75.5),
+                labels: HashMap::from([
+                    ("host".to_string(), "server-1".to_string()),
+                    ("service".to_string(), "api".to_string()),
+                ]),
+                timestamp: Utc::now(),
+            }),
+        )];
 
         let data = serde_json::to_value(mock_metrics)?;
-        
+
         Ok(TelemetryQueryResult {
             query_id: query.id,
             timestamp: Utc::now(),
@@ -609,25 +639,26 @@ impl QueryService {
     }
 
     /// Execute logs query
-    async fn execute_logs_query(&self, query: &TelemetryQuery) -> BridgeResult<TelemetryQueryResult> {
+    async fn execute_logs_query(
+        &self,
+        query: &TelemetryQuery,
+    ) -> BridgeResult<TelemetryQueryResult> {
         // Create mock log data
-        let mock_logs = vec![
-            TelemetryRecord::new(
-                TelemetryType::Log,
-                TelemetryData::Log(LogData {
-                    timestamp: Utc::now(),
-                    level: LogLevel::Info,
-                    message: "Mock log message".to_string(),
-                    attributes: HashMap::new(),
-                    body: Some("Mock log body".to_string()),
-                    severity_number: Some(6),
-                    severity_text: Some("INFO".to_string()),
-                })
-            )
-        ];
+        let mock_logs = vec![TelemetryRecord::new(
+            TelemetryType::Log,
+            TelemetryData::Log(LogData {
+                timestamp: Utc::now(),
+                level: LogLevel::Info,
+                message: "Mock log message".to_string(),
+                attributes: HashMap::new(),
+                body: Some("Mock log body".to_string()),
+                severity_number: Some(6),
+                severity_text: Some("INFO".to_string()),
+            }),
+        )];
 
         let data = serde_json::to_value(mock_logs)?;
-        
+
         Ok(TelemetryQueryResult {
             query_id: query.id,
             timestamp: Utc::now(),
@@ -639,25 +670,26 @@ impl QueryService {
     }
 
     /// Execute events query
-    async fn execute_events_query(&self, query: &TelemetryQuery) -> BridgeResult<TelemetryQueryResult> {
+    async fn execute_events_query(
+        &self,
+        query: &TelemetryQuery,
+    ) -> BridgeResult<TelemetryQueryResult> {
         // Create mock event data
-        let mock_events = vec![
-            TelemetryRecord::new(
-                TelemetryType::Event,
-                TelemetryData::Event(EventData {
-                    name: "user_login".to_string(),
-                    timestamp: Utc::now(),
-                    attributes: HashMap::from([
-                        ("user_id".to_string(), "user-123".to_string()),
-                        ("ip_address".to_string(), "192.168.1.1".to_string()),
-                    ]),
-                    data: None,
-                })
-            )
-        ];
+        let mock_events = vec![TelemetryRecord::new(
+            TelemetryType::Event,
+            TelemetryData::Event(EventData {
+                name: "user_login".to_string(),
+                timestamp: Utc::now(),
+                attributes: HashMap::from([
+                    ("user_id".to_string(), "user-123".to_string()),
+                    ("ip_address".to_string(), "192.168.1.1".to_string()),
+                ]),
+                data: None,
+            }),
+        )];
 
         let data = serde_json::to_value(mock_events)?;
-        
+
         Ok(TelemetryQueryResult {
             query_id: query.id,
             timestamp: Utc::now(),
@@ -669,25 +701,26 @@ impl QueryService {
     }
 
     /// Execute generic query
-    async fn execute_generic_query(&self, query: &TelemetryQuery) -> BridgeResult<TelemetryQueryResult> {
+    async fn execute_generic_query(
+        &self,
+        query: &TelemetryQuery,
+    ) -> BridgeResult<TelemetryQueryResult> {
         // Create mock generic data
-        let mock_data = vec![
-            TelemetryRecord::new(
-                TelemetryType::Metric,
-                TelemetryData::Metric(MetricData {
-                    name: "generic_metric".to_string(),
-                    description: Some("Generic metric".to_string()),
-                    unit: Some("count".to_string()),
-                    metric_type: MetricType::Counter,
-                    value: MetricValue::Counter(42.0),
-                    labels: HashMap::new(),
-                    timestamp: Utc::now(),
-                })
-            )
-        ];
+        let mock_data = vec![TelemetryRecord::new(
+            TelemetryType::Metric,
+            TelemetryData::Metric(MetricData {
+                name: "generic_metric".to_string(),
+                description: Some("Generic metric".to_string()),
+                unit: Some("count".to_string()),
+                metric_type: MetricType::Counter,
+                value: MetricValue::Counter(42.0),
+                labels: HashMap::new(),
+                timestamp: Utc::now(),
+            }),
+        )];
 
         let data = serde_json::to_value(mock_data)?;
-        
+
         Ok(TelemetryQueryResult {
             query_id: query.id,
             timestamp: Utc::now(),
@@ -706,7 +739,8 @@ impl QueryService {
     ) -> BridgeResult<QueryTelemetryResponse> {
         // Convert telemetry records to gRPC format
         let records = if let Value::Array(data_array) = &result.data {
-            data_array.iter()
+            data_array
+                .iter()
                 .filter_map(|item| {
                     if let Ok(record) = serde_json::from_value::<TelemetryRecord>(item.clone()) {
                         Some(GrpcTelemetryRecord {
@@ -735,7 +769,9 @@ impl QueryService {
 
         // Convert errors
         let error_message = if !result.errors.is_empty() {
-            result.errors.iter()
+            result
+                .errors
+                .iter()
                 .map(|e| format!("{}: {}", e.code, e.message))
                 .collect::<Vec<_>>()
                 .join("; ")
@@ -760,15 +796,17 @@ impl QueryService {
     ) -> BridgeResult<Vec<StreamTelemetryResponse>> {
         let mut responses = Vec::new();
         let total_results = results.len();
-        
+
         for (index, result) in results.into_iter().enumerate() {
             let is_last_batch = index == total_results - 1;
-            
+
             // Convert the result to records
             let records = if let Value::Array(data_array) = &result.data {
-                data_array.iter()
+                data_array
+                    .iter()
                     .filter_map(|item| {
-                        if let Ok(record) = serde_json::from_value::<TelemetryRecord>(item.clone()) {
+                        if let Ok(record) = serde_json::from_value::<TelemetryRecord>(item.clone())
+                        {
                             Some(GrpcTelemetryRecord {
                                 id: record.id.to_string(),
                                 r#type: format!("{:?}", record.record_type).to_lowercase(),

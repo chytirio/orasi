@@ -45,7 +45,10 @@ mod tests {
     fn test_api_key_config_default() {
         let config = ApiKeyConfig::default();
         assert!(config.enabled);
-        assert_eq!(config.expiration_secs, crate::DEFAULT_API_KEY_EXPIRATION_SECS);
+        assert_eq!(
+            config.expiration_secs,
+            crate::DEFAULT_API_KEY_EXPIRATION_SECS
+        );
         assert_eq!(config.key_length, 32);
     }
 }

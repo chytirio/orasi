@@ -4,18 +4,18 @@
 
 //! Time utilities for the OpenTelemetry Data Lake Bridge
 
-use chrono::{DateTime, Duration, Utc};
 use crate::error::{BridgeError, BridgeResult};
+use chrono::{DateTime, Duration, Utc};
 
 /// Time configuration
 #[derive(Debug, Clone)]
 pub struct TimeConfig {
     /// Default time format
     pub default_format: String,
-    
+
     /// Timezone offset in seconds
     pub timezone_offset_seconds: i32,
-    
+
     /// Enable time validation
     pub enable_validation: bool,
 }
@@ -108,12 +108,16 @@ impl TimeUtils {
         max_duration: Duration,
     ) -> BridgeResult<()> {
         if *start >= *end {
-            return Err(BridgeError::validation("Start time must be before end time"));
+            return Err(BridgeError::validation(
+                "Start time must be before end time",
+            ));
         }
 
         let duration = *end - *start;
         if duration > max_duration {
-            return Err(BridgeError::validation("Time range exceeds maximum allowed duration"));
+            return Err(BridgeError::validation(
+                "Time range exceeds maximum allowed duration",
+            ));
         }
 
         Ok(())
@@ -135,7 +139,7 @@ mod tests {
     fn test_time_utilities() {
         let now = TimeUtils::now();
         assert!(now > Utc::now() - Duration::seconds(1));
-        
+
         let timestamp = TimeUtils::to_unix_timestamp(&now);
         let parsed = TimeUtils::from_unix_timestamp(timestamp).unwrap();
         assert_eq!(now.timestamp(), parsed.timestamp());
@@ -171,7 +175,7 @@ mod tests {
         let now = Utc::now();
         let future = TimeUtils::add_duration(&now, Duration::hours(1));
         assert!(TimeUtils::is_future(&future));
-        
+
         let past = TimeUtils::subtract_duration(&now, Duration::hours(1));
         assert!(TimeUtils::is_past(&past));
     }
@@ -180,13 +184,13 @@ mod tests {
     fn test_timestamp_validation() {
         let start = Utc::now();
         let end = TimeUtils::add_duration(&start, Duration::hours(1));
-        
+
         // Valid range
         assert!(TimeUtils::validate_timestamp_range(&start, &end, Duration::hours(2)).is_ok());
-        
+
         // Invalid range (start after end)
         assert!(TimeUtils::validate_timestamp_range(&end, &start, Duration::hours(2)).is_err());
-        
+
         // Invalid range (too long)
         assert!(TimeUtils::validate_timestamp_range(&start, &end, Duration::minutes(30)).is_err());
     }

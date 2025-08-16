@@ -9,13 +9,12 @@
 
 use async_trait::async_trait;
 use bridge_core::{
-    traits::ReceiverStats,
-    BridgeResult, TelemetryBatch, TelemetryReceiver as BridgeTelemetryReceiver,
+    traits::ReceiverStats, BridgeResult, TelemetryBatch,
+    TelemetryReceiver as BridgeTelemetryReceiver,
 };
 use chrono::Utc;
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::Mutex;
 use tracing::{error, info};
 use uuid::Uuid;
 
@@ -196,12 +195,15 @@ impl KafkaReceiver {
         // Get the protocol handler and receive data from Kafka
         if let Some(handler) = &self.protocol_handler {
             let handler = handler.lock().await;
-            
+
             // Try to receive data from the protocol handler
             match handler.receive_data().await {
                 Ok(Some(batch)) => {
                     // Data was available, return it
-                    info!("Received telemetry batch from Kafka with {} records", batch.size);
+                    info!(
+                        "Received telemetry batch from Kafka with {} records",
+                        batch.size
+                    );
                     Ok(batch)
                 }
                 Ok(None) => {
@@ -225,7 +227,7 @@ impl KafkaReceiver {
         } else {
             // Protocol handler not initialized, return an error
             Err(bridge_core::BridgeError::configuration(
-                "Kafka protocol handler not initialized".to_string()
+                "Kafka protocol handler not initialized".to_string(),
             ))
         }
     }

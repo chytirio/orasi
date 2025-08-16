@@ -13,14 +13,8 @@ use axum::{
 use tower_http::trace::TraceLayer;
 
 use crate::{
-    config::BridgeAPIConfig,
-    error::ApiError,
-    handlers::*,
-    metrics::ApiMetrics,
-    middleware::*,
+    config::BridgeAPIConfig, error::ApiError, handlers::*, metrics::ApiMetrics, middleware::*,
 };
-
-
 
 /// Shared application state
 #[derive(Clone)]
@@ -30,30 +24,22 @@ pub struct AppState {
 }
 
 /// Create the REST API router
-pub fn create_rest_router(
-    config: BridgeAPIConfig,
-    metrics: ApiMetrics,
-) -> Router<AppState> {
+pub fn create_rest_router(config: BridgeAPIConfig, metrics: ApiMetrics) -> Router<AppState> {
     let state = AppState { config, metrics };
-    
+
     // Create the main router with shared state
     let app = Router::new()
         // Root endpoint
         .route("/", get(root_handler))
-        
         // Health check endpoints
         .route("/health/live", get(health_live_handler))
         .route("/health/ready", get(health_ready_handler))
-        
         // Metrics endpoint
         .route("/metrics", get(metrics_handler))
-        
         // API v1 routes
         .nest("/api/v1", create_api_v1_router())
-        
         // OTLP endpoints
         .nest("/v1", create_otlp_router())
-        
         // Add middleware
         .layer(middleware::from_fn_with_state(
             state.clone(),
@@ -99,10 +85,8 @@ pub fn create_rest_router(
         .layer(compression_middleware(&state.config))
         .layer(keep_alive_middleware(&state.config))
         .layer(TraceLayer::new_for_http())
-        
         // Add shared state
         .with_state(state)
-        
         // Fallback handler for 404
         .fallback(not_found_handler);
 
@@ -114,11 +98,9 @@ fn create_api_v1_router() -> Router<AppState> {
     Router::new()
         // Status endpoints
         .route("/status", get(status_handler))
-        
         // Telemetry endpoints
         .route("/telemetry/batch", post(telemetry_ingestion_handler))
         .route("/telemetry/stream", post(telemetry_ingestion_handler))
-        
         // Query endpoints
         .route("/query/metrics", post(query_handler))
         .route("/query/traces", post(query_handler))
@@ -126,7 +108,6 @@ fn create_api_v1_router() -> Router<AppState> {
         .route("/query/analytics", post(query_handler))
         .route("/query/schema", get(query_handler))
         .route("/query/capabilities", get(query_handler))
-        
         // Analytics endpoints
         .route("/analytics/workflow", post(analytics_handler))
         .route("/analytics/agent", post(analytics_handler))
@@ -134,18 +115,18 @@ fn create_api_v1_router() -> Router<AppState> {
         .route("/analytics/insights", get(analytics_handler))
         .route("/analytics/trends", get(analytics_handler))
         .route("/analytics/alerts", post(analytics_handler))
-        
         // Configuration endpoints
         .route("/config", get(get_config_handler))
         .route("/config", put(update_config_handler))
         .route("/config/validate", post(validate_config_handler))
-        
         // Component management endpoints
         .route("/components", get(list_components_handler))
-        .route("/components/:name/status", get(get_component_status_handler))
+        .route(
+            "/components/:name/status",
+            get(get_component_status_handler),
+        )
         .route("/components/:name/restart", post(restart_component_handler))
         .route("/components/restart", post(restart_components_handler))
-        
         // Plugin endpoints
         .route("/plugin/capabilities", get(plugin_capabilities_handler))
         .route("/plugin/query", post(plugin_query_handler))
@@ -171,32 +152,28 @@ pub fn create_health_router() -> Router<AppState> {
 
 /// Create a metrics-only router (for metrics scraping)
 pub fn create_metrics_router() -> Router<AppState> {
-    Router::new()
-        .route("/metrics", get(metrics_handler))
+    Router::new().route("/metrics", get(metrics_handler))
 }
 
 /// Create a development router (with additional debugging endpoints)
-pub fn create_dev_router(
-    config: BridgeAPIConfig,
-    metrics: ApiMetrics,
-) -> Router<AppState> {
+pub fn create_dev_router(config: BridgeAPIConfig, metrics: ApiMetrics) -> Router<AppState> {
     let state = AppState { config, metrics };
-    
+
     let app = Router::new()
         // Include all regular routes
-        .merge(create_rest_router(state.config.clone(), state.metrics.clone()))
-        
+        .merge(create_rest_router(
+            state.config.clone(),
+            state.metrics.clone(),
+        ))
         // Additional development endpoints
         .route("/dev/status", get(status_handler))
         .route("/dev/config", get(config_handler))
         .route("/dev/metrics", get(metrics_handler))
-        
         // Add development middleware
         .layer(middleware::from_fn_with_state(
             state.clone(),
             dev_logging_middleware,
         ))
-        
         .with_state(state);
 
     app
@@ -227,7 +204,7 @@ async fn dev_logging_middleware(
     // Log response details
     let duration = start_time.elapsed();
     let status = response.status();
-    
+
     tracing::debug!(
         method = %method,
         uri = %uri,
@@ -259,18 +236,15 @@ pub fn create_unauthenticated_router(
 ) -> Router<AppState> {
     let mut config = config;
     config.auth.enabled = false;
-    
+
     create_rest_router(config, metrics)
 }
 
 /// Create router with CORS disabled
-pub fn create_no_cors_router(
-    config: BridgeAPIConfig,
-    metrics: ApiMetrics,
-) -> Router<AppState> {
+pub fn create_no_cors_router(config: BridgeAPIConfig, metrics: ApiMetrics) -> Router<AppState> {
     let mut config = config;
     config.cors.enabled = false;
-    
+
     create_rest_router(config, metrics)
 }
 
@@ -281,17 +255,14 @@ pub fn create_no_rate_limit_router(
 ) -> Router<AppState> {
     let mut config = config;
     config.rate_limit.enabled = false;
-    
+
     create_rest_router(config, metrics)
 }
 
 /// Create minimal router (health checks and metrics only)
-pub fn create_minimal_router(
-    config: BridgeAPIConfig,
-    metrics: ApiMetrics,
-) -> Router<AppState> {
+pub fn create_minimal_router(config: BridgeAPIConfig, metrics: ApiMetrics) -> Router<AppState> {
     let state = AppState { config, metrics };
-    
+
     Router::new()
         .route("/health/live", get(health_live_handler))
         .route("/health/ready", get(health_ready_handler))
@@ -301,30 +272,27 @@ pub fn create_minimal_router(
 }
 
 /// Create telemetry-only router
-pub fn create_telemetry_router(
-    config: BridgeAPIConfig,
-    metrics: ApiMetrics,
-) -> Router<AppState> {
+pub fn create_telemetry_router(config: BridgeAPIConfig, metrics: ApiMetrics) -> Router<AppState> {
     let state = AppState { config, metrics };
-    
+
     Router::new()
         .route("/v1/traces", post(otlp_traces_handler))
         .route("/v1/metrics", post(otlp_metrics_handler))
         .route("/v1/logs", post(otlp_logs_handler))
         .route("/api/v1/telemetry/batch", post(telemetry_ingestion_handler))
-        .route("/api/v1/telemetry/stream", post(telemetry_ingestion_handler))
+        .route(
+            "/api/v1/telemetry/stream",
+            post(telemetry_ingestion_handler),
+        )
         .route("/health/live", get(health_live_handler))
         .route("/metrics", get(metrics_handler))
         .with_state(state)
 }
 
 /// Create query-only router
-pub fn create_query_router(
-    config: BridgeAPIConfig,
-    metrics: ApiMetrics,
-) -> Router<AppState> {
+pub fn create_query_router(config: BridgeAPIConfig, metrics: ApiMetrics) -> Router<AppState> {
     let state = AppState { config, metrics };
-    
+
     Router::new()
         .route("/api/v1/query/metrics", post(query_handler))
         .route("/api/v1/query/traces", post(query_handler))
@@ -338,19 +306,22 @@ pub fn create_query_router(
 }
 
 /// Create management-only router
-pub fn create_management_router(
-    config: BridgeAPIConfig,
-    metrics: ApiMetrics,
-) -> Router<AppState> {
+pub fn create_management_router(config: BridgeAPIConfig, metrics: ApiMetrics) -> Router<AppState> {
     let state = AppState { config, metrics };
-    
+
     Router::new()
         .route("/api/v1/status", get(status_handler))
         .route("/api/v1/config", get(config_handler))
         .route("/api/v1/config", put(config_handler))
         .route("/api/v1/components", get(component_status_handler))
-        .route("/api/v1/components/:name/status", get(component_status_handler))
-        .route("/api/v1/components/:name/restart", post(component_restart_handler))
+        .route(
+            "/api/v1/components/:name/status",
+            get(component_status_handler),
+        )
+        .route(
+            "/api/v1/components/:name/restart",
+            post(component_restart_handler),
+        )
         .route("/health/live", get(health_live_handler))
         .route("/metrics", get(metrics_handler))
         .with_state(state)

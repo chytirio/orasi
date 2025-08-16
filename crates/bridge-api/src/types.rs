@@ -17,7 +17,7 @@ use utoipa::ToSchema;
 pub struct ApiResponse<T> {
     /// Response data
     pub data: T,
-    
+
     /// Response metadata
     pub metadata: ResponseMetadata,
 }
@@ -28,13 +28,13 @@ pub struct ApiResponse<T> {
 pub struct ResponseMetadata {
     /// Request ID
     pub request_id: String,
-    
+
     /// Timestamp
     pub timestamp: chrono::DateTime<chrono::Utc>,
-    
+
     /// API version
     pub version: String,
-    
+
     /// Processing time in milliseconds
     pub processing_time_ms: u64,
 }
@@ -60,16 +60,16 @@ impl<T> ApiResponse<T> {
 pub struct HealthResponse {
     /// Service status
     pub status: HealthStatus,
-    
+
     /// Service name
     pub name: String,
-    
+
     /// Service version
     pub version: String,
-    
+
     /// Uptime in seconds
     pub uptime_seconds: u64,
-    
+
     /// Component health checks
     pub components: HashMap<String, ComponentHealth>,
 }
@@ -88,10 +88,10 @@ pub enum HealthStatus {
 pub struct ComponentHealth {
     /// Component status
     pub status: HealthStatus,
-    
+
     /// Component message
     pub message: Option<String>,
-    
+
     /// Last check timestamp
     pub last_check: chrono::DateTime<chrono::Utc>,
 }
@@ -101,19 +101,19 @@ pub struct ComponentHealth {
 pub struct StatusResponse {
     /// Service status
     pub status: String,
-    
+
     /// Service name
     pub name: String,
-    
+
     /// Service version
     pub version: String,
-    
+
     /// Uptime in seconds
     pub uptime_seconds: u64,
-    
+
     /// Active components
     pub components: Vec<String>,
-    
+
     /// Configuration hash
     pub config_hash: String,
 }
@@ -123,7 +123,7 @@ pub struct StatusResponse {
 pub struct TelemetryIngestionRequest {
     /// Telemetry batch
     pub batch: bridge_core::types::TelemetryBatch,
-    
+
     /// Processing options
     pub options: Option<ProcessingOptions>,
 }
@@ -133,13 +133,13 @@ pub struct TelemetryIngestionRequest {
 pub struct ProcessingOptions {
     /// Enable validation
     pub validate: bool,
-    
+
     /// Enable transformation
     pub transform: bool,
-    
+
     /// Enable aggregation
     pub aggregate: bool,
-    
+
     /// Processing timeout in seconds
     pub timeout_seconds: Option<u64>,
 }
@@ -149,13 +149,13 @@ pub struct ProcessingOptions {
 pub struct TelemetryIngestionResponse {
     /// Processing result
     pub result: bridge_core::types::WriteResult,
-    
+
     /// Processed batch ID
     pub batch_id: Uuid,
-    
+
     /// Processing time in milliseconds
     pub processing_time_ms: u64,
-    
+
     /// Validation errors (if any)
     pub validation_errors: Option<Vec<String>>,
 }
@@ -165,10 +165,10 @@ pub struct TelemetryIngestionResponse {
 pub struct QueryRequest {
     /// Query type
     pub query_type: QueryType,
-    
+
     /// Query parameters
     pub parameters: QueryParameters,
-    
+
     /// Query options
     pub options: Option<QueryOptions>,
 }
@@ -187,16 +187,16 @@ pub enum QueryType {
 pub struct QueryParameters {
     /// Time range
     pub time_range: bridge_core::types::TimeRange,
-    
+
     /// Filters
     pub filters: Option<Vec<bridge_core::types::Filter>>,
-    
+
     /// Aggregations
     pub aggregations: Option<Vec<bridge_core::types::Aggregation>>,
-    
+
     /// Limit
     pub limit: Option<usize>,
-    
+
     /// Offset
     pub offset: Option<usize>,
 }
@@ -206,13 +206,13 @@ pub struct QueryParameters {
 pub struct QueryOptions {
     /// Enable caching
     pub enable_cache: bool,
-    
+
     /// Cache TTL in seconds
     pub cache_ttl_seconds: Option<u64>,
-    
+
     /// Query timeout in seconds
     pub timeout_seconds: Option<u64>,
-    
+
     /// Enable streaming
     pub enable_streaming: bool,
 }
@@ -222,7 +222,7 @@ pub struct QueryOptions {
 pub struct QueryResponse {
     /// Query results
     pub results: QueryResults,
-    
+
     /// Query metadata
     pub metadata: QueryMetadata,
 }
@@ -232,13 +232,13 @@ pub struct QueryResponse {
 pub enum QueryResults {
     /// Metrics results
     Metrics(bridge_core::types::MetricsResult),
-    
+
     /// Traces results
     Traces(bridge_core::types::TracesResult),
-    
+
     /// Logs results
     Logs(bridge_core::types::LogsResult),
-    
+
     /// Analytics results
     Analytics(bridge_core::types::AnalyticsResponse),
 }
@@ -248,16 +248,16 @@ pub enum QueryResults {
 pub struct QueryMetadata {
     /// Query ID
     pub query_id: Uuid,
-    
+
     /// Query execution time in milliseconds
     pub execution_time_ms: u64,
-    
+
     /// Result count
     pub result_count: usize,
-    
+
     /// Cache hit
     pub cache_hit: bool,
-    
+
     /// Query plan (if available)
     pub query_plan: Option<String>,
 }
@@ -267,10 +267,10 @@ pub struct QueryMetadata {
 pub struct AnalyticsRequest {
     /// Analytics type
     pub analytics_type: bridge_core::types::AnalyticsType,
-    
+
     /// Analytics parameters
     pub parameters: bridge_core::types::AnalyticsRequest,
-    
+
     /// Analytics options
     pub options: Option<AnalyticsOptions>,
 }
@@ -280,13 +280,13 @@ pub struct AnalyticsRequest {
 pub struct AnalyticsOptions {
     /// Enable real-time processing
     pub real_time: bool,
-    
+
     /// Processing window in seconds
     pub window_seconds: Option<u64>,
-    
+
     /// Enable alerts
     pub enable_alerts: bool,
-    
+
     /// Alert thresholds
     pub alert_thresholds: Option<HashMap<String, f64>>,
 }
@@ -296,7 +296,7 @@ pub struct AnalyticsOptions {
 pub struct AnalyticsResponse {
     /// Analytics results
     pub results: bridge_core::types::AnalyticsResponse,
-    
+
     /// Analytics metadata
     pub metadata: AnalyticsMetadata,
 }
@@ -306,16 +306,16 @@ pub struct AnalyticsResponse {
 pub struct AnalyticsMetadata {
     /// Analytics ID
     pub analytics_id: Uuid,
-    
+
     /// Processing time in milliseconds
     pub processing_time_ms: u64,
-    
+
     /// Data points processed
     pub data_points_processed: usize,
-    
+
     /// Insights generated
     pub insights_count: usize,
-    
+
     /// Alerts triggered
     pub alerts_triggered: Vec<String>,
 }
@@ -325,10 +325,10 @@ pub struct AnalyticsMetadata {
 pub struct ConfigRequest {
     /// Configuration section
     pub section: String,
-    
+
     /// Configuration data
     pub data: serde_json::Value,
-    
+
     /// Configuration options
     pub options: Option<ConfigOptions>,
 }
@@ -338,10 +338,10 @@ pub struct ConfigRequest {
 pub struct ConfigOptions {
     /// Validate configuration
     pub validate: bool,
-    
+
     /// Hot reload
     pub hot_reload: bool,
-    
+
     /// Backup existing configuration
     pub backup: bool,
 }
@@ -351,13 +351,13 @@ pub struct ConfigOptions {
 pub struct ConfigResponse {
     /// Configuration status
     pub status: String,
-    
+
     /// Configuration hash
     pub config_hash: String,
-    
+
     /// Applied changes
     pub changes: Vec<String>,
-    
+
     /// Validation errors (if any)
     pub validation_errors: Option<Vec<String>>,
 }
@@ -374,16 +374,16 @@ pub struct ComponentStatusRequest {
 pub struct ComponentStatusResponse {
     /// Component name
     pub component_name: String,
-    
+
     /// Component status
     pub status: ComponentStatus,
-    
+
     /// Component health
     pub health: ComponentHealth,
-    
+
     /// Component metrics
     pub metrics: Option<HashMap<String, f64>>,
-    
+
     /// Component logs (if requested)
     pub logs: Option<Vec<String>>,
 }
@@ -404,7 +404,7 @@ pub enum ComponentStatus {
 pub struct ComponentRestartRequest {
     /// Component name
     pub component_name: String,
-    
+
     /// Restart options
     pub options: Option<RestartOptions>,
 }
@@ -414,10 +414,10 @@ pub struct ComponentRestartRequest {
 pub struct RestartOptions {
     /// Graceful restart
     pub graceful: bool,
-    
+
     /// Restart timeout in seconds
     pub timeout_seconds: Option<u64>,
-    
+
     /// Clear state
     pub clear_state: bool,
 }
@@ -427,16 +427,16 @@ pub struct RestartOptions {
 pub struct ComponentRestartResponse {
     /// Component name
     pub component_name: String,
-    
+
     /// Restart status
     pub status: String,
-    
+
     /// Restart time in milliseconds
     pub restart_time_ms: u64,
-    
+
     /// Previous status
     pub previous_status: ComponentStatus,
-    
+
     /// New status
     pub new_status: ComponentStatus,
 }
@@ -488,7 +488,7 @@ pub struct ComponentInfo {
 pub struct PluginCapabilitiesResponse {
     /// Available plugins
     pub plugins: Vec<PluginInfo>,
-    
+
     /// Capabilities summary
     pub capabilities: HashMap<String, Vec<String>>,
 }
@@ -498,16 +498,16 @@ pub struct PluginCapabilitiesResponse {
 pub struct PluginInfo {
     /// Plugin name
     pub name: String,
-    
+
     /// Plugin version
     pub version: String,
-    
+
     /// Plugin description
     pub description: String,
-    
+
     /// Plugin capabilities
     pub capabilities: Vec<String>,
-    
+
     /// Plugin status
     pub status: PluginStatus,
 }
@@ -526,10 +526,10 @@ pub enum PluginStatus {
 pub struct PluginQueryRequest {
     /// Plugin name
     pub plugin_name: String,
-    
+
     /// Query data
     pub query_data: serde_json::Value,
-    
+
     /// Query options
     pub options: Option<PluginQueryOptions>,
 }
@@ -539,10 +539,10 @@ pub struct PluginQueryRequest {
 pub struct PluginQueryOptions {
     /// Query timeout in seconds
     pub timeout_seconds: Option<u64>,
-    
+
     /// Enable caching
     pub enable_cache: bool,
-    
+
     /// Cache TTL in seconds
     pub cache_ttl_seconds: Option<u64>,
 }
@@ -552,10 +552,10 @@ pub struct PluginQueryOptions {
 pub struct PluginQueryResponse {
     /// Plugin name
     pub plugin_name: String,
-    
+
     /// Query results
     pub results: serde_json::Value,
-    
+
     /// Query metadata
     pub metadata: PluginQueryMetadata,
 }
@@ -565,13 +565,13 @@ pub struct PluginQueryResponse {
 pub struct PluginQueryMetadata {
     /// Query ID
     pub query_id: Uuid,
-    
+
     /// Execution time in milliseconds
     pub execution_time_ms: u64,
-    
+
     /// Cache hit
     pub cache_hit: bool,
-    
+
     /// Plugin version
     pub plugin_version: String,
 }
@@ -581,13 +581,13 @@ pub struct PluginQueryMetadata {
 pub struct PaginationParams {
     /// Page number (1-based)
     pub page: Option<u32>,
-    
+
     /// Page size
     pub page_size: Option<u32>,
-    
+
     /// Sort field
     pub sort_by: Option<String>,
-    
+
     /// Sort order
     pub sort_order: Option<SortOrder>,
 }
@@ -604,7 +604,7 @@ pub enum SortOrder {
 pub struct PaginationResponse<T> {
     /// Page data
     pub data: Vec<T>,
-    
+
     /// Pagination metadata
     pub pagination: PaginationMetadata,
 }
@@ -614,33 +614,28 @@ pub struct PaginationResponse<T> {
 pub struct PaginationMetadata {
     /// Current page
     pub current_page: u32,
-    
+
     /// Page size
     pub page_size: u32,
-    
+
     /// Total pages
     pub total_pages: u32,
-    
+
     /// Total items
     pub total_items: u64,
-    
+
     /// Has next page
     pub has_next: bool,
-    
+
     /// Has previous page
     pub has_previous: bool,
 }
 
 impl<T> PaginationResponse<T> {
     /// Create a new pagination response
-    pub fn new(
-        data: Vec<T>,
-        current_page: u32,
-        page_size: u32,
-        total_items: u64,
-    ) -> Self {
+    pub fn new(data: Vec<T>, current_page: u32, page_size: u32, total_items: u64) -> Self {
         let total_pages = ((total_items as f64) / (page_size as f64)).ceil() as u32;
-        
+
         Self {
             data,
             pagination: PaginationMetadata {
@@ -897,5 +892,3 @@ pub struct OtlpLogRecord {
     /// Span ID
     pub span_id: Option<String>,
 }
-
-

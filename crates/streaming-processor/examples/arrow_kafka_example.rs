@@ -3,68 +3,76 @@
 //!
 
 //! Example demonstrating Arrow IPC serialization/deserialization for Kafka messages
-//! 
+//!
 //! This example shows how to:
 //! 1. Create a TelemetryBatch with sample data
 //! 2. Serialize it to Arrow IPC format
 //! 3. Deserialize it back to TelemetryBatch
 //! 4. Verify the roundtrip works correctly
 
-use streaming_processor::arrow_utils::{serialize_to_arrow_ipc, deserialize_from_arrow_ipc};
-use bridge_core::types::{TelemetryBatch, TelemetryRecord, TelemetryData, TelemetryType};
-use std::collections::HashMap;
-use uuid::Uuid;
+use bridge_core::types::{TelemetryBatch, TelemetryData, TelemetryRecord, TelemetryType};
 use chrono::Utc;
+use std::collections::HashMap;
+use streaming_processor::arrow_utils::{deserialize_from_arrow_ipc, serialize_to_arrow_ipc};
+use uuid::Uuid;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize logging
     tracing_subscriber::fmt::init();
-    
+
     println!("🚀 Arrow IPC Kafka Serialization Example");
     println!("========================================");
-    
+
     // Create a sample TelemetryBatch with different types of records
     let sample_batch = create_sample_batch();
-    
+
     println!("📊 Created sample batch with {} records", sample_batch.size);
     println!("   - Source: {}", sample_batch.source);
     println!("   - Batch ID: {}", sample_batch.id);
-    
+
     // Display the records
     for (i, record) in sample_batch.records.iter().enumerate() {
-        println!("   Record {}: {:?} - {:?}", i, record.record_type, record.id);
+        println!(
+            "   Record {}: {:?} - {:?}",
+            i, record.record_type, record.id
+        );
     }
-    
+
     // Serialize to Arrow IPC format
     println!("\n🔄 Serializing to Arrow IPC format...");
     let start_time = std::time::Instant::now();
     let arrow_data = serialize_to_arrow_ipc(&sample_batch)?;
     let serialize_time = start_time.elapsed();
-    
+
     println!("✅ Serialization completed in {:?}", serialize_time);
     println!("   - Arrow IPC size: {} bytes", arrow_data.len());
-    println!("   - Compression ratio: {:.2}x", 
-             (sample_batch.size * 100) as f64 / arrow_data.len() as f64);
-    
+    println!(
+        "   - Compression ratio: {:.2}x",
+        (sample_batch.size * 100) as f64 / arrow_data.len() as f64
+    );
+
     // Deserialize from Arrow IPC format
     println!("\n🔄 Deserializing from Arrow IPC format...");
     let start_time = std::time::Instant::now();
     let deserialized_batch = deserialize_from_arrow_ipc(&arrow_data)?;
     let deserialize_time = start_time.elapsed();
-    
+
     println!("✅ Deserialization completed in {:?}", deserialize_time);
-    println!("   - Deserialized batch size: {} records", deserialized_batch.size);
-    
+    println!(
+        "   - Deserialized batch size: {} records",
+        deserialized_batch.size
+    );
+
     // Verify roundtrip
     println!("\n🔍 Verifying roundtrip...");
     verify_roundtrip(&sample_batch, &deserialized_batch)?;
     println!("✅ Roundtrip verification passed!");
-    
+
     // Simulate Kafka message processing
     println!("\n📨 Simulating Kafka message processing...");
     simulate_kafka_processing(&sample_batch).await?;
-    
+
     println!("\n🎉 Example completed successfully!");
     Ok(())
 }
@@ -72,7 +80,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// Create a sample TelemetryBatch with various record types
 fn create_sample_batch() -> TelemetryBatch {
     let mut records = Vec::new();
-    
+
     // Add a metric record
     records.push(TelemetryRecord {
         id: Uuid::new_v4(),
@@ -101,7 +109,7 @@ fn create_sample_batch() -> TelemetryBatch {
         resource: None,
         service: None,
     });
-    
+
     // Add a log record
     records.push(TelemetryRecord {
         id: Uuid::new_v4(),
@@ -130,7 +138,7 @@ fn create_sample_batch() -> TelemetryBatch {
         resource: None,
         service: None,
     });
-    
+
     // Add a trace record
     records.push(TelemetryRecord {
         id: Uuid::new_v4(),
@@ -168,7 +176,7 @@ fn create_sample_batch() -> TelemetryBatch {
         resource: None,
         service: None,
     });
-    
+
     // Add an event record
     records.push(TelemetryRecord {
         id: Uuid::new_v4(),
@@ -194,7 +202,7 @@ fn create_sample_batch() -> TelemetryBatch {
         resource: None,
         service: None,
     });
-    
+
     TelemetryBatch {
         id: Uuid::new_v4(),
         timestamp: Utc::now(),
@@ -209,58 +217,103 @@ fn create_sample_batch() -> TelemetryBatch {
 }
 
 /// Verify that the roundtrip serialization/deserialization works correctly
-fn verify_roundtrip(original: &TelemetryBatch, deserialized: &TelemetryBatch) -> Result<(), Box<dyn std::error::Error>> {
+fn verify_roundtrip(
+    original: &TelemetryBatch,
+    deserialized: &TelemetryBatch,
+) -> Result<(), Box<dyn std::error::Error>> {
     // Check basic properties
     assert_eq!(original.id, deserialized.id, "Batch ID mismatch");
     assert_eq!(original.source, deserialized.source, "Source mismatch");
     assert_eq!(original.size, deserialized.size, "Size mismatch");
-    assert_eq!(original.records.len(), deserialized.records.len(), "Record count mismatch");
-    
+    assert_eq!(
+        original.records.len(),
+        deserialized.records.len(),
+        "Record count mismatch"
+    );
+
     // Check each record
-    for (i, (orig_record, deser_record)) in original.records.iter().zip(deserialized.records.iter()).enumerate() {
+    for (i, (orig_record, deser_record)) in original
+        .records
+        .iter()
+        .zip(deserialized.records.iter())
+        .enumerate()
+    {
         assert_eq!(orig_record.id, deser_record.id, "Record {} ID mismatch", i);
-        assert_eq!(orig_record.record_type, deser_record.record_type, "Record {} type mismatch", i);
-        
+        assert_eq!(
+            orig_record.record_type, deser_record.record_type,
+            "Record {} type mismatch",
+            i
+        );
+
         // Check data based on type
         match (&orig_record.data, &deser_record.data) {
             (TelemetryData::Metric(orig_metric), TelemetryData::Metric(deser_metric)) => {
-                assert_eq!(orig_metric.name, deser_metric.name, "Record {} metric name mismatch", i);
+                assert_eq!(
+                    orig_metric.name, deser_metric.name,
+                    "Record {} metric name mismatch",
+                    i
+                );
                 // Note: We're only checking basic fields for brevity
             }
             (TelemetryData::Log(orig_log), TelemetryData::Log(deser_log)) => {
-                assert_eq!(orig_log.message, deser_log.message, "Record {} log message mismatch", i);
-                assert_eq!(orig_log.level, deser_log.level, "Record {} log level mismatch", i);
+                assert_eq!(
+                    orig_log.message, deser_log.message,
+                    "Record {} log message mismatch",
+                    i
+                );
+                assert_eq!(
+                    orig_log.level, deser_log.level,
+                    "Record {} log level mismatch",
+                    i
+                );
             }
             (TelemetryData::Trace(orig_trace), TelemetryData::Trace(deser_trace)) => {
-                assert_eq!(orig_trace.name, deser_trace.name, "Record {} trace name mismatch", i);
-                assert_eq!(orig_trace.duration_ns, deser_trace.duration_ns, "Record {} trace duration mismatch", i);
+                assert_eq!(
+                    orig_trace.name, deser_trace.name,
+                    "Record {} trace name mismatch",
+                    i
+                );
+                assert_eq!(
+                    orig_trace.duration_ns, deser_trace.duration_ns,
+                    "Record {} trace duration mismatch",
+                    i
+                );
             }
             (TelemetryData::Event(orig_event), TelemetryData::Event(deser_event)) => {
-                assert_eq!(orig_event.name, deser_event.name, "Record {} event name mismatch", i);
+                assert_eq!(
+                    orig_event.name, deser_event.name,
+                    "Record {} event name mismatch",
+                    i
+                );
             }
             _ => {
                 return Err(format!("Record {} data type mismatch", i).into());
             }
         }
     }
-    
-    println!("   ✅ All {} records verified successfully", original.records.len());
+
+    println!(
+        "   ✅ All {} records verified successfully",
+        original.records.len()
+    );
     Ok(())
 }
 
 /// Simulate Kafka message processing
-async fn simulate_kafka_processing(batch: &TelemetryBatch) -> Result<(), Box<dyn std::error::Error>> {
+async fn simulate_kafka_processing(
+    batch: &TelemetryBatch,
+) -> Result<(), Box<dyn std::error::Error>> {
     println!("   📤 Serializing for Kafka producer...");
     let kafka_message = serialize_to_arrow_ipc(batch)?;
     println!("   📦 Kafka message size: {} bytes", kafka_message.len());
-    
+
     println!("   📥 Deserializing from Kafka consumer...");
     let received_batch = deserialize_from_arrow_ipc(&kafka_message)?;
     println!("   ✅ Received batch with {} records", received_batch.size);
-    
+
     // Verify the Kafka roundtrip
     verify_roundtrip(batch, &received_batch)?;
-    
+
     println!("   🎯 Kafka processing simulation completed successfully!");
     Ok(())
 }

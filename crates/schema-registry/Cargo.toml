@@ -26,15 +26,15 @@ chrono = { version = "0.4", features = ["serde"] }
 # OpenTelemetry dependencies
 opentelemetry = "0.22"
 opentelemetry-semantic-conventions = "0.14"
-opentelemetry-proto = "0.3"
+opentelemetry-proto = { workspace = true }
 
 # Validation and schema
 jsonschema = { version = "0.18", optional = true }
 validator = { version = "0.16", features = ["derive"], optional = true }
 
 # HTTP and networking
-axum = { version = "0.7", optional = true }
-hyper = { version = "1.1", features = ["full"], optional = true }
+axum = { workspace = true, optional = true }
+hyper = { workspace = true, optional = true }
 reqwest = { version = "0.12", features = ["json"] }
 
 # Database and storage
@@ -50,7 +50,7 @@ metrics = { version = "0.21", optional = true }
 metrics-exporter-prometheus = { version = "0.12", optional = true }
 
 # Async runtime
-tokio = { version = "1.36", features = ["full"] }
+tokio = { workspace = true }
 async-trait = "0.1"
 
 # Data structures
@@ -94,9 +94,7 @@ rand = ["dep:rand"]
 name = "schema-registry"
 path = "src/main.rs"
 
-[[example]]
-name = "schema_registry_shutdown_example"
-path = "../../examples/bridge-api/schema_registry_shutdown_example.rs"
+# Examples are now defined in the main examples package to avoid naming conflicts
 
 [lib]
 name = "schema_registry"

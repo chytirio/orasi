@@ -12,8 +12,8 @@ categories = ["observability", "data-processing"]
 
 [dependencies]
 # Core dependencies
-tokio = { version = "1.36", features = ["full"] }
-serde = { version = "1.0", features = ["derive"] }
+tokio = { workspace = true, features = ["full"] }
+serde = { workspace = true }
 serde_json = "1.0"
 anyhow = "1.0"
 thiserror = "1.0"
@@ -21,18 +21,18 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 
 # OpenTelemetry dependencies
-opentelemetry = "0.22"
-opentelemetry-http = "0.10"
-opentelemetry-otlp = "0.15"
-opentelemetry-semantic-conventions = "0.14"
-opentelemetry-proto = "0.3"
+opentelemetry = { workspace = true }
+opentelemetry-http = { workspace = true }
+opentelemetry-otlp = { workspace = true }
+opentelemetry-semantic-conventions = { workspace = true }
+opentelemetry-proto = { workspace = true }
 
 # Async runtime and networking
-tonic = "0.11"
-prost = "0.12"
-hyper = { version = "1.1", features = ["full"] }
-axum = "0.7"
-tower = "0.5"
+tonic = { workspace = true }
+prost = { workspace = true }
+hyper = { workspace = true }
+axum = { workspace = true }
+tower = { workspace = true }
 
 # Data processing and serialization
 # Temporarily commented out to fix compilation
@@ -90,18 +90,4 @@ tokio-test = "0.4"
 mockall = { workspace = true }
 tempfile = "3.8"
 
-[[example]]
-name = "basic_usage"
-path = "../../examples/core/basic_usage.rs"
-
-[[example]]
-name = "http_server_example"
-path = "../../examples/bridge-api/http_server_example.rs"
-
-[[example]]
-name = "real_delta_lake_example"
-path = "../../examples/connectors/real_delta_lake_example.rs"
-
-[[example]]
-name = "auth_example"
-path = "../../examples/auth/auth_example.rs"
+# Examples are now defined in the main examples package to avoid naming conflicts

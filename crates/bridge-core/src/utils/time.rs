@@ -31,6 +31,7 @@ impl Default for TimeConfig {
 }
 
 /// Time utilities
+#[allow(dead_code)]
 pub struct TimeUtils {
     config: TimeConfig,
 }

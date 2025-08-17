@@ -1,0 +1,111 @@
+# Orasi Connectors - Data lakehouse connector targets
+# Justfile for connectors directory
+
+# Build all connectors
+build:
+    cargo build -p deltalake-connector -p lakehouse-hudi -p lakehouse-iceberg -p lakehouse-s3-parquet -p lakehouse-snowflake
+
+# Build specific connector
+build-connector connector:
+    cargo build -p {{connector}}
+
+# Test all connectors
+test:
+    cargo test -p deltalake-connector -p lakehouse-hudi -p lakehouse-iceberg -p lakehouse-s3-parquet -p lakehouse-snowflake
+
+# Test specific connector
+test-connector connector:
+    cargo test -p {{connector}}
+
+# Run clippy on all connectors
+clippy:
+    cargo clippy -p deltalake-connector -p lakehouse-hudi -p lakehouse-iceberg -p lakehouse-s3-parquet -p lakehouse-snowflake
+
+# Run clippy on specific connector
+clippy-connector connector:
+    cargo clippy -p {{connector}}
+
+# Generate documentation for all connectors
+doc:
+    cargo doc -p deltalake-connector -p lakehouse-hudi -p lakehouse-iceberg -p lakehouse-s3-parquet -p lakehouse-snowflake
+
+# Generate documentation for specific connector
+doc-connector connector:
+    cargo doc -p {{connector}}
+
+# Run examples for Delta Lake
+example-delta:
+    cargo run --example delta_lake_example -p deltalake-connector
+
+# Run examples for Delta Lake (real)
+example-delta-real:
+    cargo run --example real_delta_lake_example -p deltalake-connector
+
+# Run examples for Hudi
+example-hudi:
+    cargo run --example hudi_example -p lakehouse-hudi
+
+# Run examples for Iceberg
+example-iceberg:
+    cargo run --example iceberg_example -p lakehouse-iceberg
+
+# Run examples for Snowflake
+example-snowflake:
+    cargo run --example snowflake_example -p lakehouse-snowflake
+
+# Run all connector examples
+examples: example-delta example-hudi example-iceberg example-snowflake
+
+# Run key connector examples
+examples-key: example-delta example-hudi example-iceberg
+
+# Run lakehouse connector tests using the Rust test runner
+test-connectors:
+    cargo run -p test-runner
+
+# Run lakehouse connector tests with specific mode
+test-connectors-mode mode:
+    cargo run -p test-runner -- --mode {{mode}}
+
+# Run lakehouse connector tests in parallel
+test-connectors-parallel:
+    cargo run -p test-runner -- --parallel
+
+# Run lakehouse connector tests with coverage
+test-connectors-coverage:
+    cargo run -p test-runner -- --coverage
+
+# Run lakehouse connector tests skipping external dependencies
+test-connectors-skip-external:
+    cargo run -p test-runner -- --skip-external
+
+# List available connectors
+test-connectors-list:
+    cargo run -p test-runner -- list
+
+# Show test configuration
+test-connectors-config:
+    cargo run -p test-runner -- config
+
+# Run tests for specific connectors
+test-connectors-specific connectors:
+    cargo run -p test-runner -- {{connectors}}
+
+# Show connector information
+info:
+    @echo "=== Orasi Connectors ==="
+    @echo ""
+    @echo "🔗 Available connectors:"
+    @echo "  • deltalake-connector    # Delta Lake connector"
+    @echo "  • lakehouse-hudi         # Apache Hudi connector"
+    @echo "  • lakehouse-iceberg      # Apache Iceberg connector"
+    @echo "  • lakehouse-s3-parquet   # S3 Parquet connector"
+    @echo "  • lakehouse-snowflake    # Snowflake connector"
+    @echo ""
+    @echo "🚀 Key Commands:"
+    @echo "  • just build              # Build all connectors"
+    @echo "  • just test               # Test all connectors"
+    @echo "  • just clippy             # Lint all connectors"
+    @echo "  • just examples-key       # Run key examples"
+    @echo "  • just test-connectors    # Run connector tests"
+    @echo "  • just info               # Show this information"

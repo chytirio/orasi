@@ -32,7 +32,7 @@ use opentelemetry_proto::tonic::{
     resource::v1::Resource,
     trace::v1::{ResourceSpans, ScopeSpans, Span},
 };
-use prost::Message;
+use ::prost::Message;
 use regex::Regex;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -1005,7 +1005,7 @@ impl OtlpConverter {
                 resource: Some(Resource {
                     attributes: self.convert_to_key_values(&batch.metadata),
                     dropped_attributes_count: 0,
-                    entity_refs: vec![],
+                    // entity_refs: vec![],
                 }),
                 scope_metrics: vec![ScopeMetrics {
                     scope: None,
@@ -1031,7 +1031,7 @@ impl OtlpConverter {
                 resource: Some(Resource {
                     attributes: self.convert_to_key_values(&batch.metadata),
                     dropped_attributes_count: 0,
-                    entity_refs: vec![],
+                    // entity_refs: vec![],
                 }),
                 scope_logs: vec![ScopeLogs {
                     schema_url: "".to_string(),
@@ -1057,7 +1057,7 @@ impl OtlpConverter {
                     resource: Some(Resource {
                         dropped_attributes_count: 0,
                         attributes: self.convert_to_key_values(&batch.metadata),
-                        entity_refs: vec![],
+                        // entity_refs: vec![],
                     }),
                     scope_spans: vec![ScopeSpans {
                         schema_url: "".to_string(),

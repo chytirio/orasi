@@ -128,6 +128,7 @@ pub struct FileSink {
 }
 
 /// File writer wrapper
+#[allow(dead_code)]
 struct FileWriter {
     file: TokioFile,
     buffer: Vec<u8>,
@@ -336,6 +337,7 @@ impl FileWriter {
     }
 
     /// Get records written count
+    #[allow(dead_code)]
     fn records_written(&self) -> u64 {
         self.records_written
     }

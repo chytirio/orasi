@@ -545,7 +545,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Start server
     let listener = tokio::net::TcpListener::bind("127.0.0.1:8080").await?;
-    axum::serve(listener, app).await?;
+    axum::serve(listener, app.into_make_service()).await?;
 
     // Shutdown authentication system
     let auth_manager = Arc::try_unwrap(auth_manager).map_err(|_| {

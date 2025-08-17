@@ -10,6 +10,7 @@ use orasi_controller::{Controller, ControllerResult, Metrics};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::signal;
+
 use tower_http::cors::CorsLayer;
 use tracing::{error, info};
 
@@ -48,7 +49,6 @@ async fn start_server(state: AppState) -> ControllerResult<()> {
         .route("/", get(root))
         .route("/health", get(health_check))
         .route("/metrics", get(metrics))
-        .layer(CorsLayer::permissive())
         .with_state(state);
 
     let addr = std::net::SocketAddr::from(([0, 0, 0, 0], 8080));

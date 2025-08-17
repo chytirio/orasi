@@ -16,16 +16,16 @@ bridge-core = { path = "../../crates/bridge-core" }
 bridge-api = { path = "../../crates/bridge-api" }
 
 # HTTP and gRPC dependencies
-axum = "0.7"
-tonic = "0.11"
-prost = "0.12"
+axum = { workspace = true }
+tonic = { workspace = true }
+prost = { workspace = true }
 hyper = { version = "1.1", features = ["full"] }
 tower = "0.5"
 tower-http = { version = "0.5", features = ["cors", "trace", "compression-br"] }
 tower-load = "0.3"
 
 # Async runtime
-tokio = { version = "1.0", features = ["full"] }
+tokio = { workspace = true }
 async-trait = "0.1"
 
 # Serialization
@@ -59,7 +59,7 @@ consul = "0.4"
 
 # Health checks
 health = "0.2"
-tonic-health = "0.11"
+tonic-health = { workspace = true }
 
 # Rate limiting and caching
 governor = "0.6"

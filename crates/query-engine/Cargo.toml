@@ -42,7 +42,7 @@ async-trait = "0.1"
 
 # DataFusion and Arrow ecosystem
 datafusion = { version = "49.0", default-features = false, features = ["parquet"] }
-arrow = { workspace = true, default-features = false, features = [] }
+arrow = { workspace = true }
 arrow-array = { workspace = true }
 arrow-schema = { workspace = true }
 arrow-cast = { workspace = true }

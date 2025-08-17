@@ -1,0 +1,94 @@
+# Service Dockerfile for Orasi OpenTelemetry Data Lake Bridge
+# This creates individual images for each service binary
+
+ARG BINARY_NAME
+ARG BUILD_TYPE=release
+ARG RUST_VERSION=latest
+
+# Build stage
+FROM rust:${RUST_VERSION} AS builder
+
+# Redeclare ARG variables for this stage
+ARG BINARY_NAME
+ARG BUILD_TYPE=release
+ARG RUST_VERSION=latest
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    pkg-config \
+    libssl-dev \
+    libpq-dev \
+    protobuf-compiler \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Configure Git to use HTTPS instead of SSH
+RUN git config --global url."https://github.com/".insteadOf git@github.com:
+
+# Set working directory
+WORKDIR /app
+
+# Copy workspace files
+COPY Cargo.toml Cargo.lock ./
+COPY crates/ ./crates/
+COPY app/ ./app/
+COPY connectors/ ./connectors/
+COPY infra/ ./infra/
+COPY testing/ ./testing/
+COPY examples/ ./examples/
+
+# Update Cargo.lock to be compatible with current Cargo version
+RUN cargo update
+
+# Build the specific binary
+RUN if [ "${BUILD_TYPE}" = "release" ]; then \
+        cargo build --bin ${BINARY_NAME} --release; \
+    else \
+        cargo build --bin ${BINARY_NAME}; \
+    fi
+
+# Runtime stage
+FROM debian:bookworm-slim
+
+# Redeclare ARG variables for this stage
+ARG BINARY_NAME
+ARG BUILD_TYPE=release
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    libssl3 \
+    libpq5 \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user
+RUN groupadd -r orasi && useradd -r -g orasi orasi
+
+# Set working directory
+WORKDIR /app
+
+# Copy binary from builder stage
+COPY --from=builder /app/target/${BUILD_TYPE}/${BINARY_NAME} /app/${BINARY_NAME}
+
+# Create necessary directories
+RUN mkdir -p /app/logs /app/data && \
+    chown -R orasi:orasi /app
+
+# Switch to non-root user
+USER orasi
+
+# Set default ports based on binary name
+ARG DEFAULT_PORT=8080
+ENV PORT=${DEFAULT_PORT}
+ENV BINARY_NAME=${BINARY_NAME}
+
+# Expose default port
+EXPOSE ${PORT}
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:${PORT}/health/live || exit 1
+
+# Default command - handle different binaries with different startup commands
+CMD ["sh", "-c", "if [ \"${BINARY_NAME}\" = \"schema-registry\" ]; then /app/${BINARY_NAME} serve; else /app/${BINARY_NAME}; fi"]

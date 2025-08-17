@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: schema-registry
+  namespace: orasi
+  labels:
+    app: schema-registry
+    component: registry
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: schema-registry
+  template:
+    metadata:
+      labels:
+        app: schema-registry
+        component: registry
+    spec:
+      containers:
+      - name: schema-registry
+        image: orasi/schema-registry:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: RUST_LOG
+          value: "info"
+        - name: CONFIG_PATH
+          value: "/config/schema-registry-config.yaml"
+        volumeMounts:
+        - name: config
+          mountPath: /config
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: config
+        configMap:
+          name: orasi-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: schema-registry
+  namespace: orasi
+  labels:
+    app: schema-registry
+    component: registry
+spec:
+  type: NodePort
+  ports:
+  - port: 8080
+    targetPort: 8080
+    nodePort: 30081
+    protocol: TCP
+    name: http
+  selector:
+    app: schema-registry

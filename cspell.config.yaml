@@ -14,9 +14,11 @@ words:
   - jdbc
   - jovyan
   - justfile
+  - kubeconfig
   - lakehouse
   - lakehouses
   - Leptos
+  - minioadmin
   - nocapture
   - orasi
   - OTAP

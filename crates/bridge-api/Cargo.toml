@@ -24,16 +24,16 @@ schema-registry = { path = "../schema-registry" }
 bridge-auth = { path = "../bridge-auth" }
 
 # HTTP and gRPC dependencies
-axum = "0.7"
-tonic = "0.11"
-prost = "0.12"
-hyper = { version = "0.14", features = ["full"] }
-tower = "0.5"
+axum = { workspace = true }
+tonic = { workspace = true }
+prost = { workspace = true }
+hyper = { workspace = true }
+tower = { workspace = true }
 tower-http = { version = "0.5", features = ["cors", "trace", "compression-gzip", "limit"] }
 reqwest = { version = "0.11", features = ["json"] }
 
 # Async runtime
-tokio = { version = "1.0", features = ["full"] }
+tokio = { workspace = true }
 async-trait = "0.1"
 tokio-stream = { version = "0.1", features = ["net"] }
 
@@ -79,7 +79,7 @@ utoipa-swagger-ui = { version = "6.0", features = ["axum"] }
 sysinfo = "0.30"
 
 [build-dependencies]
-tonic-build = "0.11"
+tonic-build = { workspace = true }
 
 [dev-dependencies]
 tokio-test = "0.4"

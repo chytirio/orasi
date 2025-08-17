@@ -1,0 +1,54 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: orasi-config
+  namespace: orasi
+data:
+  # Bridge API configuration
+  bridge-api-config.yaml: |
+    server:
+      host: "0.0.0.0"
+      port: 8080
+    auth:
+      enabled: false
+      jwt_secret: "your-secret-key"
+    cors:
+      allowed_origins: ["*"]
+      allowed_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+      allowed_headers: ["*"]
+    logging:
+      level: "info"
+      format: "json"
+    metrics:
+      enabled: true
+      port: 9090
+
+  # Schema Registry configuration
+  schema-registry-config.yaml: |
+    server:
+      host: "0.0.0.0"
+      port: 8080
+    storage:
+      type: "memory"
+    auth:
+      enabled: false
+    cors:
+      allowed_origins: ["*"]
+      allowed_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+      allowed_headers: ["*"]
+    logging:
+      level: "info"
+      format: "json"
+
+  # Web UI configuration
+  web-config.yaml: |
+    api:
+      base_url: "http://localhost:30080"
+      schema_registry_url: "http://localhost:30081"
+    server:
+      host: "0.0.0.0"
+      port: 8080
+    cors:
+      allowed_origins: ["*"]
+    logging:
+      level: "info"

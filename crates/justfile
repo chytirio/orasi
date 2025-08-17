@@ -1,0 +1,128 @@
+# Orasi Crates - Core library targets
+# Justfile for crates directory
+
+# Build all crates
+build:
+    cargo build -p bridge-core -p bridge-api -p bridge-auth -p ingestion -p query-engine -p schema-registry -p streaming-processor
+
+# Build specific crate
+build-crate crate:
+    cargo build -p {{crate}}
+
+# Test all crates
+test:
+    cargo test -p bridge-core -p bridge-api -p bridge-auth -p ingestion -p query-engine -p schema-registry -p streaming-processor
+
+# Test specific crate
+test-crate crate:
+    cargo test -p {{crate}}
+
+# Run clippy on all crates
+clippy:
+    cargo clippy -p bridge-core -p bridge-api -p bridge-auth -p ingestion -p query-engine -p schema-registry -p streaming-processor
+
+# Run clippy on specific crate
+clippy-crate crate:
+    cargo clippy -p {{crate}}
+
+# Generate documentation for all crates
+doc:
+    cargo doc -p bridge-core -p bridge-api -p bridge-auth -p ingestion -p query-engine -p schema-registry -p streaming-processor
+
+# Generate documentation for specific crate
+doc-crate crate:
+    cargo doc -p {{crate}}
+
+# Run examples for bridge-api
+example-bridge-api:
+    cargo run --example grpc_example -p bridge-api
+
+# Run examples for bridge-api (integrated)
+example-bridge-api-integrated:
+    cargo run --example integrated_grpc_example -p bridge-api
+
+# Run examples for bridge-api (real integration)
+example-bridge-api-real:
+    cargo run --example real_integration_example -p bridge-api
+
+# Run examples for streaming-processor
+example-streaming-basic:
+    cargo run --example basic_streaming -p streaming-processor
+
+# Run examples for streaming-processor (bridge integration)
+example-streaming-bridge:
+    cargo run --example bridge_integration -p streaming-processor
+
+# Run examples for streaming-processor (arrow kafka)
+example-streaming-arrow-kafka:
+    cargo run --example arrow_kafka_example -p streaming-processor
+
+# Run examples for streaming-processor (batch compression)
+example-streaming-batch-compression:
+    cargo run --example batch_compression_example -p streaming-processor
+
+# Run examples for streaming-processor (kafka sink)
+example-streaming-kafka-sink:
+    cargo run --example kafka_sink_example -p streaming-processor
+
+# Run examples for streaming-processor (http sink)
+example-streaming-http-sink:
+    cargo run --example http_sink_example -p streaming-processor
+
+# Run examples for ingestion
+example-ingestion-basic:
+    cargo run --example basic_ingestion -p ingestion
+
+# Run examples for ingestion (minimal otap)
+example-ingestion-minimal-otap:
+    cargo run --example minimal_otap_example -p ingestion
+
+# Run examples for ingestion (otap)
+example-ingestion-otap:
+    cargo run --example otap_example -p ingestion
+
+# Run examples for ingestion (otap receiver)
+example-ingestion-otap-receiver:
+    cargo run --example otap_receiver_example -p ingestion
+
+# Run examples for ingestion (receiver)
+example-ingestion-receiver:
+    cargo run --example receiver_example -p ingestion
+
+# Run examples for ingestion (simple receiver)
+example-ingestion-simple-receiver:
+    cargo run --example simple_receiver_example -p ingestion
+
+# Run examples for query-engine
+example-query-engine:
+    cargo run --example query_engine_example -p query-engine
+
+# Run examples for query-engine (datafusion)
+example-query-engine-datafusion:
+    cargo run --example datafusion_query_example -p query-engine
+
+# Run all crate examples
+examples: example-bridge-api example-streaming-basic example-ingestion-basic example-query-engine
+
+# Run key crate examples
+examples-key: example-bridge-api example-streaming-basic example-ingestion-basic
+
+# Show crate information
+info:
+    @echo "=== Orasi Crates ==="
+    @echo ""
+    @echo "📦 Available crates:"
+    @echo "  • bridge-core        # Core library functionality"
+    @echo "  • bridge-api         # gRPC API server"
+    @echo "  • bridge-auth        # Authentication and authorization"
+    @echo "  • ingestion          # Data ingestion pipeline"
+    @echo "  • query-engine       # SQL query engine"
+    @echo "  • schema-registry    # Schema management"
+    @echo "  • streaming-processor # Real-time data processing"
+    @echo ""
+    @echo "🚀 Key Commands:"
+    @echo "  • just build         # Build all crates"
+    @echo "  • just test          # Test all crates"
+    @echo "  • just clippy        # Lint all crates"
+    @echo "  • just examples-key  # Run key examples"
+    @echo "  • just info          # Show this information"

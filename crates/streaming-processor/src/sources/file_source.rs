@@ -132,6 +132,7 @@ pub struct FileSource {
 }
 
 /// File reader wrapper
+#[allow(dead_code)]
 struct FileReader {
     file: Option<File>,
     buffer: Vec<u8>,

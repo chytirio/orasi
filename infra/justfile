@@ -1,0 +1,402 @@
+# Orasi Infrastructure - Infrastructure targets
+# Justfile for infra directory
+
+# =============================================================================
+# Docker Bake Targets
+# =============================================================================
+
+# Build all services (release mode)
+docker-bake-all:
+    ./docker/build.sh
+
+# Build all services (debug mode)
+docker-bake-all-debug:
+    ./docker/build.sh -t debug all
+
+# Build all services (release mode) with custom registry
+docker-bake-all-registry registry:
+    ./docker/build.sh -r {{registry}} all
+
+# Build all services with custom tag
+docker-bake-all-tag tag:
+    ./docker/build.sh --tag {{tag}} all
+
+# Build development images (debug mode)
+docker-bake-dev:
+    ./docker/build.sh -t debug dev
+
+# Build production images (release mode)
+docker-bake-prod:
+    ./docker/build.sh prod
+
+# Build bridge-api service (release mode)
+docker-bake-bridge-api:
+    ./docker/build.sh bridge-api
+
+# Build bridge-api service (debug mode)
+docker-bake-bridge-api-debug:
+    ./docker/build.sh -t debug bridge-api
+
+# Build schema-registry service (release mode)
+docker-bake-schema-registry:
+    ./docker/build.sh schema-registry
+
+# Build schema-registry service (debug mode)
+docker-bake-schema-registry-debug:
+    ./docker/build.sh -t debug schema-registry
+
+# Build controller service (release mode)
+docker-bake-controller:
+    ./docker/build.sh controller
+
+# Build controller service (debug mode)
+docker-bake-controller-debug:
+    ./docker/build.sh -t debug controller
+
+# Build specific service with custom settings
+docker-bake-service service registry="orasi" tag="latest" build_type="release":
+    ./docker/build.sh -r {{registry}} --tag {{tag}} -t {{build_type}} {{service}}
+
+# Build for multiple platforms
+docker-bake-multi-platform:
+    ./docker/build.sh -p "linux/amd64,linux/arm64" all
+
+# Build and push to registry
+docker-bake-push registry tag="latest":
+    ./docker/build.sh -r {{registry}} --tag {{tag}} all
+    docker push {{registry}}/bridge-api:{{tag}}
+    docker push {{registry}}/schema-registry:{{tag}}
+    docker push {{registry}}/controller:{{tag}}
+
+# Show available Docker images
+docker-bake-images:
+    docker images | grep "orasi" || echo "No orasi images found"
+
+# Clean Docker images
+docker-bake-clean:
+    docker rmi $(docker images | grep "orasi" | awk '{print $3}') 2>/dev/null || echo "No orasi images to clean"
+
+# Run bridge-api container
+docker-bake-run-bridge-api:
+    docker run -p 8080:8080 orasi/bridge-api:latest
+
+# Run schema-registry container
+docker-bake-run-schema-registry:
+    docker run -p 8080:8080 orasi/schema-registry:latest
+
+# Run controller container
+docker-bake-run-controller:
+    docker run -p 8080:8080 orasi/controller:latest
+
+# Show Docker Bake help
+docker-bake-help:
+    ./docker/build.sh -h
+
+# Show Docker Bake examples
+docker-bake-examples:
+    ./example-usage.sh
+
+# =============================================================================
+# Docker Compose with Bake Integration
+# =============================================================================
+
+# Start all services with baked images (release mode)
+compose-bake-up:
+    docker-compose -f infra/docker/docker-compose.bake.yml up -d
+
+# Start all services with baked images (debug mode)
+compose-bake-up-dev:
+    docker-compose -f infra/docker/docker-compose.bake.dev.yml up -d
+
+# Start all services with baked images and logs
+compose-bake-up-logs:
+    docker-compose -f infra/docker/docker-compose.bake.yml up
+
+# Start all services with baked images and logs (debug mode)
+compose-bake-up-logs-dev:
+    docker-compose -f infra/docker/docker-compose.bake.dev.yml up
+
+# Stop all services
+compose-bake-down:
+    docker-compose -f infra/docker/docker-compose.bake.yml down
+
+# Stop all services (debug mode)
+compose-bake-down-dev:
+    docker-compose -f infra/docker/docker-compose.bake.dev.yml down
+
+# Stop all services and remove volumes
+compose-bake-down-clean:
+    docker-compose -f infra/docker/docker-compose.bake.yml down -v
+
+# Stop all services and remove volumes (debug mode)
+compose-bake-down-clean-dev:
+    docker-compose -f infra/docker/docker-compose.bake.dev.yml down -v
+
+# Restart all services
+compose-bake-restart:
+    docker-compose -f infra/docker/docker-compose.bake.yml restart
+
+# Restart all services (debug mode)
+compose-bake-restart-dev:
+    docker-compose -f infra/docker/docker-compose.bake.dev.yml restart
+
+# Show status of all services
+compose-bake-status:
+    docker-compose -f infra/docker/docker-compose.bake.yml ps
+
+# Show status of all services (debug mode)
+compose-bake-status-dev:
+    docker-compose -f infra/docker/docker-compose.bake.dev.yml ps
+
+# Show logs for all services
+compose-bake-logs:
+    docker-compose -f infra/docker/docker-compose.bake.yml logs
+
+# Show logs for all services (debug mode)
+compose-bake-logs-dev:
+    docker-compose -f infra/docker/docker-compose.bake.dev.yml logs
+
+# Show logs for specific service
+compose-bake-logs-service service:
+    docker-compose -f infra/docker/docker-compose.bake.yml logs {{service}}
+
+# Show logs for specific service (debug mode)
+compose-bake-logs-service-dev service:
+    docker-compose -f infra/docker/docker-compose.bake.dev.yml logs {{service}}
+
+# Follow logs for all services
+compose-bake-logs-follow:
+    docker-compose -f infra/docker/docker-compose.bake.yml logs -f
+
+# Follow logs for all services (debug mode)
+compose-bake-logs-follow-dev:
+    docker-compose -f infra/docker/docker-compose.bake.dev.yml logs -f
+
+# Follow logs for specific service
+compose-bake-logs-follow-service service:
+    docker-compose -f infra/docker/docker-compose.bake.yml logs -f {{service}}
+
+# Follow logs for specific service (debug mode)
+compose-bake-logs-follow-service-dev service:
+    docker-compose -f infra/docker/docker-compose.bake.dev.yml logs -f {{service}}
+
+# Build and start all services
+compose-bake-build-up:
+    just docker-bake-all
+    just compose-bake-up
+
+# Build and start all services (debug mode)
+compose-bake-build-up-dev:
+    just docker-bake-dev
+    just compose-bake-up-dev
+
+# Build, push, and start all services
+compose-bake-build-push-up registry tag="latest":
+    just docker-bake-push {{registry}} {{tag}}
+    BUILD_TYPE=release docker-compose -f infra/docker/docker-compose.bake.yml up -d
+
+# Build, push, and start all services (debug mode)
+compose-bake-build-push-up-dev registry tag="debug":
+    just docker-bake-push {{registry}} {{tag}}
+    docker-compose -f infra/docker/docker-compose.bake.dev.yml up -d
+
+# =============================================================================
+# Kind Cluster for Local Testing
+# =============================================================================
+
+# Setup Kind cluster and deploy Orasi services
+kind-setup:
+    cd infra/.dev/kind && ./setup.sh
+
+# Teardown Kind cluster and clean up resources
+kind-teardown:
+    cd infra/.dev/kind && ./teardown.sh
+
+# Teardown Kind cluster with full cleanup (cluster + Docker + images)
+kind-teardown-full:
+    cd infra/.dev/kind && ./teardown.sh full
+
+# Test Kind cluster health and service availability
+kind-test:
+    cd infra/.dev/kind && ./test-cluster.sh
+
+# Show Kind cluster status
+kind-status:
+    kubectl get nodes
+    kubectl get pods -n orasi
+    kubectl get services -n orasi
+
+# Show Kind cluster logs
+kind-logs:
+    kubectl logs -f -l app=bridge-api -n orasi & \
+    kubectl logs -f -l app=schema-registry -n orasi & \
+    kubectl logs -f -l app=web-ui -n orasi & \
+    wait
+
+# Show logs for specific service
+kind-logs-service service:
+    kubectl logs -f deployment/{{service}} -n orasi
+
+# Show logs for bridge-api
+kind-logs-bridge-api:
+    kubectl logs -f deployment/bridge-api -n orasi
+
+# Show logs for schema-registry
+kind-logs-schema-registry:
+    kubectl logs -f deployment/schema-registry -n orasi
+
+# Show logs for web-ui
+kind-logs-web-ui:
+    kubectl logs -f deployment/web-ui -n orasi
+
+# Restart all Orasi services
+kind-restart:
+    kubectl rollout restart deployment/bridge-api -n orasi
+    kubectl rollout restart deployment/schema-registry -n orasi
+    kubectl rollout restart deployment/web-ui -n orasi
+
+# Restart specific service
+kind-restart-service service:
+    kubectl rollout restart deployment/{{service}} -n orasi
+
+# Scale services
+kind-scale service replicas:
+    kubectl scale deployment/{{service}} --replicas={{replicas}} -n orasi
+
+# Scale all services
+kind-scale-all replicas:
+    kubectl scale deployment/bridge-api --replicas={{replicas}} -n orasi
+    kubectl scale deployment/schema-registry --replicas={{replicas}} -n orasi
+    kubectl scale deployment/web-ui --replicas={{replicas}} -n orasi
+
+# Port forward services for local access
+kind-port-forward:
+    kubectl port-forward service/bridge-api 30080:8080 -n orasi & \
+    kubectl port-forward service/schema-registry 30081:8080 -n orasi & \
+    kubectl port-forward service/web-ui 30082:8080 -n orasi & \
+    echo "Services available at:"
+    echo "  Bridge API: http://localhost:30080"
+    echo "  Schema Registry: http://localhost:30081"
+    echo "  Web UI: http://localhost:30082"
+    echo "Press Ctrl+C to stop port forwarding"
+    wait
+
+# Port forward specific service
+kind-port-forward-service service port:
+    kubectl port-forward service/{{service}} {{port}}:8080 -n orasi
+
+# Port forward bridge-api
+kind-port-forward-bridge-api:
+    kubectl port-forward service/bridge-api 30080:8080 -n orasi
+
+# Port forward schema-registry
+kind-port-forward-schema-registry:
+    kubectl port-forward service/schema-registry 30081:8080 -n orasi
+
+# Port forward web-ui
+kind-port-forward-web-ui:
+    kubectl port-forward service/web-ui 30082:8080 -n orasi
+
+# Test service health endpoints
+kind-health:
+    curl -f http://localhost:30080/health/live || echo "Bridge API health check failed"
+    curl -f http://localhost:30081/health/live || echo "Schema Registry health check failed"
+    curl -f http://localhost:30082/health || echo "Web UI health check failed"
+
+# Test bridge-api health
+kind-health-bridge-api:
+    curl -f http://localhost:30080/health/live
+
+# Test schema-registry health
+kind-health-schema-registry:
+    curl -f http://localhost:30081/health/live
+
+# Test web-ui health
+kind-health-web-ui:
+    curl -f http://localhost:30082/health
+
+# Open service URLs in browser
+kind-open:
+    open http://localhost:30080 || echo "Could not open Bridge API"
+    open http://localhost:30081 || echo "Could not open Schema Registry"
+    open http://localhost:30082 || echo "Could not open Web UI"
+
+# Open bridge-api in browser
+kind-open-bridge-api:
+    open http://localhost:30080
+
+# Open schema-registry in browser
+kind-open-schema-registry:
+    open http://localhost:30081
+
+# Open web-ui in browser
+kind-open-web-ui:
+    open http://localhost:30082
+
+# Build and load Docker images for Kind cluster
+kind-build-images:
+    just docker-bake-all
+    kind load docker-image orasi/bridge-api:latest --name orasi-test
+    kind load docker-image orasi/schema-registry:latest --name orasi-test
+    kind load docker-image orasi/web:latest --name orasi-test
+
+# Build and load specific image for Kind cluster
+kind-build-image service:
+    just docker-bake-{{service}}
+    kind load docker-image orasi/{{service}}:latest --name orasi-test
+
+# Deploy Orasi services to Kind cluster
+kind-deploy:
+    kubectl apply -f infra/.dev/kind/k8s/ -n orasi
+
+# Delete Orasi services from Kind cluster
+kind-delete:
+    kubectl delete -f infra/.dev/kind/k8s/ -n orasi
+
+# Show Kind cluster information
+kind-info:
+    @echo "=== Kind Cluster Information ==="
+    @echo "🐳 Cluster:"
+    @kind get clusters 2>/dev/null || echo "  No clusters found"
+    @echo ""
+    @echo "🌐 Service URLs (if port forwarding is active):"
+    @echo "  • Bridge API:      http://localhost:30080"
+    @echo "  • Schema Registry: http://localhost:30081"
+    @echo "  • Web UI:          http://localhost:30082"
+    @echo ""
+    @echo "🔧 Key Commands:"
+    @echo "  • just kind-setup   # Setup cluster and deploy services"
+    @echo "  • just kind-test    # Test cluster health"
+    @echo "  • just kind-status  # Show cluster status"
+    @echo "  • just kind-logs    # View service logs"
+    @echo "  • just kind-teardown # Cleanup cluster"
+    @echo "  • just kind-port-forward # Port forward services"
+    @echo "  • just kind-open    # Open services in browser"
+
+# Quick start Kind cluster
+kind-quickstart: kind-setup kind-test kind-info
+
+# Show infrastructure information
+info:
+    @echo "=== Orasi Infrastructure ==="
+    @echo ""
+    @echo "🐳 Docker Bake:"
+    @echo "  • just docker-bake-all   # Build all services (release)"
+    @echo "  • just docker-bake-dev   # Build all services (debug)"
+    @echo "  • just docker-bake-prod  # Build all services (release)"
+    @echo "  • just docker-bake-help  # Show Docker Bake help"
+    @echo ""
+    @echo "🐳 Docker Compose with Bake:"
+    @echo "  • just compose-bake-up   # Start all services (release)"
+    @echo "  • just compose-bake-up-dev # Start all services (debug)"
+    @echo "  • just compose-bake-build-up # Build and start (release)"
+    @echo "  • just compose-bake-build-up-dev # Build and start (debug)"
+    @echo ""
+    @echo "🐳 Kind Cluster for Local Testing:"
+    @echo "  • just kind-quickstart   # Quick setup and test"
+    @echo "  • just kind-setup        # Setup cluster and deploy services"
+    @echo "  • just kind-test         # Test cluster health"
+    @echo "  • just kind-status       # Show cluster status"
+    @echo "  • just kind-teardown     # Cleanup cluster"
+    @echo "  • just kind-port-forward # Port forward services"
+    @echo "  • just kind-open         # Open services in browser"

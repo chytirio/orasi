@@ -80,7 +80,7 @@ async fn test_kafka_source_config_validation() {
     assert!(result.is_ok());
 
     // Test invalid config (empty bootstrap servers)
-    let mut invalid_config =
+    let invalid_config =
         KafkaSourceConfig::new(vec![], "test-topic".to_string(), "test-group".to_string());
     let result = invalid_config.validate().await;
     assert!(result.is_err());

@@ -18,15 +18,15 @@ streaming-processor = { path = "../../crates/streaming-processor" }
 schema-registry = { path = "../../crates/schema-registry" }
 
 # HTTP and gRPC dependencies
-axum = "0.7"
-tonic = "0.11"
-prost = "0.12"
+axum = { workspace = true }
+tonic = { workspace = true }
+prost = { workspace = true }
 hyper = { version = "1.1", features = ["full"] }
 tower = "0.5"
 tower-http = { version = "0.5", features = ["cors", "trace", "compression-br"] }
 
 # Async runtime
-tokio = { version = "1.0", features = ["full"] }
+tokio = { workspace = true }
 async-trait = "0.1"
 
 # Serialization
@@ -60,7 +60,7 @@ consul = "0.4"
 
 # Health checks and service discovery
 health = "0.2"
-tonic-health = "0.11"
+tonic-health = { workspace = true }
 
 # Data processing
 arrow = "56.0"

@@ -5,11 +5,12 @@
 //! Authentication middleware for HTTP requests
 
 use axum::{
-    extract::{Request, State},
+    extract::State,
     http::{HeaderMap, StatusCode},
     middleware::Next,
     response::Response,
 };
+use axum::extract::Request;
 use std::sync::Arc;
 
 use tracing::{debug, warn};

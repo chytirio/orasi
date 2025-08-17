@@ -22,7 +22,7 @@ use opentelemetry_proto::tonic::collector::{
 use opentelemetry_proto::tonic::common::v1::any_value::Value as AnyValueValue;
 use opentelemetry_proto::tonic::metrics::v1::metric::Data as OtlpMetricData;
 use opentelemetry_proto::tonic::metrics::v1::number_data_point::Value as NumberDataPointValue;
-use prost::Message;
+use ::prost::Message;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;

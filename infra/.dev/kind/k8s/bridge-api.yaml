@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bridge-api
+  namespace: orasi
+  labels:
+    app: bridge-api
+    component: api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bridge-api
+  template:
+    metadata:
+      labels:
+        app: bridge-api
+        component: api
+    spec:
+      containers:
+      - name: bridge-api
+        image: orasi/bridge-api:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8080
+          name: http
+        - containerPort: 9090
+          name: metrics
+        env:
+        - name: RUST_LOG
+          value: "info"
+        - name: CONFIG_PATH
+          value: "/config/bridge-api-config.yaml"
+        volumeMounts:
+        - name: config
+          mountPath: /config
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: config
+        configMap:
+          name: orasi-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bridge-api
+  namespace: orasi
+  labels:
+    app: bridge-api
+    component: api
+spec:
+  type: NodePort
+  ports:
+  - port: 8080
+    targetPort: 8080
+    nodePort: 30080
+    protocol: TCP
+    name: http
+  - port: 9090
+    targetPort: 9090
+    protocol: TCP
+    name: metrics
+  selector:
+    app: bridge-api

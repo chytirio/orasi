@@ -141,6 +141,7 @@ cargo run --bin query-engine
 
 ```
 orasi/
+├── docs/                     # Documentation
 ├── crates/
 │   ├── bridge-core/          # Core types and utilities
 │   ├── bridge-api/           # REST/gRPC API server
@@ -150,9 +151,13 @@ orasi/
 │   └── schema-registry/      # Schema management
 ├── app/
 │   ├── orasi-agent/          # Agent runtime
-│   └── orasi-gateway/        # Gateway runtime
-├── examples/                 # Usage examples
-└── docs/                     # Documentation
+│   ├── orasi-cli/            # Management CLI
+│   ├── orasi-gateway/        # Gateway runtime
+│   └── orasi-web/            # Web portal
+├── testing/                  
+│   ├── data-generator/       # SQL query processing
+│   └── test-runner/          # Web portal
+└── examples/                 # Usage examples
 ```
 
 ### Building

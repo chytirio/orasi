@@ -30,7 +30,7 @@ opentelemetry-semantic-conventions = { workspace = true }
 opentelemetry-proto = { workspace = true, features = ["gen-tonic-messages", "gen-tonic", "trace", "metrics", "logs"] }
 
 # OTel-Arrow dependencies
-otel-arrow-rust = { workspace = true }
+# otel-arrow-rust = { workspace = true }
 
 # Arrow dependencies
 arrow-array = { workspace = true }
@@ -42,6 +42,7 @@ parquet = { workspace = true }
 # Async and networking
 tonic = { workspace = true }
 hyper = { workspace = true }
+hyper-util = "0.1"
 axum = { workspace = true }
 tower = { workspace = true }
 reqwest = { workspace = true, features = ["json"] }

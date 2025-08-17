@@ -1,0 +1,35 @@
+# Base runtime Dockerfile for Orasi OpenTelemetry Data Lake Bridge
+# This provides the common runtime environment for all services
+
+ARG RUST_VERSION=1.75-slim
+
+FROM debian:bookworm-slim
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    libssl3 \
+    libpq5 \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user
+RUN groupadd -r orasi && useradd -r -g orasi orasi
+
+# Set working directory
+WORKDIR /app
+
+# Create necessary directories
+RUN mkdir -p /app/logs /app/data && \
+    chown -R orasi:orasi /app
+
+# Switch to non-root user
+USER orasi
+
+# Set environment variables
+ENV RUST_LOG=info
+ENV RUST_BACKTRACE=1
+
+# Default health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8080/health/live || exit 1

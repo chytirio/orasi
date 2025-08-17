@@ -158,11 +158,11 @@ impl CircuitBreaker {
 
         match result {
             Ok(value) => {
-                self.record_success().await;
+                let _ = self.record_success().await;
                 Ok(value)
             }
             Err(e) => {
-                self.record_failure().await;
+                let _ = self.record_failure().await;
                 Err(e)
             }
         }

@@ -1,0 +1,2 @@
+[db]
+path = ./cache/db # todo: update to metastore

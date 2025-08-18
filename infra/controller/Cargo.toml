@@ -29,7 +29,7 @@ metrics-exporter-prometheus = { workspace = true }
 
 # HTTP and networking dependencies
 futures = "0.3"
-tower-http = { version = "0.5", features = ["cors", "trace"] }
+tower-http = { workspace = true, features = ["cors", "trace"] }
 tokio-stream = "0.1"
 
 # Additional dependencies for controller

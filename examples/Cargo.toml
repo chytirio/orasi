@@ -17,7 +17,7 @@ ingestion = { path = "../crates/ingestion" }
 bridge-auth = { path = "../crates/bridge-auth" }
 streaming-processor = { path = "../crates/streaming-processor" }
 schema-registry = { path = "../crates/schema-registry" }
-bridge-api = { path = "../crates/bridge-api" }
+bridge-api = { path = "../app/orasi-bridge" }
 query-engine = { path = "../crates/query-engine" }
 
 # Connectors

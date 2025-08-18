@@ -75,7 +75,7 @@ services:
       - MINIO_ACCESS_KEY=minioadmin
       - MINIO_SECRET_KEY=minioadmin
     volumes:
-      - ./config:/app/config:ro
+      - ../../config:/app/config:ro
       - bridge_api_logs_dev:/app/logs
       - bridge_api_data_dev:/app/data
       - ./target:/app/target:ro  # Mount target for debugging
@@ -107,7 +107,7 @@ services:
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/orasi_dev
       - REDIS_URL=redis://redis:6379
     volumes:
-      - ./config:/app/config:ro
+      - ../../config:/app/config:ro
       - schema_registry_logs_dev:/app/logs
       - schema_registry_data_dev:/app/data
       - ./target:/app/target:ro  # Mount target for debugging
@@ -119,11 +119,45 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health/live"]
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
       interval: 30s
       timeout: 10s
       retries: 3
     restart: unless-stopped
+    command: ["/app/schema-registry", "serve", "--config", "/app/config/schema-registry.toml"]
+  
+  ballista-scheduler:
+    image: ghcr.io/apache/datafusion-ballista-scheduler:48.0.0
+    container_name: orasi-ballista-scheduler-dev
+    ports:
+      - "50050:50050"
+    environment:
+      - RUST_LOG=ballista=info
+    volumes:
+      - ./benchmarks/data:/data
+    healthcheck:
+      test: ["CMD", "nc", "-z", "ballista-scheduler", "50050"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+  
+  ballista-executor:
+    image: ghcr.io/apache/datafusion-ballista-executor:48.0.0
+    container_name: orasi-ballista-executor-dev
+    deploy: { replicas: 1 }
+    restart: always
+    environment:
+      - RUST_LOG=ballista=info
+    volumes:
+      - ./benchmarks/data:/data
+    depends_on:
+      - ballista-scheduler
+    healthcheck:
+      test: ["CMD", "nc", "-z", "ballista-executor", "50051"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    
 
   # Controller Service (Debug)
   # controller:
@@ -160,81 +194,89 @@ services:
   #   restart: unless-stopped
 
   # Spark Master
-  spark-master:
-    image: apache/spark:3.5.6
-    container_name: orasi-spark-master-dev
-    ports:
-      - "8083:8080"      # Spark Web UI
-      - "7077:7077"      # Spark Master port
-    environment:
-      - SPARK_MODE=master
-      - SPARK_RPC_AUTHENTICATION_ENABLED=no
-      - SPARK_RPC_ENCRYPTION_ENABLED=no
-      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
-      - SPARK_SSL_ENABLED=no
-    volumes:
-      - spark_data_dev:/opt/bitnami/spark/work
-      - ./config/spark-defaults.conf:/opt/bitnami/spark/conf/spark-defaults.conf:ro
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080"]
-      interval: 30s
-      timeout: 20s
-      retries: 3
-    networks:
-      - orasi-network-dev
-    depends_on:
-      minio:
-        condition: service_healthy
+  # spark-master:
+  #   image: apache/spark:3.5.6
+  #   container_name: orasi-spark-master-dev
+  #   entrypoint: [/opt/spark/sbin/start-master.sh]
+  #   ports:
+  #     - "8083:8080"      # Spark Web UI
+  #     - "7077:7077"      # Spark Master port
+  #   environment:
+  #     - SPARK_MODE=master
+  #     - SPARK_NO_DAEMONIZE=true
+  #     - SPARK_RPC_AUTHENTICATION_ENABLED=no
+  #     - SPARK_RPC_ENCRYPTION_ENABLED=no
+  #     - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+  #     - SPARK_SSL_ENABLED=no
+  #   volumes:
+  #     - spark_data_dev:/opt/spark/work-dir
+  #     # - ./config/spark-defaults.conf:/spark/conf/spark-defaults.conf:ro
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:8080"]
+  #     interval: 30s
+  #     timeout: 20s
+  #     retries: 3
+  #   networks:
+  #     - orasi-network-dev
+  #   depends_on:
+  #     minio:
+  #       condition: service_healthy
 
-  # Spark Worker
-  spark-worker:
-    image: apache/spark:3.5.6
-    container_name: orasi-spark-worker-dev
-    ports:
-      - "8084:8081"      # Spark Worker Web UI
-    environment:
-      - SPARK_MODE=worker
-      - SPARK_MASTER_URL=spark://spark-master:7077
-      - SPARK_WORKER_MEMORY=2G
-      - SPARK_WORKER_CORES=2
-      - SPARK_RPC_AUTHENTICATION_ENABLED=no
-      - SPARK_RPC_ENCRYPTION_ENABLED=no
-      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
-      - SPARK_SSL_ENABLED=no
-    volumes:
-      - spark_data_dev:/opt/spark/work-dir
-      - ./config/spark-defaults.conf:/opt/spark/conf/spark-defaults.conf:ro
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8081"]
-      interval: 30s
-      timeout: 20s
-      retries: 3
-    networks:
-      - orasi-network-dev
-    depends_on:
-      spark-master:
-        condition: service_healthy
+  # # Spark Worker
+  # spark-worker:
+  #   image: apache/spark:3.5.6
+  #   container_name: orasi-spark-worker-dev
+  #   entrypoint: [/opt/spark/sbin/start-worker.sh]
+  #   ports:
+  #     - "8084:8081"      # Spark Worker Web UI
+  #   environment:
+  #     - SPARK_MODE=worker
+  #     - SPARK_NO_DAEMONIZE=true
+  #     - SPARK_MASTER_URL=spark://spark-master:7077
+  #     - SPARK_WORKER_MEMORY=2G
+  #     - SPARK_WORKER_CORES=2
+  #     - SPARK_RPC_AUTHENTICATION_ENABLED=no
+  #     - SPARK_RPC_ENCRYPTION_ENABLED=no
+  #     - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+  #     - SPARK_SSL_ENABLED=no
+  #     - SPARK_MASTER_HOST=spark-master
+  #   volumes:
+  #     - spark_data_dev:/opt/spark/work-dir
+  #     - ./config/spark-defaults.conf:/opt/spark/conf/spark-defaults.conf:ro
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:8081"]
+  #     interval: 30s
+  #     timeout: 20s
+  #     retries: 3
+  #   networks:
+  #     - orasi-network-dev
+  #   depends_on:
+  #     spark-master:
+  #       condition: service_healthy
 
-  # Spark History Server
-  spark-history:
-    image: apache/spark:3.5.6
-    container_name: orasi-spark-history-dev
-    ports:
-      - "18080:18080"    # Spark History Server
-    environment:
-      - SPARK_MODE=history
-      - SPARK_RPC_AUTHENTICATION_ENABLED=no
-      - SPARK_RPC_ENCRYPTION_ENABLED=no
-      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
-      - SPARK_SSL_ENABLED=no
-    volumes:
-      - spark_data_dev:/opt/spark/work-dir
-      - ./config/spark-defaults.conf:/opt/spark/conf/spark-defaults.conf:ro
-    networks:
-      - orasi-network-dev
-    depends_on:
-      spark-master:
-        condition: service_healthy
+  # # Spark History Server
+  # spark-history:
+  #   image: apache/spark:3.5.6
+  #   container_name: orasi-spark-history-dev
+  #   entrypoint: [/opt/spark/sbin/start-master.sh]
+  #   ports:
+  #     - "18080:18080"    # Spark History Server
+  #   environment:
+  #     - SPARK_MODE=history
+  #     - SPARK_NO_DAEMONIZE=true
+  #     - SPARK_RPC_AUTHENTICATION_ENABLED=no
+  #     - SPARK_RPC_ENCRYPTION_ENABLED=no
+  #     - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+  #     - SPARK_SSL_ENABLED=no
+  #     - SPARK_MASTER_HOST=spark-master
+  #   volumes:
+  #     - spark_data_dev:/opt/spark/work-dir
+  #     - ./config/spark-defaults.conf:/opt/spark/conf/spark-defaults.conf:ro
+  #   networks:
+  #     - orasi-network-dev
+  #   depends_on:
+  #     spark-master:
+  #       condition: service_healthy
 
 volumes:
   minio_data_dev:

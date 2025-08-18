@@ -2,8 +2,8 @@
 
 use crate::{
     cluster::ClusterCoordinator, config::AgentConfig, error::AgentError, health::HealthChecker,
-    indexing::IndexingProcessor, ingestion::IngestionProcessor, metrics::MetricsCollector,
-    processing::TaskProcessor, service_discovery::ServiceDiscovery, state::AgentState, types::*,
+    metrics::MetricsCollector, processing::{TaskProcessor, IndexingProcessor, IngestionProcessor},
+    discovery::ServiceDiscovery, state::AgentState, types::*,
 };
 use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};

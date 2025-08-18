@@ -33,7 +33,7 @@ sha2 = "0.10"
 # HTTP and web
 axum = { workspace = true }
 tower = { workspace = true }
-tower-http = { version = "0.5", features = ["cors", "auth"] }
+tower-http = { workspace = true, features = ["cors", "auth"] }
 http = "0.2"
 hyper = { workspace = true }
 

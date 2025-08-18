@@ -5,7 +5,7 @@
 use crate::error::{SchemaRegistryError, SchemaRegistryResult};
 use crate::schema::{Schema, SchemaMetadata, SchemaSearchCriteria, SchemaVersion};
 use crate::storage::StorageBackend;
-use crate::validation::{SchemaValidator, SchemaValidatorTrait, ValidationResult};
+use crate::schema::validation::{SchemaValidator, SchemaValidatorTrait, ValidationResult};
 use std::sync::Arc;
 
 /// Schema operations handler

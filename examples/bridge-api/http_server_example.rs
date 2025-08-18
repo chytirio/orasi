@@ -462,7 +462,9 @@ async fn main() -> BridgeResult<()> {
 
     // Run the server for a few seconds
     let server_handle = tokio::spawn(async move {
-        axum::serve(listener, app.into_make_service()).await.unwrap();
+        axum::serve(listener, app.into_make_service())
+            .await
+            .unwrap();
     });
 
     // Let the server run for a few seconds

@@ -8,16 +8,12 @@
 //! handling external traffic routing, load balancing, and API services.
 
 pub mod config;
+pub mod discovery;
 pub mod error;
 pub mod gateway;
-pub mod health;
 pub mod load_balancer;
 pub mod metrics;
-pub mod proxy;
-pub mod rate_limiter;
 pub mod routing;
-pub mod service_discovery;
-pub mod tls;
 pub mod types;
 
 // Re-export main types

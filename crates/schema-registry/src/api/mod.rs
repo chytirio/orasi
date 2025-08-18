@@ -6,6 +6,7 @@
 //!
 //! This module provides HTTP API endpoints for the schema registry.
 
+pub mod common;
 pub mod endpoints;
 pub mod error;
 pub mod requests;
@@ -13,6 +14,7 @@ pub mod responses;
 pub mod server;
 
 // Re-export main types for convenience
+pub use common::{*, generate_request_id, extract_query_params, build_query_string};
 pub use error::ApiError;
 pub use requests::*;
 pub use responses::*;

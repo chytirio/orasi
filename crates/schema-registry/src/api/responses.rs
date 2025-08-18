@@ -4,7 +4,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::schema::{Schema, SchemaMetadata};
+use crate::schema::{Schema, SchemaMetadata, validation::{ValidationError, ValidationWarning}};
 
 /// Health check response
 #[derive(Debug, Serialize)]
@@ -75,10 +75,10 @@ pub struct ValidateDataResponse {
     pub warning_count: usize,
 
     /// Validation errors
-    pub errors: Vec<crate::validation::ValidationError>,
+    pub errors: Vec<ValidationError>,
 
     /// Validation warnings
-    pub warnings: Vec<crate::validation::ValidationWarning>,
+    pub warnings: Vec<ValidationWarning>,
 }
 
 /// Validate schema response
@@ -97,10 +97,10 @@ pub struct ValidateSchemaResponse {
     pub warning_count: usize,
 
     /// Validation errors
-    pub errors: Vec<crate::validation::ValidationError>,
+    pub errors: Vec<ValidationError>,
 
     /// Validation warnings
-    pub warnings: Vec<crate::validation::ValidationWarning>,
+    pub warnings: Vec<ValidationWarning>,
 }
 
 /// Evolve schema response

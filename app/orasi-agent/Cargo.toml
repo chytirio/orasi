@@ -23,7 +23,7 @@ tonic = { workspace = true }
 prost = { workspace = true }
 hyper = { version = "1.1", features = ["full"] }
 tower = "0.5"
-tower-http = { version = "0.5", features = ["cors", "trace", "compression-br"] }
+tower-http = { workspace = true, features = ["cors", "trace", "compression-br"] }
 
 # Async runtime
 tokio = { workspace = true }

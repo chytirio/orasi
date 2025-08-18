@@ -13,15 +13,15 @@ categories = ["web-programming", "asynchronous", "network-programming"]
 [dependencies]
 # Core dependencies
 bridge-core = { path = "../../crates/bridge-core" }
-bridge-api = { path = "../../crates/bridge-api" }
+bridge-api = { path = "../orasi-bridge" }
 
 # HTTP and gRPC dependencies
 axum = { workspace = true }
 tonic = { workspace = true }
 prost = { workspace = true }
-hyper = { version = "1.1", features = ["full"] }
-tower = "0.5"
-tower-http = { version = "0.5", features = ["cors", "trace", "compression-br"] }
+hyper = { workspace = true, features = ["full"] }
+tower = { workspace = true }
+tower-http = { workspace = true, features = ["cors", "trace", "compression-br"] }
 tower-load = "0.3"
 
 # Async runtime

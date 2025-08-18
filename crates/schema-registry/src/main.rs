@@ -224,7 +224,7 @@ async fn main() -> Result<()> {
                 .await?;
 
             if response.status().is_success() {
-                let result: schema_registry::api::RegisterSchemaResponse = response.json().await?;
+                let result: schema_registry::api::responses::RegisterSchemaResponse = response.json().await?;
                 println!(
                     "Schema registered successfully with fingerprint: {}",
                     result.fingerprint
@@ -246,7 +246,7 @@ async fn main() -> Result<()> {
                 .await?;
 
             if response.status().is_success() {
-                let result: schema_registry::api::GetSchemaResponse = response.json().await?;
+                let result: schema_registry::api::responses::GetSchemaResponse = response.json().await?;
                 println!("Schema: {}", serde_json::to_string_pretty(&result.schema)?);
             } else {
                 error!("Failed to get schema: {}", response.status());
@@ -265,7 +265,7 @@ async fn main() -> Result<()> {
                 .await?;
 
             if response.status().is_success() {
-                let result: schema_registry::api::ListSchemasResponse = response.json().await?;
+                let result: schema_registry::api::responses::ListSchemasResponse = response.json().await?;
                 println!(
                     "Schemas: {}",
                     serde_json::to_string_pretty(&result.schemas)?
@@ -297,7 +297,7 @@ async fn main() -> Result<()> {
                 .await?;
 
             if response.status().is_success() {
-                let result: schema_registry::api::ValidateDataResponse = response.json().await?;
+                let result: schema_registry::api::responses::ValidateDataResponse = response.json().await?;
                 if result.valid {
                     println!("✅ Schema validation passed");
                     println!("Status: {}", result.status);
@@ -346,7 +346,7 @@ async fn main() -> Result<()> {
                 .await?;
 
             if response.status().is_success() {
-                let result: schema_registry::api::DeleteSchemaResponse = response.json().await?;
+                let result: schema_registry::api::responses::DeleteSchemaResponse = response.json().await?;
                 println!("✅ Schema deleted successfully: {}", result.message);
             } else {
                 error!("Failed to delete schema: {}", response.status());

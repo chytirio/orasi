@@ -9,8 +9,8 @@ use tokio::time::sleep;
 use tracing::{error, info, warn};
 
 use bridge_api::{
-    component_handlers::create_default_component_handlers, config::BridgeAPIConfig,
-    config_service::ConfigService, metrics::ApiMetrics,
+    handlers::component_handlers::create_default_component_handlers, config::BridgeAPIConfig,
+    services::config::ConfigService, metrics::ApiMetrics,
 };
 use bridge_core::BridgeConfig;
 

@@ -38,6 +38,7 @@ struct ConsumerStats {
     total_bytes: u64,
     error_count: u64,
     last_read_time: Option<DateTime<Utc>>,
+    total_read_time_ms: u64,
 }
 
 impl Default for ConsumerStats {
@@ -48,6 +49,7 @@ impl Default for ConsumerStats {
             total_bytes: 0,
             error_count: 0,
             last_read_time: None,
+            total_read_time_ms: 0,
         }
     }
 }
@@ -79,6 +81,8 @@ impl KafkaConsumer {
 
     /// Simulate polling messages from Kafka
     async fn poll_messages(&mut self, _timeout_ms: u64) -> KafkaResult<Vec<String>> {
+        let start_time = Instant::now();
+        
         // Simulate Kafka poll operation
         self.stats.total_reads += 1;
         self.stats.last_read_time = Some(Utc::now());
@@ -88,6 +92,10 @@ impl KafkaConsumer {
             r#"{"name":"cpu_usage","value":75.5,"timestamp":"2024-01-01T00:00:00Z","labels":{"service":"web-server"}}"#.to_string(),
             r#"{"name":"memory_usage","value":60.2,"timestamp":"2024-01-01T00:00:01Z","labels":{"service":"web-server"}}"#.to_string(),
         ];
+        
+        // Track the read time
+        let read_time_ms = start_time.elapsed().as_millis() as u64;
+        self.stats.total_read_time_ms += read_time_ms;
         
         Ok(sample_messages)
     }
@@ -314,12 +322,18 @@ impl LakehouseReader for KafkaConsumer {
             0
         };
         
+        let avg_read_time_ms = if self.stats.total_reads > 0 {
+            self.stats.total_read_time_ms as f64 / self.stats.total_reads as f64
+        } else {
+            0.0
+        };
+        
         Ok(bridge_core::traits::ReaderStats {
             total_reads: self.stats.total_reads,
             total_records: self.stats.total_records,
             reads_per_minute,
             records_per_minute,
-            avg_read_time_ms: 0.0, // TODO: Track average read time
+            avg_read_time_ms,
             error_count: self.stats.error_count,
             last_read_time: self.stats.last_read_time,
         })

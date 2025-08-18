@@ -10,7 +10,7 @@ members = [
   "crates/bridge-auth",
   "crates/streaming-processor",
   "crates/schema-registry",
-  "crates/bridge-api",
+      "app/orasi-bridge",
   "connectors/deltalake",
   "connectors/hudi",
   "connectors/iceberg",
@@ -53,6 +53,7 @@ prost = "0.13"
 hyper = { version = "1.1", features = ["full"] }
 axum = { version = "0.7.9", features = ["tokio"] }
 tower = "0.5"
+tower-http = { version = "0.5", features = ["cors", "trace", "compression-gzip", "limit"] }
 
 # Data processing and serialization
 arrow = "56.0"

@@ -7,6 +7,7 @@
 //! This module provides support for ingesting OpenTelemetry data from Kafka topics
 //! with support for various serialization formats.
 
+use ::prost::Message;
 use arrow_array::{Array, Float64Array, Int64Array, RecordBatch, StringArray};
 use async_trait::async_trait;
 use bridge_core::{
@@ -17,7 +18,6 @@ use chrono::{DateTime, Utc};
 use opentelemetry_proto::tonic::common::v1::any_value::Value as AnyValueValue;
 use opentelemetry_proto::tonic::metrics::v1::metric::Data as OtlpMetricData;
 use opentelemetry_proto::tonic::metrics::v1::number_data_point::Value as NumberDataPointValue;
-use ::prost::Message;
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use std::collections::HashMap;
@@ -911,10 +911,10 @@ impl KafkaMessageHandler {
                         let metric_description = metric.description;
                         let metric_unit = metric.unit;
 
-                        for data_point in metric.data {
+                        while let Some(ref data_point) = metric.data {
                             match data_point {
                                 OtlpMetricData::Gauge(gauge) => {
-                                    for point in gauge.data_points {
+                                    for point in gauge.data_points.clone() {
                                         let value = match point.value {
                                             Some(NumberDataPointValue::AsDouble(v)) => {
                                                 MetricValue::Gauge(v)

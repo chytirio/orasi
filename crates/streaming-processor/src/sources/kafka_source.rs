@@ -175,12 +175,14 @@ pub struct KafkaSource {
 }
 
 /// Kafka consumer wrapper
+#[allow(dead_code)]
 struct KafkaConsumer {
     consumer: Consumer,
     topic: String,
     is_running: bool,
 }
 
+#[allow(dead_code)]
 impl KafkaConsumer {
     /// Create a new Kafka consumer
     async fn new(config: &KafkaSourceConfig) -> BridgeResult<Self> {
@@ -254,6 +256,7 @@ impl KafkaConsumer {
     }
 }
 
+#[allow(dead_code)]
 impl KafkaSource {
     /// Create new Kafka source
     pub async fn new(config: &dyn SourceConfig) -> BridgeResult<Self> {

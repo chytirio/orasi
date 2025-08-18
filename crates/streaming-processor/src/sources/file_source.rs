@@ -141,6 +141,7 @@ struct FileReader {
     format: FileFormat,
 }
 
+#[allow(dead_code)]
 impl FileReader {
     /// Create a new file reader
     async fn new(file_path: &str, format: FileFormat) -> BridgeResult<Self> {
@@ -951,6 +952,7 @@ impl FileReader {
     }
 }
 
+#[allow(dead_code)]
 impl FileSource {
     /// Create new file source
     pub async fn new(config: &dyn SourceConfig) -> BridgeResult<Self> {

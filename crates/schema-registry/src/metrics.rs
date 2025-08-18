@@ -35,6 +35,7 @@ macro_rules! histogram {
 }
 
 /// Metrics collector for the schema registry
+#[allow(dead_code)]
 pub struct MetricsCollector {
     /// Registry name for metrics
     registry_name: String,

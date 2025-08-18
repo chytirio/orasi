@@ -78,7 +78,7 @@ aes-gcm = "0.10"
 notify = "6.1"
 yaml-rust = "0.4"
 toml = "0.8"
-tower-http = { version = "0.5", features = ["cors"] }
+tower-http = { workspace = true, features = ["cors"] }
 hyper-tls = "0.5"
 bridge-auth = { path = "../bridge-auth" }
 

@@ -32,6 +32,7 @@ fn delete<T>(_handler: T) -> () {
 }
 
 /// API server for the schema registry
+#[allow(dead_code)]
 pub struct SchemaRegistryApi {
     /// Registry manager
     registry: Arc<SchemaRegistryManager>,

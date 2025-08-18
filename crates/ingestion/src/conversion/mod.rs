@@ -7,6 +7,7 @@
 //! This module provides utilities for converting between different telemetry
 //! data formats and protocols.
 
+use ::prost::Message;
 use arrow_array::{
     Array, Float64Array, RecordBatch, StringArray, TimestampNanosecondArray, UInt64Array,
 };
@@ -32,7 +33,6 @@ use opentelemetry_proto::tonic::{
     resource::v1::Resource,
     trace::v1::{ResourceSpans, ScopeSpans, Span},
 };
-use ::prost::Message;
 use regex::Regex;
 use std::collections::HashMap;
 use std::sync::Arc;

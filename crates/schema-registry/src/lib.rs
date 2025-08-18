@@ -16,16 +16,16 @@ pub mod schema;
 pub mod storage;
 pub mod types;
 pub mod utils;
-pub mod validation;
 
 // Re-export main types
+pub use api::*;
 pub use bridge_core::types::{ProcessedBatch, TelemetryBatch};
 pub use config::SchemaRegistryConfig;
 pub use error::{SchemaRegistryError, SchemaRegistryResult};
 pub use registry::{RegistryMetrics, RegistryState, RegistryStats, SchemaRegistryManager};
-pub use schema::{Schema, SchemaMetadata, SchemaVersion};
+pub use schema::{Schema, SchemaMetadata, SchemaVersion, SchemaValidator, SchemaValidatorTrait, ValidationError, ValidationResult, ValidationStatus, ValidationWarning};
 pub use storage::{MemoryStorage, RedisStorage, StorageBackend, StorageError};
-pub use validation::{SchemaValidator, SchemaValidatorTrait, ValidationError, ValidationResult};
+pub use types::*;
 
 /// Schema Registry version
 pub const SCHEMA_REGISTRY_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -49,6 +49,7 @@ pub async fn shutdown_schema_registry(registry: SchemaRegistry) -> SchemaRegistr
 ///
 /// This provides a centralized service for managing and validating
 /// telemetry data schemas across the bridge ecosystem.
+#[allow(dead_code)]
 pub struct SchemaRegistry {
     /// Configuration
     config: SchemaRegistryConfig,

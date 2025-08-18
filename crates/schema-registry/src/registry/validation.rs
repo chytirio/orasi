@@ -4,7 +4,7 @@
 
 use crate::error::SchemaRegistryResult;
 use crate::storage::StorageBackend;
-use crate::validation::ValidationResult;
+use crate::schema::validation::ValidationResult;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 

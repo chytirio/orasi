@@ -1,0 +1,68 @@
+[storage]
+backend = "memory"
+connection_string = "memory://"
+options = {}
+max_connections = 10
+connection_timeout = 30
+
+[storage.postgres]
+url = "postgresql://postgres:postgres@postgres:5432/orasi_dev"
+database = "orasi_dev"
+username = "postgres"
+password = "postgres"
+host = "postgres"
+port = 5432
+ssl_mode = "disable"
+pool_size = 10
+
+[storage.sqlite]
+database_path = "schema_registry.db"
+enable_wal = true
+connection_timeout = 30
+journal_mode = "WAL"
+
+[storage.redis]
+url = "redis://redis:6379"
+host = "redis"
+port = 6379
+password = ""
+database = 0
+pool_size = 10
+connection_timeout = 30
+read_timeout = 10
+write_timeout = 10
+key_prefix = "schema_registry:"
+
+[api]
+host = "0.0.0.0"
+port = 8080
+base_path = "/api/v1"
+max_request_size = 10485760
+request_timeout = 30
+enable_cors = true
+cors_origins = ["*"]
+
+[validation]
+enable_validation = true
+strict_mode = false
+max_schema_size = 1048576
+allowed_formats = ["json", "yaml"]
+custom_rules = {}
+
+[security]
+enable_auth = false
+auth_type = "none"
+jwt_secret = ""
+api_key_header = "X-API-Key"
+allowed_api_keys = []
+rate_limiting = false
+rate_limit_per_minute = 1000
+
+[monitoring]
+enable_metrics = true
+metrics_endpoint = "/metrics"
+enable_health_checks = true
+health_check_endpoint = "/health"
+enable_structured_logging = true
+log_level = "info"
+log_format = "json"

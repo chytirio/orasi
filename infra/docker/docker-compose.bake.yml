@@ -75,7 +75,7 @@ services:
       - MINIO_ACCESS_KEY=minioadmin
       - MINIO_SECRET_KEY=minioadmin
     volumes:
-      - ./config:/app/config:ro
+      - ../../config:/app/config:ro
       - bridge_api_logs:/app/logs
       - bridge_api_data:/app/data
     networks:
@@ -97,7 +97,7 @@ services:
     image: orasi/schema-registry:${BUILD_TYPE:-release}
     container_name: orasi-schema-registry
     ports:
-      - "8081:8080"      # REST API
+      - "8081:8081"      # REST API
       - "9091:9090"      # Metrics
     environment:
       - RUST_LOG=${RUST_LOG:-info}
@@ -106,7 +106,7 @@ services:
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/orasi
       - REDIS_URL=redis://redis:6379
     volumes:
-      - ./config:/app/config:ro
+      - ../../config:/app/config:ro
       - schema_registry_logs:/app/logs
       - schema_registry_data:/app/data
     networks:
@@ -117,11 +117,12 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health/live"]
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
       interval: 30s
       timeout: 10s
       retries: 3
     restart: unless-stopped
+    command: ["/app/schema-registry", "serve", "--config", "/app/config/schema-registry.toml"]
 
   # Controller Service (Kubernetes controller)
   controller:
@@ -138,7 +139,7 @@ services:
       - REDIS_URL=redis://redis:6379
       - KUBECONFIG=/app/.kube/config
     volumes:
-      - ./config:/app/config:ro
+      - ../../config:/app/config:ro
       - controller_logs:/app/logs
       - controller_data:/app/data
       - ~/.kube:/app/.kube:ro  # Mount kubeconfig if available

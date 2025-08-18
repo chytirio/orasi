@@ -6,8 +6,8 @@
 use crate::config::SchemaRegistryConfig;
 use crate::error::{SchemaRegistryError, SchemaRegistryResult};
 use crate::schema::{Schema, SchemaMetadata, SchemaSearchCriteria, SchemaVersion};
-use crate::storage::{MemoryStorage, PostgresStorage, SqliteStorage, StorageBackend};
-use crate::validation::{SchemaValidator, SchemaValidatorTrait, ValidationResult};
+use crate::storage::{MemoryStorage, PostgresStorage, RedisStorage, SqliteStorage, StorageBackend};
+use crate::schema::validation::{SchemaValidator, SchemaValidatorTrait, ValidationResult};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 

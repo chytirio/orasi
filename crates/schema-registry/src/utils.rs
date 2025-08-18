@@ -11,11 +11,6 @@ use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 use uuid::Uuid;
 
-/// Generate a unique request ID
-pub fn generate_request_id() -> Uuid {
-    Uuid::new_v4()
-}
-
 /// Generate a timestamp
 pub fn generate_timestamp() -> DateTime<Utc> {
     Utc::now()
@@ -47,60 +42,9 @@ pub fn format_bytes(bytes: u64) -> String {
     }
 }
 
-/// Validate a schema name
-pub fn validate_schema_name(name: &str) -> Result<(), String> {
-    if name.is_empty() {
-        return Err("Schema name cannot be empty".to_string());
-    }
 
-    if name.len() > 100 {
-        return Err("Schema name cannot exceed 100 characters".to_string());
-    }
 
-    // Check for valid characters (alphanumeric, hyphens, underscores)
-    if !name
-        .chars()
-        .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
-    {
-        return Err(
-            "Schema name can only contain alphanumeric characters, hyphens, and underscores"
-                .to_string(),
-        );
-    }
 
-    // Check for reserved names
-    let reserved_names = ["admin", "system", "internal", "test", "temp"];
-    if reserved_names.contains(&name.to_lowercase().as_str()) {
-        return Err("Schema name cannot be a reserved name".to_string());
-    }
-
-    Ok(())
-}
-
-/// Validate a schema version string
-pub fn validate_version_string(version: &str) -> Result<(), String> {
-    if version.is_empty() {
-        return Err("Version cannot be empty".to_string());
-    }
-
-    // Basic semantic versioning validation
-    let parts: Vec<&str> = version.split('.').collect();
-    if parts.len() != 3 {
-        return Err("Version must be in format X.Y.Z".to_string());
-    }
-
-    for part in parts {
-        if part.is_empty() {
-            return Err("Version parts cannot be empty".to_string());
-        }
-
-        if !part.chars().all(|c| c.is_numeric()) {
-            return Err("Version parts must be numeric".to_string());
-        }
-    }
-
-    Ok(())
-}
 
 /// Sanitize a string for use in file names
 pub fn sanitize_filename(input: &str) -> String {
@@ -135,38 +79,7 @@ pub fn merge_hash_maps(
     base
 }
 
-/// Extract query parameters from a URL
-pub fn extract_query_params(url: &str) -> HashMap<String, String> {
-    let mut params = HashMap::new();
 
-    if let Some(query_start) = url.find('?') {
-        let query = &url[query_start + 1..];
-
-        for pair in query.split('&') {
-            if let Some(equal_pos) = pair.find('=') {
-                let key = &pair[..equal_pos];
-                let value = &pair[equal_pos + 1..];
-
-                if !key.is_empty() {
-                    params.insert(key.to_string(), value.to_string());
-                }
-            }
-        }
-    }
-
-    params
-}
-
-/// Build a query string from parameters
-pub fn build_query_string(params: &HashMap<String, String>) -> String {
-    if params.is_empty() {
-        return String::new();
-    }
-
-    let pairs: Vec<String> = params.iter().map(|(k, v)| format!("{}={}", k, v)).collect();
-
-    format!("?{}", pairs.join("&"))
-}
 
 /// Truncate a string to a maximum length
 pub fn truncate_string(input: &str, max_length: usize) -> String {
@@ -231,15 +144,7 @@ pub fn simple_hash(input: &str) -> u64 {
     hasher.finish()
 }
 
-/// Check if a string is a valid JSON
-pub fn is_valid_json(input: &str) -> bool {
-    serde_json::from_str::<serde_json::Value>(input).is_ok()
-}
 
-/// Check if a string is a valid YAML
-pub fn is_valid_yaml(input: &str) -> bool {
-    serde_yaml::from_str::<serde_yaml::Value>(input).is_ok()
-}
 
 /// Escape special characters in a string
 pub fn escape_string(input: &str) -> String {
@@ -265,13 +170,7 @@ pub fn unescape_string(input: &str) -> String {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_generate_request_id() {
-        let id1 = generate_request_id();
-        let id2 = generate_request_id();
 
-        assert_ne!(id1, id2);
-    }
 
     #[test]
     fn test_format_duration() {
@@ -290,27 +189,9 @@ mod tests {
         assert_eq!(format_bytes(512), "512 B");
     }
 
-    #[test]
-    fn test_validate_schema_name() {
-        assert!(validate_schema_name("valid-schema").is_ok());
-        assert!(validate_schema_name("valid_schema").is_ok());
-        assert!(validate_schema_name("validSchema123").is_ok());
 
-        assert!(validate_schema_name("").is_err());
-        assert!(validate_schema_name("invalid schema").is_err());
-        assert!(validate_schema_name("admin").is_err());
-    }
 
-    #[test]
-    fn test_validate_version_string() {
-        assert!(validate_version_string("1.0.0").is_ok());
-        assert!(validate_version_string("2.1.3").is_ok());
 
-        assert!(validate_version_string("").is_err());
-        assert!(validate_version_string("1.0").is_err());
-        assert!(validate_version_string("1.0.0.0").is_err());
-        assert!(validate_version_string("1.a.0").is_err());
-    }
 
     #[test]
     fn test_sanitize_filename() {
@@ -342,26 +223,7 @@ mod tests {
         assert_eq!(merged.get("key2"), Some(&"value2".to_string()));
     }
 
-    #[test]
-    fn test_extract_query_params() {
-        let url = "http://example.com?param1=value1&param2=value2";
-        let params = extract_query_params(url);
 
-        assert_eq!(params.get("param1"), Some(&"value1".to_string()));
-        assert_eq!(params.get("param2"), Some(&"value2".to_string()));
-    }
-
-    #[test]
-    fn test_build_query_string() {
-        let mut params = HashMap::new();
-        params.insert("param1".to_string(), "value1".to_string());
-        params.insert("param2".to_string(), "value2".to_string());
-
-        let query = build_query_string(&params);
-        assert!(query.contains("param1=value1"));
-        assert!(query.contains("param2=value2"));
-        assert!(query.starts_with('?'));
-    }
 
     #[test]
     fn test_truncate_string() {
@@ -405,19 +267,7 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_is_valid_json() {
-        assert!(is_valid_json(r#"{"key": "value"}"#));
-        assert!(is_valid_json(r#"["item1", "item2"]"#));
-        assert!(!is_valid_json("invalid json"));
-    }
 
-    #[test]
-    fn test_is_valid_yaml() {
-        assert!(is_valid_yaml("key: value"));
-        assert!(is_valid_yaml("- item1\n- item2"));
-        assert!(!is_valid_yaml("invalid: yaml: ["));
-    }
 
     #[test]
     fn test_escape_unescape_string() {

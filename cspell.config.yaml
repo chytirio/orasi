@@ -13,12 +13,14 @@ words:
   - ipynb
   - jdbc
   - jovyan
+  - jsonschema
   - justfile
   - kubeconfig
   - lakehouse
   - lakehouses
   - Leptos
   - minioadmin
+  - monokai
   - nocapture
   - orasi
   - OTAP
@@ -27,6 +29,10 @@ words:
   - rlib
   - rustc
   - rustup
+  - serde
+  - sqlx
+  - stylesheet
+  - thiserror
   - trino
 ignoreWords: []
 import: []

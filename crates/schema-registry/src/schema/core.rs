@@ -99,6 +99,36 @@ impl Schema {
         format!("{:x}", hasher.finalize())
     }
 
+    /// Validate schema name
+    pub fn validate_name(name: &str) -> Result<(), String> {
+        if name.is_empty() {
+            return Err("Schema name cannot be empty".to_string());
+        }
+
+        if name.len() > 100 {
+            return Err("Schema name cannot exceed 100 characters".to_string());
+        }
+
+        // Check for valid characters (alphanumeric, hyphens, underscores)
+        if !name
+            .chars()
+            .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+        {
+            return Err(
+                "Schema name can only contain alphanumeric characters, hyphens, and underscores"
+                    .to_string(),
+            );
+        }
+
+        // Check for reserved names
+        let reserved_names = ["admin", "system", "internal", "test", "temp"];
+        if reserved_names.contains(&name.to_lowercase().as_str()) {
+            return Err("Schema name cannot be a reserved name".to_string());
+        }
+
+        Ok(())
+    }
+
     /// Update schema content and regenerate fingerprint
     pub fn update_content(&mut self, content: String) {
         self.content = content;
@@ -539,5 +569,16 @@ mod tests {
         assert_eq!(metadata.name, "test-schema");
         assert_eq!(metadata.version_count, 1);
         assert!(metadata.size > 0);
+    }
+
+    #[test]
+    fn test_validate_name() {
+        assert!(Schema::validate_name("valid-schema").is_ok());
+        assert!(Schema::validate_name("valid_schema").is_ok());
+        assert!(Schema::validate_name("validSchema123").is_ok());
+
+        assert!(Schema::validate_name("").is_err());
+        assert!(Schema::validate_name("invalid schema").is_err());
+        assert!(Schema::validate_name("admin").is_err());
     }
 }

@@ -586,7 +586,11 @@ mod tests {
             let mut processor_guard = processor_clone.lock().await;
             // Process just one batch instead of running the infinite loop
             if let Some(batch) = processor_guard.receiver.recv().await {
-                processor_guard.processor.process_batch(batch).await.unwrap();
+                processor_guard
+                    .processor
+                    .process_batch(batch)
+                    .await
+                    .unwrap();
             }
         });
 

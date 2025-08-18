@@ -129,7 +129,7 @@ impl LakehouseExporter for RealSnowflakeExporter {
         );
 
         let mut total_records = 0u64;
-        let mut total_bytes = 0u64;
+        // let mut total_bytes = 0u64;
         let mut errors = Vec::new();
 
         // Process the processed batch records

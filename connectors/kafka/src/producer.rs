@@ -38,6 +38,7 @@ struct ProducerStats {
     total_bytes: u64,
     error_count: u64,
     last_write_time: Option<DateTime<Utc>>,
+    total_write_time_ms: u64,
 }
 
 impl Default for ProducerStats {
@@ -48,6 +49,7 @@ impl Default for ProducerStats {
             total_bytes: 0,
             error_count: 0,
             last_write_time: None,
+            total_write_time_ms: 0,
         }
     }
 }
@@ -79,6 +81,8 @@ impl KafkaProducer {
 
     /// Simulate sending a message to Kafka
     async fn send_message(&mut self, _key: &str, value: &str) -> KafkaResult<()> {
+        let start_time = Instant::now();
+        
         // Simulate Kafka send operation
         self.stats.total_writes += 1;
         self.stats.total_bytes += value.len() as u64;
@@ -89,6 +93,10 @@ impl KafkaProducer {
             self.stats.error_count += 1;
             return Err(ConnectorKafkaError::producer("Simulated error for testing"));
         }
+        
+        // Track the write time
+        let write_time_ms = start_time.elapsed().as_millis() as u64;
+        self.stats.total_write_time_ms += write_time_ms;
         
         Ok(())
     }
@@ -377,12 +385,18 @@ impl LakehouseWriter for KafkaProducer {
             0
         };
         
+        let avg_write_time_ms = if self.stats.total_writes > 0 {
+            self.stats.total_write_time_ms as f64 / self.stats.total_writes as f64
+        } else {
+            0.0
+        };
+        
         Ok(bridge_core::traits::WriterStats {
             total_writes: self.stats.total_writes,
             total_records: self.stats.total_records,
             writes_per_minute,
             records_per_minute,
-            avg_write_time_ms: 0.0, // TODO: Track average write time
+            avg_write_time_ms,
             error_count: self.stats.error_count,
             last_write_time: self.stats.last_write_time,
         })

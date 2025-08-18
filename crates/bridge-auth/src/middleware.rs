@@ -4,13 +4,13 @@
 
 //! Authentication middleware for HTTP requests
 
+use axum::extract::Request;
 use axum::{
     extract::State,
     http::{HeaderMap, StatusCode},
     middleware::Next,
     response::Response,
 };
-use axum::extract::Request;
 use std::sync::Arc;
 
 use tracing::{debug, warn};

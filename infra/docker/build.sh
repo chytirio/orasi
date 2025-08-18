@@ -84,18 +84,19 @@ if [[ "$BUILD_TYPE" != "debug" && "$BUILD_TYPE" != "release" ]]; then
     exit 1
 fi
 
+# Get the absolute path to the project root directory
+PROJECT_ROOT="$(pwd)" # "$(cd ../../ && pwd)" # TODO: fix this; assumes the script is run from the root of the project
+
 echo "Building Orasi OpenTelemetry Data Lake Bridge"
 echo "Build Type: $BUILD_TYPE"
 echo "Registry: $REGISTRY"
 echo "Tag: $TAG"
 echo "Platforms: $PLATFORMS"
 echo "Targets: ${TARGETS[*]}"
+echo "Build Path: $PROJECT_ROOT"
 echo ""
 
-# Get the absolute path to the project root directory
-PROJECT_ROOT="$(cd ../../ && pwd)"
 cd "$PROJECT_ROOT"
-
 # Build each target
 for target in "${TARGETS[@]}"; do
     echo "Building target: $target"

@@ -90,10 +90,38 @@ impl std::fmt::Display for SchemaVersion {
     }
 }
 
+/// Validate a schema version string
+pub fn validate_version_string(version: &str) -> Result<(), String> {
+    if version.is_empty() {
+        return Err("Version cannot be empty".to_string());
+    }
+
+    // Basic semantic versioning validation
+    let parts: Vec<&str> = version.split('.').collect();
+    if parts.len() != 3 {
+        return Err("Version must be in format X.Y.Z".to_string());
+    }
+
+    for part in parts {
+        if part.is_empty() {
+            return Err("Version parts cannot be empty".to_string());
+        }
+
+        if !part.chars().all(|c| c.is_numeric()) {
+            return Err("Version parts must be numeric".to_string());
+        }
+    }
+
+    Ok(())
+}
+
 impl std::str::FromStr for SchemaVersion {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        // Validate the version string first
+        validate_version_string(s)?;
+        
         // Simple version parsing - can be enhanced
         let parts: Vec<&str> = s.split('.').collect();
         if parts.len() != 3 {
@@ -137,5 +165,16 @@ mod tests {
         assert!(v2.is_compatible_with(&v1));
         assert!(!v1.is_compatible_with(&v3));
         assert!(!v3.is_compatible_with(&v1));
+    }
+
+    #[test]
+    fn test_validate_version_string() {
+        assert!(validate_version_string("1.0.0").is_ok());
+        assert!(validate_version_string("2.1.3").is_ok());
+
+        assert!(validate_version_string("").is_err());
+        assert!(validate_version_string("1.0").is_err());
+        assert!(validate_version_string("1.0.0.0").is_err());
+        assert!(validate_version_string("1.a.0").is_err());
     }
 }

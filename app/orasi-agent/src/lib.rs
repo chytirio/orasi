@@ -10,13 +10,11 @@
 pub mod agent;
 pub mod cluster;
 pub mod config;
+pub mod discovery;
 pub mod error;
 pub mod health;
-pub mod indexing;
-pub mod ingestion;
 pub mod metrics;
 pub mod processing;
-pub mod service_discovery;
 pub mod state;
 pub mod types;
 

@@ -88,7 +88,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Shutdown gateway
     {
-        let mut gateway_guard = gateway.write().await;
+        let gateway_guard = gateway.write().await;
         gateway_guard.shutdown().await?;
     }
 

@@ -354,7 +354,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_data_source_manager_add_source() {
-        let mut manager = DataSourceManager::new();
+        let manager = DataSourceManager::new();
 
         // This would require a mock data source implementation
         // For now, just test the basic structure

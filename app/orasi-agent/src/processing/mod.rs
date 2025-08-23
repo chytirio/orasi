@@ -107,7 +107,7 @@ impl TaskProcessor {
         self.running = false;
 
         // Wait for tasks to complete
-        let mut timeout =
+        let timeout =
             tokio::time::timeout(Duration::from_secs(30), self.wait_for_completion()).await;
 
         if timeout.is_err() {
@@ -207,7 +207,7 @@ impl TaskProcessor {
         while let Some(result) = result_receiver.recv().await {
             // Update agent state with result
             {
-                let mut state = state.write().await;
+                let state = state.write().await;
                 // TODO: Update state with task result
             }
 

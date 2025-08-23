@@ -159,7 +159,7 @@ async fn main() -> BridgeResult<()> {
     sink_manager.start_all().await?;
 
     // Main processing loop
-    let mut running = true;
+    let running = true;
     let mut iteration = 0;
 
     while running && iteration < 10 {

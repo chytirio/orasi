@@ -275,7 +275,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_ingestion_system_creation() {
-        let mut system = IngestionSystem::new();
+        let system = IngestionSystem::new();
         assert_eq!(system.receivers.len(), 0);
         assert_eq!(system.processors.len(), 0);
         assert_eq!(system.exporters.len(), 0);

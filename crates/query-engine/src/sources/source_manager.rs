@@ -196,7 +196,7 @@ impl SourceManagerImpl {
         info!("Performing health check on source: {}", source_name);
 
         let mut registry = self.source_registry.write().await;
-        let mut data_source_manager = self.data_source_manager.write().await;
+        let data_source_manager = self.data_source_manager.write().await;
 
         let source_info = if let Some(info) = registry.get_mut(source_name) {
             info

@@ -106,7 +106,7 @@ async fn run_minimal_example() -> Result<(), Box<dyn std::error::Error>> {
 async fn run_builder_example() -> Result<(), Box<dyn std::error::Error>> {
     let config = BridgeAPIConfig::default();
 
-    let mut server = BridgeAPIServer::new(config);
+    let server = BridgeAPIServer::new(config);
 
     println!("  Server configuration:");
     println!("  - HTTP: enabled");

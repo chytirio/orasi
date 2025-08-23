@@ -634,7 +634,7 @@ impl OrasiAgent {
     async fn update_health_status(&self, status: HealthStatus) -> Result<(), AgentError> {
         // Update agent state with health status
         {
-            let mut state = self.state.write().await;
+            let state = self.state.write().await;
             // TODO: Update health status in state
         }
 
@@ -661,7 +661,7 @@ impl OrasiAgent {
     ) -> Result<(), AgentError> {
         // Update agent state with metrics
         {
-            let mut state = self.state.write().await;
+            let state = self.state.write().await;
             // TODO: Update metrics in state
         }
 

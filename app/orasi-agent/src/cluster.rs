@@ -1217,7 +1217,7 @@ mod tests {
         config.cluster.service_discovery = ServiceDiscoveryBackend::Static; // Use static discovery for testing
         let state = Arc::new(RwLock::new(AgentState::new(&config).await.unwrap()));
 
-        let mut coordinator = ClusterCoordinator::new(&config, state).await.unwrap();
+        let coordinator = ClusterCoordinator::new(&config, state).await.unwrap();
 
         // Test join cluster
         let join_result = coordinator.join_cluster().await;

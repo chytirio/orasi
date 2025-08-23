@@ -624,7 +624,7 @@ impl AggregateProcessor {
         state: &AggregationState,
     ) -> BridgeResult<ProcessedRecord> {
         let mut attributes: HashMap<String, String> = HashMap::new();
-        let mut tags: HashMap<String, String> = HashMap::new();
+        let tags: HashMap<String, String> = HashMap::new();
 
         // Add group key information
         for part in state.group_key.split('|') {

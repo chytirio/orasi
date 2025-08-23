@@ -646,11 +646,11 @@ impl HealthChecker {
 
     /// Get disk usage
     async fn get_disk_usage() -> Result<(u64, f64), String> {
-        let mut sys = sysinfo::System::new_all();
+        let sys = sysinfo::System::new_all();
         // Note: refresh_disks() is not available in this version of sysinfo
 
-        let mut total_bytes = 0u64;
-        let mut used_bytes = 0u64;
+        let total_bytes = 0u64;
+        let used_bytes = 0u64;
 
         // Note: disks() is not available in this version of sysinfo
         // Using a placeholder implementation
@@ -668,11 +668,11 @@ impl HealthChecker {
 
     /// Get network usage
     async fn get_network_usage() -> Result<(u64, u64), String> {
-        let mut sys = sysinfo::System::new_all();
+        let sys = sysinfo::System::new_all();
         // Note: refresh_networks() is not available in this version of sysinfo
 
-        let mut total_rx = 0u64;
-        let mut total_tx = 0u64;
+        let total_rx = 0u64;
+        let total_tx = 0u64;
 
         // Note: networks() is not available in this version of sysinfo
         // Using a placeholder implementation

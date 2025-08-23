@@ -27,7 +27,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     config.service_discovery.health_check_interval = Duration::from_secs(5);
 
     // Create service discovery
-    let mut service_discovery = ServiceDiscovery::new(&config).await?;
+    let service_discovery = ServiceDiscovery::new(&config).await?;
 
     // Start service discovery
     service_discovery.start().await?;

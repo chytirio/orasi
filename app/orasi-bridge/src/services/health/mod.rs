@@ -218,7 +218,7 @@ impl HealthMonitoringIntegration {
             CoreHealthStatus::Unknown => ComponentState::Starting,
         };
 
-        let mut metrics = HashMap::new();
+        let metrics = HashMap::new();
         // Health result doesn't have metrics field, so we'll use empty metrics for now
         // if let Some(health_metrics) = health_result.metrics {
         //     for (key, value) in health_metrics {

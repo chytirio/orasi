@@ -71,7 +71,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let processor = EnrichmentProcessor::new(&config as &dyn ProcessorConfig).await?;
 
     // Create test telemetry records
-    let mut valid_record = TelemetryRecord {
+    let valid_record = TelemetryRecord {
         id: Uuid::new_v4(),
         timestamp: Utc::now(),
         record_type: TelemetryType::Metric,
@@ -102,7 +102,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         service: None,
     };
 
-    let mut invalid_record = TelemetryRecord {
+    let invalid_record = TelemetryRecord {
         id: Uuid::new_v4(),
         timestamp: Utc::now(),
         record_type: TelemetryType::Metric,

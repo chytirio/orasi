@@ -273,7 +273,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_function_manager_add_function() {
-        let mut manager = FunctionManager::new();
+        let manager = FunctionManager::new();
 
         // This would require a mock function implementation
         // For now, just test the basic structure

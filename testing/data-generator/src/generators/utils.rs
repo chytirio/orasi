@@ -47,7 +47,7 @@ impl IdGenerator {
 
     /// Generate a UUID
     pub async fn generate_uuid(&self) -> Uuid {
-        let mut rng = self.rng.write().await;
+        let rng = self.rng.write().await;
         Uuid::new_v4()
     }
 

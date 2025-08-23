@@ -1304,7 +1304,7 @@ pub fn validate_config(config: &GeneratorConfig) -> anyhow::Result<()> {
             .multi_tenant
             .tenant_size_distribution
             .enterprise_tenants;
-    
+
     if (sum - 1.0).abs() > f64::EPSILON {
         return Err(anyhow::anyhow!(
             "Tenant size distribution probabilities must sum to 1.0 (got {})",

@@ -362,8 +362,7 @@ impl TaskQueue {
 
         // Create directory if it doesn't exist
         if let Some(parent) = file_path.parent() {
-            fs::create_dir_all(parent)
-                .map_err(|e| format!("Failed to create directory: {}", e))?;
+            fs::create_dir_all(parent).map_err(|e| format!("Failed to create directory: {}", e))?;
         }
 
         let file = OpenOptions::new()
@@ -453,8 +452,7 @@ impl TaskQueue {
 
         // Create directory if it doesn't exist
         if let Some(parent) = file_path.parent() {
-            fs::create_dir_all(parent)
-                .map_err(|e| format!("Failed to create directory: {}", e))?;
+            fs::create_dir_all(parent).map_err(|e| format!("Failed to create directory: {}", e))?;
         }
 
         let file = OpenOptions::new()

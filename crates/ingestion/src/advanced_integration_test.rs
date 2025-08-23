@@ -450,7 +450,7 @@ mod tests {
 
         let transform_config = TransformProcessorConfig::new(transform_rules);
         let transform_processor = TransformProcessor::new(&transform_config).await?;
-        
+
         let processed_batch = transform_processor.process(batch).await?;
         // Convert ProcessedBatch back to TelemetryBatch for next processor
         batch = TelemetryBatch {

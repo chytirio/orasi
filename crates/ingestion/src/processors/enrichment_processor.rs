@@ -514,10 +514,10 @@ impl EnrichmentProcessor {
     /// Parse custom validation expression into a structured format
     fn parse_custom_expression(&self, expression: &str) -> BridgeResult<CustomExpression> {
         let expression = expression.trim();
-        
+
         // Handle parentheses by removing outer parentheses if they wrap the entire expression
         let expression = if expression.starts_with('(') && expression.ends_with(')') {
-            &expression[1..expression.len()-1].trim()
+            &expression[1..expression.len() - 1].trim()
         } else {
             expression
         };
@@ -708,14 +708,19 @@ impl EnrichmentProcessor {
 
         // Check if expression contains comparison operators but failed to parse
         // This indicates a malformed comparison expression
-        if expression.contains(" == ") || expression.contains(" != ") || 
-           expression.contains(" > ") || expression.contains(" >= ") ||
-           expression.contains(" < ") || expression.contains(" <= ") {
+        if expression.contains(" == ")
+            || expression.contains(" != ")
+            || expression.contains(" > ")
+            || expression.contains(" >= ")
+            || expression.contains(" < ")
+            || expression.contains(" <= ")
+        {
             return Err(BridgeError::validation(format!(
-                "Malformed comparison expression: '{}'", expression
+                "Malformed comparison expression: '{}'",
+                expression
             )));
         }
-        
+
         // Default: treat as simple existence check
         Ok(CustomExpression::Exists(expression.to_string()))
     }

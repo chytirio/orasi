@@ -1192,9 +1192,7 @@ mod tests {
         assert!(result.is_err()); // Should fail because path doesn't exist
 
         // Test with current directory (should succeed)
-        let result = executor
-            .register_delta_table("test_table", ".")
-            .await;
+        let result = executor.register_delta_table("test_table", ".").await;
         assert!(result.is_ok());
     }
 

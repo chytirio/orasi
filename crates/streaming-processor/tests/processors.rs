@@ -7,6 +7,7 @@
 //! This module provides tests for all processor implementations including
 //! StreamProcessor, FilterProcessor, TransformProcessor, and AggregateProcessor.
 
+use bridge_core::types::TelemetryBatch;
 use bridge_core::{
     traits::{DataStream, StreamProcessor as BridgeStreamProcessor},
     types::{MetricData, MetricType, MetricValue, TelemetryData, TelemetryRecord, TelemetryType},
@@ -28,7 +29,6 @@ use streaming_processor::processors::{
     TransformProcessor,
 };
 use uuid::Uuid;
-use bridge_core::types::TelemetryBatch;
 
 /// Helper function to create a test data stream
 fn create_test_data_stream(stream_id: &str, data: Vec<u8>) -> DataStream {
@@ -53,9 +53,9 @@ fn create_test_telemetry_data_stream(stream_id: &str) -> DataStream {
         ],
         metadata: HashMap::new(),
     };
-    
+
     let data = serde_json::to_vec(&batch).unwrap();
-    
+
     DataStream {
         stream_id: stream_id.to_string(),
         data,

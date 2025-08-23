@@ -393,14 +393,8 @@ impl Default for ApiVersioningConfig {
         );
 
         let mut compatibility_matrix = HashMap::new();
-        compatibility_matrix.insert(
-            "v1.0.0".to_string(),
-            vec!["v1.0.0".to_string()],
-        );
-        compatibility_matrix.insert(
-            "v2.0.0".to_string(),
-            vec!["v2.0.0".to_string()],
-        );
+        compatibility_matrix.insert("v1.0.0".to_string(), vec!["v1.0.0".to_string()]);
+        compatibility_matrix.insert("v2.0.0".to_string(), vec!["v2.0.0".to_string()]);
 
         Self {
             enabled: true,

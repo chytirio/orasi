@@ -9,18 +9,18 @@
 use async_trait::async_trait;
 use bridge_core::{BridgeResult, TelemetryBatch};
 use chrono::Utc;
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::sync::Arc;
-use tokio::sync::RwLock;
-use tracing::info;
-// Mock Kafka implementation for now - rdkafka has build issues
-// In production, you would use rdkafka::{
+// use rdkafka::{
 //     producer::{FutureProducer, FutureRecord},
 //     ClientConfig,
 //     error::KafkaError,
 //     message::OwnedHeaders,
 // };
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::time::Duration;
+use tokio::sync::RwLock;
+use tracing::{error, info, warn};
 
 use super::{SinkConfig, SinkStats, StreamSink};
 use crate::arrow_utils::serialize_to_arrow_ipc;
@@ -51,6 +51,37 @@ pub struct KafkaSinkConfig {
 
     /// Additional configuration properties
     pub properties: HashMap<String, String>,
+
+    /// Producer configuration
+    pub producer_config: ProducerConfig,
+}
+
+/// Producer configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProducerConfig {
+    /// Acks configuration
+    pub acks: String,
+
+    /// Retry configuration
+    pub retries: i32,
+
+    /// Batch size in bytes
+    pub batch_size: usize,
+
+    /// Linger time in milliseconds
+    pub linger_ms: u64,
+
+    /// Buffer memory in bytes
+    pub buffer_memory: usize,
+
+    /// Compression type
+    pub compression_type: String,
+
+    /// Max request size in bytes
+    pub max_request_size: usize,
+
+    /// Request timeout in milliseconds
+    pub request_timeout_ms: u64,
 }
 
 /// Kafka serialization formats
@@ -97,6 +128,22 @@ impl KafkaSinkConfig {
             serialization_format: KafkaSerializationFormat::Json,
             security: None,
             properties: HashMap::new(),
+            producer_config: ProducerConfig::default(),
+        }
+    }
+}
+
+impl Default for ProducerConfig {
+    fn default() -> Self {
+        Self {
+            acks: "all".to_string(),
+            retries: 3,
+            batch_size: 16384,
+            linger_ms: 5,
+            buffer_memory: 33554432, // 32MB
+            compression_type: "snappy".to_string(),
+            max_request_size: 1048576, // 1MB
+            request_timeout_ms: 30000,
         }
     }
 }
@@ -124,6 +171,12 @@ impl SinkConfig for KafkaSinkConfig {
             ));
         }
 
+        if self.client_id.is_empty() {
+            return Err(bridge_core::BridgeError::configuration(
+                "Kafka client ID cannot be empty".to_string(),
+            ));
+        }
+
         Ok(())
     }
 
@@ -140,55 +193,10 @@ pub struct KafkaSink {
     producer: Option<KafkaProducer>,
 }
 
-/// Kafka producer wrapper
+/// Kafka producer wrapper (mock implementation)
 struct KafkaProducer {
     topic: String,
-    // In production, this would be: producer: FutureProducer,
-}
-
-impl KafkaProducer {
-    /// Create a new Kafka producer
-    async fn new(config: &KafkaSinkConfig) -> BridgeResult<Self> {
-        // Mock implementation - in production this would use rdkafka
-        info!("Creating mock Kafka producer for topic: {}", config.topic);
-
-        // Validate configuration
-        if config.bootstrap_servers.is_empty() {
-            return Err(bridge_core::BridgeError::configuration(
-                "Bootstrap servers cannot be empty".to_string(),
-            ));
-        }
-
-        Ok(Self {
-            topic: config.topic.clone(),
-        })
-    }
-
-    /// Send message to Kafka
-    async fn send_message(&self, key: Option<Vec<u8>>, value: Vec<u8>) -> BridgeResult<()> {
-        // Mock implementation - in production this would use rdkafka
-        let key_str = key
-            .as_ref()
-            .and_then(|k| String::from_utf8(k.clone()).ok())
-            .unwrap_or_else(|| "no_key".to_string());
-
-        info!(
-            "Mock: Sending message to Kafka topic {} with key {} ({} bytes)",
-            self.topic,
-            key_str,
-            value.len()
-        );
-
-        // Simulate network delay
-        tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
-
-        info!(
-            "Mock: Message sent to Kafka topic {} partition 0 offset 123",
-            self.topic
-        );
-
-        Ok(())
-    }
+    // producer: FutureProducer, // Uncomment when rdkafka is available
 }
 
 impl KafkaSink {
@@ -235,126 +243,83 @@ impl KafkaSink {
             self.config.topic
         );
 
-        let producer = KafkaProducer::new(&self.config).await?;
-        self.producer = Some(producer);
+        // Mock implementation - in production this would use rdkafka
+        info!(
+            "Creating mock Kafka producer for topic: {}",
+            self.config.topic
+        );
 
-        info!("Kafka producer initialized");
-        Ok(())
-    }
-
-    /// Send batch to Kafka
-    async fn send_batch(&self, batch: TelemetryBatch) -> BridgeResult<()> {
-        let start_time = std::time::Instant::now();
-
-        info!("Sending batch to Kafka topic: {}", self.config.topic);
-
-        // Serialize batch based on format
-        let serialized_data = match self.config.serialization_format {
-            KafkaSerializationFormat::Arrow => {
-                // Use Arrow IPC serialization
-                serialize_to_arrow_ipc(&batch)?
-            }
-            KafkaSerializationFormat::Json => self.serialize_to_json(&batch).await?,
-            KafkaSerializationFormat::Avro => self.serialize_to_avro(&batch).await?,
-            KafkaSerializationFormat::Protobuf => self.serialize_to_protobuf(&batch).await?,
-            KafkaSerializationFormat::Parquet => self.serialize_to_parquet(&batch).await?,
-        };
-
-        // Send to Kafka
-        let data_len = serialized_data.len();
-        if let Some(producer) = &self.producer {
-            let key = Some(batch.id.to_string().into_bytes());
-            producer.send_message(key, serialized_data).await?;
-        } else {
-            return Err(bridge_core::BridgeError::stream(
-                "Kafka producer not initialized".to_string(),
+        // Validate configuration
+        if self.config.bootstrap_servers.is_empty() {
+            return Err(bridge_core::BridgeError::configuration(
+                "Bootstrap servers cannot be empty".to_string(),
             ));
         }
 
-        let send_time = start_time.elapsed().as_millis() as u64;
+        self.producer = Some(KafkaProducer {
+            topic: self.config.topic.clone(),
+        });
 
-        // Update statistics
-        {
-            let mut stats = self.stats.write().await;
-            stats.total_batches += 1;
-            stats.total_records += batch.size as u64;
-            stats.total_bytes += data_len as u64;
-            stats.last_send_time = Some(Utc::now());
-            stats.latency_ms = send_time;
-            stats.is_connected = true;
-        }
-
-        info!(
-            "Batch sent to Kafka in {}ms ({} bytes)",
-            send_time, data_len
-        );
+        info!("Kafka producer initialized successfully");
         Ok(())
     }
 
-    /// Serialize to JSON
-    async fn serialize_to_json(&self, batch: &TelemetryBatch) -> BridgeResult<Vec<u8>> {
-        let json_data = serde_json::to_vec(batch).map_err(|e| {
-            bridge_core::BridgeError::serialization(format!("Failed to serialize to JSON: {}", e))
-        })?;
-        Ok(json_data)
-    }
-
-    /// Serialize to Avro
-    async fn serialize_to_avro(&self, batch: &TelemetryBatch) -> BridgeResult<Vec<u8>> {
-        // For now, we'll serialize as JSON and wrap it in a simple Avro structure
-        // In a production environment, you would use proper Avro schemas
-        let json_data = self.serialize_to_json(batch).await?;
-
-        // Create a simple Avro record structure
-        let _avro_schema = r#"
-        {
-            "type": "record",
-            "name": "TelemetryBatch",
-            "fields": [
-                {"name": "data", "type": "bytes"},
-                {"name": "timestamp", "type": "long"},
-                {"name": "format", "type": "string"}
-            ]
+    /// Serialize telemetry batch based on format
+    async fn serialize_batch(&self, batch: &TelemetryBatch) -> BridgeResult<Vec<u8>> {
+        match self.config.serialization_format {
+            KafkaSerializationFormat::Json => serde_json::to_vec(batch).map_err(|e| {
+                bridge_core::BridgeError::serialization(format!(
+                    "Failed to serialize to JSON: {}",
+                    e
+                ))
+            }),
+            KafkaSerializationFormat::Arrow => serialize_to_arrow_ipc(batch).map_err(|e| {
+                bridge_core::BridgeError::serialization(format!(
+                    "Failed to serialize to Arrow: {}",
+                    e
+                ))
+            }),
+            KafkaSerializationFormat::Avro => {
+                // For now, fallback to JSON for Avro
+                // In production, you would use proper Avro serialization
+                warn!("Avro serialization not fully implemented, falling back to JSON");
+                serde_json::to_vec(batch).map_err(|e| {
+                    bridge_core::BridgeError::serialization(format!(
+                        "Failed to serialize to JSON: {}",
+                        e
+                    ))
+                })
+            }
+            KafkaSerializationFormat::Protobuf => {
+                // For now, fallback to JSON for Protobuf
+                // In production, you would use proper Protobuf serialization
+                warn!("Protobuf serialization not fully implemented, falling back to JSON");
+                serde_json::to_vec(batch).map_err(|e| {
+                    bridge_core::BridgeError::serialization(format!(
+                        "Failed to serialize to JSON: {}",
+                        e
+                    ))
+                })
+            }
+            KafkaSerializationFormat::Parquet => {
+                // For now, fallback to JSON for Parquet
+                // In production, you would use proper Parquet serialization
+                warn!("Parquet serialization not fully implemented, falling back to JSON");
+                serde_json::to_vec(batch).map_err(|e| {
+                    bridge_core::BridgeError::serialization(format!(
+                        "Failed to serialize to JSON: {}",
+                        e
+                    ))
+                })
+            }
         }
-        "#;
-
-        // For simplicity, we'll just return the JSON data as bytes
-        // In a real implementation, you would use avro-rs to properly serialize
-        Ok(json_data)
     }
 
-    /// Serialize to Protobuf
-    async fn serialize_to_protobuf(&self, batch: &TelemetryBatch) -> BridgeResult<Vec<u8>> {
-        // For now, we'll serialize as JSON and encode it as a simple protobuf message
-        // In a production environment, you would use proper protobuf definitions
-        let json_data = self.serialize_to_json(batch).await?;
-
-        // Create a simple protobuf-like structure
-        // This is a simplified approach - in practice you'd use prost-generated structs
-        let mut protobuf_data = Vec::new();
-
-        // Add field 1 (string): JSON data as bytes
-        protobuf_data.push(0x0a); // Field 1, wire type 2 (string)
-        protobuf_data.extend_from_slice(&(json_data.len() as u32).to_le_bytes());
-        protobuf_data.extend_from_slice(&json_data);
-
-        // Add field 2 (int64): timestamp
-        let timestamp = batch.timestamp.timestamp();
-        protobuf_data.push(0x10); // Field 2, wire type 0 (varint)
-        protobuf_data.extend_from_slice(&timestamp.to_le_bytes());
-
-        Ok(protobuf_data)
-    }
-
-    /// Serialize to Parquet
-    async fn serialize_to_parquet(&self, batch: &TelemetryBatch) -> BridgeResult<Vec<u8>> {
-        // For now, we'll use Arrow IPC as a proxy for Parquet
-        // In a production environment, you would use the parquet crate directly
-        let arrow_data = serialize_to_arrow_ipc(batch)?;
-
-        // Convert Arrow IPC to Parquet format
-        // This is a simplified approach - in practice you'd use arrow::parquet
-        Ok(arrow_data)
+    /// Generate message key for the batch
+    fn generate_message_key(&self, batch: &TelemetryBatch) -> Option<String> {
+        // Generate a key based on batch properties
+        // In production, you might want to use a specific field or generate a hash
+        Some(format!("{}-{}", batch.source, batch.timestamp.timestamp()))
     }
 }
 
@@ -408,18 +373,55 @@ impl StreamSink for KafkaSink {
     }
 
     fn is_running(&self) -> bool {
-        // This is a simplified check - in practice we'd need to handle the async nature
-        false
+        // Check if the sink is running
+        if let Some(_producer) = &self.producer {
+            // In a real implementation, you would check the producer's health
+            true
+        } else {
+            false
+        }
     }
 
     async fn send(&self, batch: TelemetryBatch) -> BridgeResult<()> {
-        if !self.is_running().await {
-            return Err(bridge_core::BridgeError::stream(
-                "Kafka sink is not running".to_string(),
-            ));
+        let start_time = std::time::Instant::now();
+
+        info!("Sending batch to Kafka topic: {}", self.config.topic);
+
+        // Serialize the batch
+        let payload = self.serialize_batch(&batch).await?;
+        let key = self.generate_message_key(&batch);
+
+        // Mock send operation
+        let key_str = key.unwrap_or_else(|| "no_key".to_string());
+
+        info!(
+            "Mock: Sending message to Kafka topic {} with key {} ({} bytes)",
+            self.config.topic,
+            key_str,
+            payload.len()
+        );
+
+        // Simulate network delay
+        tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+
+        let latency = start_time.elapsed().as_millis() as u64;
+
+        // Update statistics
+        {
+            let mut stats = self.stats.write().await;
+            stats.total_batches += 1;
+            stats.total_records += batch.size as u64;
+            stats.total_bytes += payload.len() as u64;
+            stats.last_send_time = Some(Utc::now());
+            stats.latency_ms = latency;
         }
 
-        self.send_batch(batch).await
+        info!(
+            "Mock: Message sent to Kafka topic {} partition 0 offset 123 latency: {}ms",
+            self.config.topic, latency
+        );
+
+        Ok(())
     }
 
     async fn get_stats(&self) -> BridgeResult<SinkStats> {
@@ -440,11 +442,5 @@ impl KafkaSink {
     /// Get Kafka configuration
     pub fn get_config(&self) -> &KafkaSinkConfig {
         &self.config
-    }
-
-    /// Check if sink is running
-    pub async fn is_running(&self) -> bool {
-        let is_running = self.is_running.read().await;
-        *is_running
     }
 }

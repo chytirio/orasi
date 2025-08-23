@@ -21,7 +21,7 @@
 //! # Quick Start
 //!
 //! ```rust
-//! use auth::{AuthConfig, AuthManager, AuthMethod, AuthCredentials, AuthRequest};
+//! use bridge_auth::{AuthConfig, AuthManager, AuthMethod, AuthCredentials, AuthRequest};
 //! use std::collections::HashMap;
 //!
 //! #[tokio::main]
@@ -58,7 +58,7 @@
 //! The authentication system is highly configurable through the `AuthConfig` struct:
 //!
 //! ```rust
-//! use auth::AuthConfig;
+//! use bridge_auth::AuthConfig;
 //!
 //! let mut config = AuthConfig::default();
 //!
@@ -81,7 +81,8 @@
 //! The crate provides ready-to-use middleware for Axum web frameworks:
 //!
 //! ```rust
-//! use auth::middleware::{AuthMiddleware, AuthExtractor};
+//! use bridge_auth::middleware::{AuthMiddleware, AuthExtractor};
+//! use bridge_auth::AuthManager;
 //! use axum::{extract::State, http::HeaderMap, Json};
 //! use std::sync::Arc;
 //!
@@ -138,26 +139,76 @@
 //! The crate provides comprehensive error types for different failure scenarios:
 //!
 //! ```rust
-//! use auth::AuthError;
+//! use bridge_auth::{AuthError, AuthManager, AuthMethod, AuthCredentials, AuthRequest};
+//! use std::collections::HashMap;
 //!
-//! match auth_result {
-//!     Ok(response) => {
-//!         // Handle successful authentication
-//!     }
-//!     Err(AuthError::AuthenticationFailed(msg)) => {
-//!         // Handle authentication failure
-//!     }
-//!     Err(AuthError::AuthorizationFailed(msg)) => {
-//!         // Handle authorization failure
-//!     }
-//!     Err(AuthError::TokenExpired(msg)) => {
-//!         // Handle expired token
-//!     }
-//!     Err(AuthError::RateLimitExceeded(msg)) => {
-//!         // Handle rate limit exceeded
-//!     }
-//!     Err(AuthError::Internal(msg)) => {
-//!         // Handle internal errors
+//! async fn example_error_handling(auth_manager: &AuthManager) {
+//!     let request = AuthRequest {
+//!         method: AuthMethod::UsernamePassword,
+//!         credentials: AuthCredentials::UsernamePassword {
+//!             username: "user@example.com".to_string(),
+//!             password: "password123".to_string(),
+//!         },
+//!         metadata: HashMap::new(),
+//!     };
+//!
+//!     match auth_manager.authenticate(request).await {
+//!         Ok(response) => {
+//!             // Handle successful authentication
+//!             println!("Authentication successful: {:?}", response.status);
+//!         }
+//!         Err(AuthError::AuthenticationFailed(msg)) => {
+//!             // Handle authentication failure
+//!             println!("Authentication failed: {}", msg);
+//!         }
+//!         Err(AuthError::AuthorizationFailed(msg)) => {
+//!             // Handle authorization failure
+//!             println!("Authorization failed: {}", msg);
+//!         }
+//!         Err(AuthError::TokenGeneration(msg)) => {
+//!             // Handle token generation failure
+//!             println!("Token generation failed: {}", msg);
+//!         }
+//!         Err(AuthError::TokenValidation(msg)) => {
+//!             // Handle token validation failure
+//!             println!("Token validation failed: {}", msg);
+//!         }
+//!         Err(AuthError::TokenExpired(msg)) => {
+//!             // Handle expired token
+//!             println!("Token expired: {}", msg);
+//!         }
+//!         Err(AuthError::TokenNotYetValid(msg)) => {
+//!             // Handle token not yet valid
+//!             println!("Token not yet valid: {}", msg);
+//!         }
+//!         Err(AuthError::TokenBlacklisted(msg)) => {
+//!             // Handle blacklisted token
+//!             println!("Token blacklisted: {}", msg);
+//!         }
+//!         Err(AuthError::RefreshDisabled(msg)) => {
+//!             // Handle refresh disabled
+//!             println!("Refresh disabled: {}", msg);
+//!         }
+//!         Err(AuthError::UserNotFound(msg)) => {
+//!             // Handle user not found
+//!             println!("User not found: {}", msg);
+//!         }
+//!         Err(AuthError::InvalidCredentials(msg)) => {
+//!             // Handle invalid credentials
+//!             println!("Invalid credentials: {}", msg);
+//!         }
+//!         Err(AuthError::AccountLocked(msg)) => {
+//!             // Handle account locked
+//!             println!("Account locked: {}", msg);
+//!         }
+//!         Err(AuthError::RateLimitExceeded(msg)) => {
+//!             // Handle rate limit exceeded
+//!             println!("Rate limit exceeded: {}", msg);
+//!         }
+//!         Err(AuthError::Internal(msg)) => {
+//!             // Handle internal errors
+//!             println!("Internal error: {}", msg);
+//!         }
 //!     }
 //! }
 //! ```
@@ -167,19 +218,23 @@
 //! The crate provides built-in statistics and metrics:
 //!
 //! ```rust
-//! // Get authentication statistics
-//! let auth_stats = auth_manager.get_stats().await;
-//! println!("Successful authentications: {}", auth_stats.successful_authentications);
-//! println!("Failed authentications: {}", auth_stats.failed_authentications);
+//! use bridge_auth::AuthManager;
 //!
-//! // Get JWT statistics
-//! let jwt_stats = auth_manager.jwt_manager().get_stats().await;
-//! println!("Tokens generated: {}", jwt_stats.tokens_generated);
-//! println!("Tokens validated: {}", jwt_stats.tokens_validated);
+//! async fn example_stats(auth_manager: &AuthManager) {
+//!     // Get authentication statistics
+//!     let auth_stats = auth_manager.get_stats().await;
+//!     println!("Successful authentications: {}", auth_stats.successful_authentications);
+//!     println!("Failed authentications: {}", auth_stats.failed_authentications);
 //!
-//! // Get API key statistics
-//! let api_key_stats = auth_manager.api_key_manager().get_stats().await;
-//! println!("Active API keys: {}", api_key_stats.active_keys);
+//!     // Get JWT statistics
+//!     let jwt_stats = auth_manager.jwt_manager().get_stats().await;
+//!     println!("Tokens generated: {}", jwt_stats.tokens_generated);
+//!     println!("Tokens validated: {}", jwt_stats.tokens_validated);
+//!
+//!     // Get API key statistics
+//!     let api_key_stats = auth_manager.api_key_manager().get_stats().await;
+//!     println!("Keys generated: {}", api_key_stats.keys_generated);
+//! }
 //! ```
 //!
 //! # Testing
@@ -257,10 +312,10 @@ pub const DEFAULT_SESSION_TIMEOUT_SECS: u64 = 8 * 60 * 60;
 /// # Example
 ///
 /// ```rust
-/// use auth::{init_auth_system, AuthConfig};
+/// use bridge_auth::{init_auth_system, AuthConfig};
 ///
 /// #[tokio::main]
-/// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 ///     let config = AuthConfig::default();
 ///     let auth_manager = init_auth_system(config).await?;
 ///     
@@ -296,10 +351,10 @@ pub async fn init_auth_system(
 /// # Example
 ///
 /// ```rust
-/// use auth::{init_auth_system, shutdown_auth_system, AuthConfig};
+/// use bridge_auth::{init_auth_system, shutdown_auth_system, AuthConfig};
 ///
 /// #[tokio::main]
-/// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 ///     let config = AuthConfig::default();
 ///     let auth_manager = init_auth_system(config).await?;
 ///     

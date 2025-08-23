@@ -4,21 +4,21 @@
 
 //! Request handlers for Bridge API
 
-pub mod health;
-pub mod telemetry;
-pub mod query;
 pub mod analytics;
-pub mod config;
 pub mod components;
+pub mod config;
+pub mod health;
 pub mod plugins;
+pub mod query;
+pub mod telemetry;
 pub mod utils;
 
 // Re-export all public handlers for convenience
-pub use health::*;
-pub use telemetry::*;
-pub use query::*;
 pub use analytics::*;
-pub use config::*;
 pub use components::*;
+pub use config::*;
+pub use health::*;
 pub use plugins::*;
+pub use query::*;
+pub use telemetry::*;
 pub use utils::*;

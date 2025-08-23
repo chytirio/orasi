@@ -1,0 +1,70 @@
+lints.workspace = true
+
+[package]
+name = "multi-tenancy"
+version = "0.1.0"
+edition = "2021"
+description = "Multi-tenancy support for Orasi observability platform"
+license = "Apache-2.0"
+repository = "https://github.com/chytirio/orasi"
+keywords = ["multi-tenancy", "tenant", "isolation", "observability", "orasi"]
+categories = ["observability", "data-processing"]
+
+[dependencies]
+# Core dependencies
+tokio = { workspace = true, features = ["full"] }
+serde = { workspace = true }
+serde_json = "1.0"
+anyhow = "1.0"
+thiserror = "1.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# Bridge dependencies
+bridge-core = { path = "../bridge-core" }
+bridge-auth = { path = "../bridge-auth" }
+
+# Async runtime and networking
+tonic = { workspace = true }
+hyper = { workspace = true }
+axum = { workspace = true }
+tower = { workspace = true }
+
+# Database and storage
+sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "postgres", "mysql", "sqlite"] }
+redis = { version = "0.24", features = ["tokio-comp", "connection-manager"] }
+aws-sdk-s3 = "1.0"
+aws-config = "1.0"
+
+# Configuration and validation
+config = "0.14"
+validator = { version = "0.16", features = ["derive"] }
+
+# Metrics and monitoring
+prometheus = "0.13"
+metrics = "0.21"
+metrics-exporter-prometheus = "0.12"
+
+# Time and date handling
+chrono = { version = "0.4", features = ["serde"] }
+time = "0.3"
+
+# UUID and identifiers
+uuid = { version = "1.7", features = ["v4", "v5", "serde"] }
+
+# HTTP client
+reqwest = { version = "0.12", features = ["json", "stream"] }
+
+# CLI framework
+clap = { version = "4.5", features = ["derive"] }
+
+# Testing
+criterion = "0.5"
+mockall = "0.12"
+
+# Additional dependencies for multi-tenancy
+num_cpus = "1.16"
+dashmap = "5.5"
+futures = "0.3"
+async-trait = "0.1"
+bytes = "1.5"

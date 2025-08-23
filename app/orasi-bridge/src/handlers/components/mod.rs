@@ -7,12 +7,12 @@
 //! - Component discovery and listing
 
 pub mod api;
+pub mod discovery;
 pub mod handlers;
 pub mod health;
-pub mod discovery;
 
 // Re-export main functionality for convenience
 pub use api::*;
+pub use discovery::*;
 pub use handlers::*;
 pub use health::*;
-pub use discovery::*;

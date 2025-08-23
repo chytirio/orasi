@@ -1,15 +1,15 @@
 //! Health check middleware
 
+use axum::http::StatusCode;
 use axum::{
     extract::{Request, State},
     middleware::Next,
     response::Response,
 };
-use axum::http::StatusCode;
 use serde_json;
 
-use crate::rest::AppState;
 use super::utils::perform_health_checks;
+use crate::rest::AppState;
 
 /// Health check middleware
 pub async fn health_check_middleware(

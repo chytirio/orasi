@@ -37,7 +37,7 @@ pub struct ProcessedBatch {
 }
 
 /// Processing status
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ProcessingStatus {
     Success,
     Partial,

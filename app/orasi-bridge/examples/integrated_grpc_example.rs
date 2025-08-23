@@ -2,9 +2,9 @@
 
 use bridge_api::{
     config::BridgeAPIConfig,
-    services::grpc::{create_grpc_server, GrpcServer},
     metrics::ApiMetrics,
     proto::*,
+    services::grpc::{create_grpc_server, GrpcServer},
 };
 use std::time::Duration;
 use tonic::{transport::Channel, Request};

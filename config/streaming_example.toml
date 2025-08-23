@@ -1,0 +1,13 @@
+# Streaming processor example configuration
+
+# How long the example should run (seconds)
+run_seconds = 8
+
+# HTTP sink endpoint (the example uses a simulated HTTP sink)
+http_sink_endpoint = "http://localhost:8080/api/telemetry"
+
+# Whether the mock receiver health check should be true
+receiver_healthy = true
+
+# Probability [0.0 - 1.0] that a generated log line is an error
+error_probability = 0.2

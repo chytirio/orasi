@@ -3,8 +3,8 @@
 //! This module handles validation tracking and metrics collection for the registry.
 
 use crate::error::SchemaRegistryResult;
-use crate::storage::StorageBackend;
 use crate::schema::validation::ValidationResult;
+use crate::storage::StorageBackend;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 

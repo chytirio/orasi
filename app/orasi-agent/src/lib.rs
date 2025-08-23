@@ -1,11 +1,4 @@
-//! SPDX-FileCopyrightText: © 2025 Cory Parent <goedelsoup+orasi@goedelsoup.io>
-//! SPDX-License-Identifier: Apache-2.0
-//!
-
-//! Orasi Agent for distributed ingestion, indexing, and processing
-//!
-//! This module provides the agent functionality for the Orasi distributed system,
-//! handling data ingestion, indexing, and processing tasks in a clustered environment.
+//! Orasi Agent - Distributed data processing agent
 
 pub mod agent;
 pub mod cluster;
@@ -13,12 +6,19 @@ pub mod config;
 pub mod discovery;
 pub mod error;
 pub mod health;
+pub mod http;
 pub mod metrics;
 pub mod processing;
 pub mod state;
 pub mod types;
 
-// Re-export main types
+#[cfg(test)]
+mod tests;
+
+/// Agent version
+pub const AGENT_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+// Re-export main types for convenience
 pub use agent::OrasiAgent;
 pub use config::AgentConfig;
 pub use error::AgentError;
@@ -26,9 +26,6 @@ pub use types::*;
 
 /// Result type for agent operations
 pub type AgentResult<T> = Result<T, AgentError>;
-
-/// Agent version information
-pub const AGENT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Agent name
 pub const AGENT_NAME: &str = "orasi-agent";
@@ -69,16 +66,4 @@ pub async fn shutdown_agent(agent: OrasiAgent) -> AgentResult<()> {
     tracing::info!("Orasi agent shutdown completed");
 
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
-    async fn test_agent_initialization() {
-        let config = AgentConfig::default();
-        let result = init_agent(config).await;
-        assert!(result.is_ok());
-    }
 }

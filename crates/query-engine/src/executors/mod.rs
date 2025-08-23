@@ -9,6 +9,109 @@
 
 pub mod datafusion_executor;
 
+/// Mock executor for testing and development
+pub struct MockExecutor {
+    name: String,
+    version: String,
+    stats: Arc<RwLock<ExecutorStats>>,
+}
+
+impl MockExecutor {
+    /// Create a new mock executor
+    pub fn new() -> Self {
+        Self {
+            name: "mock_executor".to_string(),
+            version: "1.0.0".to_string(),
+            stats: Arc::new(RwLock::new(ExecutorStats {
+                executor: "mock_executor".to_string(),
+                total_queries: 0,
+                queries_per_minute: 0,
+                total_execution_time_ms: 0,
+                avg_execution_time_ms: 0.0,
+                error_count: 0,
+                last_execution_time: None,
+                is_executing: false,
+            })),
+        }
+    }
+}
+
+#[async_trait]
+impl QueryExecutor for MockExecutor {
+    async fn init(&mut self) -> BridgeResult<()> {
+        info!("Initializing Mock Executor");
+        Ok(())
+    }
+
+    async fn execute(&self, query: ParsedQuery) -> BridgeResult<QueryResult> {
+        let start_time = std::time::Instant::now();
+
+        // Simulate some processing time
+        tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+
+        // Create mock result data
+        let mock_data = vec![
+            QueryRow {
+                id: Uuid::new_v4(),
+                data: HashMap::from([
+                    ("service".to_string(), QueryValue::String("web".to_string())),
+                    ("response_time".to_string(), QueryValue::Float(150.0)),
+                    ("status".to_string(), QueryValue::String("200".to_string())),
+                ]),
+                metadata: HashMap::new(),
+            },
+            QueryRow {
+                id: Uuid::new_v4(),
+                data: HashMap::from([
+                    ("service".to_string(), QueryValue::String("api".to_string())),
+                    ("response_time".to_string(), QueryValue::Float(200.0)),
+                    ("status".to_string(), QueryValue::String("200".to_string())),
+                ]),
+                metadata: HashMap::new(),
+            },
+        ];
+
+        let execution_time = start_time.elapsed().as_millis() as u64;
+
+        // Update statistics
+        {
+            let mut stats = self.stats.write().await;
+            stats.total_queries += 1;
+            stats.total_execution_time_ms += execution_time;
+            stats.avg_execution_time_ms =
+                stats.total_execution_time_ms as f64 / stats.total_queries as f64;
+            stats.last_execution_time = Some(Utc::now());
+        }
+
+        let result = QueryResult {
+            id: Uuid::new_v4(),
+            query_id: query.id,
+            status: ExecutionStatus::Success,
+            data: mock_data,
+            metadata: HashMap::from([
+                ("executor".to_string(), self.name.clone()),
+                ("query_type".to_string(), "mock".to_string()),
+            ]),
+            execution_time_ms: execution_time,
+            execution_timestamp: Utc::now(),
+        };
+
+        Ok(result)
+    }
+
+    async fn get_stats(&self) -> BridgeResult<ExecutorStats> {
+        Ok(self.stats.read().await.clone())
+    }
+
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn version(&self) -> &str {
+        &self.version
+    }
+}
+
 use async_trait::async_trait;
 use bridge_core::{BridgeResult, TelemetryBatch};
 use chrono::{DateTime, Utc};

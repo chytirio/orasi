@@ -57,7 +57,7 @@ prost = { workspace = true }
 
 # Kafka dependencies
 kafka = "0.9"
-# rdkafka = { version = "0.35", features = ["cmake-build"] }  # Temporarily disabled due to build issues
+rdkafka = { version = "0.35", features = ["cmake-build"], optional = true }
 
 # Additional dependencies
 dashmap = "5.5"
@@ -65,6 +65,12 @@ crossbeam-channel = "0.5"
 parking_lot = "0.12"
 tracing-subscriber = { workspace = true }
 regex = "1.10"
+url = "2.4"
+notify = "6.1"
+
+[features]
+default = []
+kafka = ["rdkafka"]
 
 [dev-dependencies]
 tokio-test = "0.4"

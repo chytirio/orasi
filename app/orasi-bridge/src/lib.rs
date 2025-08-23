@@ -9,13 +9,13 @@
 
 pub mod config;
 pub mod error;
-pub mod services;
 pub mod handlers;
 pub mod metrics;
 pub mod middleware;
 pub mod proto;
 pub mod rest;
 pub mod server;
+pub mod services;
 pub mod types;
 
 #[cfg(feature = "openapi")]

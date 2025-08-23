@@ -1,0 +1,130 @@
+version: '3.8'
+
+services:
+  # etcd for service discovery
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.0
+    container_name: orasi-etcd
+    environment:
+      - ETCD_NAME=orasi-etcd
+      - ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2379
+      - ETCD_ADVERTISE_CLIENT_URLS=http://etcd:2379
+      - ETCD_DATA_DIR=/etcd-data
+    ports:
+      - "2379:2379"
+    volumes:
+      - etcd_data:/etcd-data
+    command: etcd
+    healthcheck:
+      test: ["CMD", "etcdctl", "endpoint", "health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Prometheus for metrics
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    container_name: orasi-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Grafana for visualization
+  grafana:
+    image: grafana/grafana:10.0.0
+    container_name: orasi-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources
+    depends_on:
+      - prometheus
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Orasi Gateway
+  orasi-gateway:
+    build:
+      context: ../..
+      dockerfile: app/orasi-gateway/Dockerfile
+    container_name: orasi-gateway
+    ports:
+      - "8080:8080"  # Gateway endpoint
+      - "8081:8081"  # Health endpoint
+      - "9090:9090"  # Metrics endpoint
+      - "8082:8082"  # Admin endpoint
+    environment:
+      - RUST_LOG=info
+      - GATEWAY_ID=orasi-gateway-1
+      - GATEWAY_ENDPOINT=0.0.0.0:8080
+      - HEALTH_ENDPOINT=0.0.0.0:8081
+      - METRICS_ENDPOINT=0.0.0.0:9090
+      - ADMIN_ENDPOINT=0.0.0.0:8082
+    volumes:
+      - ./config:/app/config
+      - gateway_logs:/app/logs
+    depends_on:
+      etcd:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8081/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # Mock bridge API service
+  bridge-api:
+    image: nginx:alpine
+    container_name: orasi-bridge-api
+    ports:
+      - "8083:80"
+    volumes:
+      - ./nginx-bridge.conf:/etc/nginx/nginx.conf
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Mock agent service
+  orasi-agent:
+    image: nginx:alpine
+    container_name: orasi-agent
+    ports:
+      - "8084:80"
+    volumes:
+      - ./nginx-agent.conf:/etc/nginx/nginx.conf
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  etcd_data:
+  prometheus_data:
+  grafana_data:
+  gateway_logs:

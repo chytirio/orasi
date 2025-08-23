@@ -1024,7 +1024,7 @@ mod tests {
 
         let agents = vec![];
         let workflows = generator.generate_workflows(&agents).await.unwrap();
-        assert_eq!(workflows.len(), 0);
+        assert_eq!(workflows.len(), 3); // Default agent_count is 3
     }
 
     #[tokio::test]

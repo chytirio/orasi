@@ -28,6 +28,8 @@ opentelemetry-http = { workspace = true }
 opentelemetry-otlp = { workspace = true }
 opentelemetry-semantic-conventions = { workspace = true }
 opentelemetry-proto = { workspace = true, features = ["gen-tonic-messages", "gen-tonic", "trace", "metrics", "logs"] }
+opentelemetry-jaeger = "0.20"
+opentelemetry-zipkin = "0.20"
 
 # OTel-Arrow dependencies
 # otel-arrow-rust = { workspace = true }
@@ -65,6 +67,7 @@ dashmap = "5.5"
 crossbeam-channel = "0.5"
 parking_lot = "0.12"
 tracing-subscriber = { workspace = true }
+tracing-opentelemetry = "0.21"
 zstd = { workspace = true }
 rand = "0.8"
 hostname = "0.3"
@@ -80,7 +83,11 @@ yaml-rust = "0.4"
 toml = "0.8"
 tower-http = { workspace = true, features = ["cors"] }
 hyper-tls = "0.5"
+sysinfo = "0.30"
 bridge-auth = { path = "../bridge-auth" }
+tokio-rustls = "0.24"
+tempfile = "3.8"
+jsonpath_lib = "0.3"
 
 [features]
 default = []

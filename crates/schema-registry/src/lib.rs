@@ -23,7 +23,10 @@ pub use bridge_core::types::{ProcessedBatch, TelemetryBatch};
 pub use config::SchemaRegistryConfig;
 pub use error::{SchemaRegistryError, SchemaRegistryResult};
 pub use registry::{RegistryMetrics, RegistryState, RegistryStats, SchemaRegistryManager};
-pub use schema::{Schema, SchemaMetadata, SchemaVersion, SchemaValidator, SchemaValidatorTrait, ValidationError, ValidationResult, ValidationStatus, ValidationWarning};
+pub use schema::{
+    Schema, SchemaMetadata, SchemaValidator, SchemaValidatorTrait, SchemaVersion, ValidationError,
+    ValidationResult, ValidationStatus, ValidationWarning,
+};
 pub use storage::{MemoryStorage, RedisStorage, StorageBackend, StorageError};
 pub use types::*;
 

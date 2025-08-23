@@ -3,20 +3,20 @@
 //!
 
 //! S3/Parquet connector implementation
-//! 
+//!
 //! This module provides the main S3/Parquet connector that implements
 //! the LakehouseConnector trait for seamless integration with the bridge.
 
-use std::sync::Arc;
 use async_trait::async_trait;
-use tracing::{debug, info};
-use bridge_core::traits::LakehouseConnector;
 use bridge_core::error::BridgeResult;
+use bridge_core::traits::{LakehouseConnector, LakehouseReader, LakehouseWriter};
+use std::sync::Arc;
+use tracing::{debug, info};
 
 use crate::config::S3ParquetConfig;
 use crate::error::{S3ParquetError, S3ParquetResult};
-use crate::writer::S3ParquetWriter;
 use crate::reader::S3ParquetReader;
+use crate::writer::S3ParquetWriter;
 
 /// S3/Parquet connector implementation
 pub struct S3ParquetConnector {
@@ -25,9 +25,9 @@ pub struct S3ParquetConnector {
     /// Connection state
     connected: bool,
     /// Writer instance
-    writer: Option<Arc<S3ParquetWriter>>,
+    writer: Option<S3ParquetWriter>,
     /// Reader instance
-    reader: Option<Arc<S3ParquetReader>>,
+    reader: Option<S3ParquetReader>,
 }
 
 impl S3ParquetConnector {
@@ -43,20 +43,24 @@ impl S3ParquetConnector {
 
     /// Initialize the connector
     pub async fn initialize(&mut self) -> S3ParquetResult<()> {
-        info!("Initializing S3/Parquet connector for bucket: {}", self.config.bucket());
-        
+        info!(
+            "Initializing S3/Parquet connector for bucket: {}",
+            self.config.bucket
+        );
+
         // Validate configuration
-        self.config.validate_config()
+        self.config
+            .validate_config()
             .map_err(|e| S3ParquetError::configuration(format!("Invalid configuration: {}", e)))?;
-        
+
         // Initialize writer and reader
-        let writer = Arc::new(S3ParquetWriter::new(self.config.clone()).await?);
-        let reader = Arc::new(S3ParquetReader::new(self.config.clone()).await?);
-        
+        let writer = S3ParquetWriter::new(self.config.clone()).await?;
+        let reader = S3ParquetReader::new(self.config.clone()).await?;
+
         self.writer = Some(writer);
         self.reader = Some(reader);
         self.connected = true;
-        
+
         info!("S3/Parquet connector initialized successfully");
         Ok(())
     }
@@ -80,20 +84,24 @@ impl LakehouseConnector for S3ParquetConnector {
 
     async fn connect(config: Self::Config) -> BridgeResult<Self> {
         let mut connector = S3ParquetConnector::new(config);
-        connector.initialize().await
-            .map_err(|e| bridge_core::error::BridgeError::lakehouse_with_source("Failed to initialize S3/Parquet connector", e))?;
+        connector.initialize().await.map_err(|e| {
+            bridge_core::error::BridgeError::lakehouse_with_source(
+                "Failed to initialize S3/Parquet connector",
+                e,
+            )
+        })?;
         Ok(connector)
     }
 
     async fn writer(&self) -> BridgeResult<Self::WriteHandle> {
-        self.writer.as_ref()
-            .map(|w| Arc::clone(w))
+        self.writer
+            .clone()
             .ok_or_else(|| bridge_core::error::BridgeError::lakehouse("Writer not initialized"))
     }
 
     async fn reader(&self) -> BridgeResult<Self::ReadHandle> {
-        self.reader.as_ref()
-            .map(|r| Arc::clone(r))
+        self.reader
+            .clone()
             .ok_or_else(|| bridge_core::error::BridgeError::lakehouse("Reader not initialized"))
     }
 
@@ -110,15 +118,16 @@ impl LakehouseConnector for S3ParquetConnector {
             return Ok(false);
         }
 
-        // Perform health checks on writer and reader
+        // Check writer health
         let writer_healthy = if let Some(writer) = &self.writer {
-            writer.health_check().await.unwrap_or(false)
+            writer.get_stats().await.is_ok()
         } else {
             false
         };
 
+        // Check reader health
         let reader_healthy = if let Some(reader) = &self.reader {
-            reader.health_check().await.unwrap_or(false)
+            reader.get_stats().await.is_ok()
         } else {
             false
         };
@@ -127,73 +136,56 @@ impl LakehouseConnector for S3ParquetConnector {
     }
 
     async fn get_stats(&self) -> BridgeResult<bridge_core::traits::ConnectorStats> {
-        let writer_stats = if let Some(writer) = &self.writer {
-            writer.get_stats().await.unwrap_or_else(|_| bridge_core::traits::WriterStats {
-                total_writes: 0,
-                total_records: 0,
-                writes_per_minute: 0,
-                records_per_minute: 0,
-                avg_write_time_ms: 0.0,
-                error_count: 0,
-                last_write_time: None,
-            })
-        } else {
-            bridge_core::traits::WriterStats {
-                total_writes: 0,
-                total_records: 0,
-                writes_per_minute: 0,
-                records_per_minute: 0,
-                avg_write_time_ms: 0.0,
-                error_count: 0,
-                last_write_time: None,
-            }
-        };
+        let mut total_writes = 0;
+        let mut total_reads = 0;
+        let mut avg_write_time_ms = 0.0;
+        let mut avg_read_time_ms = 0.0;
+        let mut error_count = 0;
 
-        let reader_stats = if let Some(reader) = &self.reader {
-            reader.get_stats().await.unwrap_or_else(|_| bridge_core::traits::ReaderStats {
-                total_reads: 0,
-                total_records: 0,
-                reads_per_minute: 0,
-                records_per_minute: 0,
-                avg_read_time_ms: 0.0,
-                error_count: 0,
-                last_read_time: None,
-            })
-        } else {
-            bridge_core::traits::ReaderStats {
-                total_reads: 0,
-                total_records: 0,
-                reads_per_minute: 0,
-                records_per_minute: 0,
-                avg_read_time_ms: 0.0,
-                error_count: 0,
-                last_read_time: None,
+        // Get writer stats
+        if let Some(writer) = &self.writer {
+            if let Ok(writer_stats) = writer.get_stats().await {
+                total_writes = writer_stats.total_writes;
+                avg_write_time_ms = writer_stats.avg_write_time_ms;
+                error_count += writer_stats.error_count;
             }
-        };
+        }
+
+        // Get reader stats
+        if let Some(reader) = &self.reader {
+            if let Ok(reader_stats) = reader.get_stats().await {
+                total_reads = reader_stats.total_reads;
+                avg_read_time_ms = reader_stats.avg_read_time_ms;
+                error_count += reader_stats.error_count;
+            }
+        }
 
         Ok(bridge_core::traits::ConnectorStats {
-            total_connections: 1,
+            total_connections: if self.connected { 1 } else { 0 },
             active_connections: if self.connected { 1 } else { 0 },
-            total_writes: writer_stats.total_writes,
-            total_reads: reader_stats.total_reads,
-            error_count: writer_stats.error_count + reader_stats.error_count,
-            last_operation_time: writer_stats.last_write_time.or(reader_stats.last_read_time),
+            total_writes,
+            total_reads,
+            avg_write_time_ms,
+            avg_read_time_ms,
+            error_count,
+            last_operation_time: Some(chrono::Utc::now()),
         })
     }
 
     async fn shutdown(&self) -> BridgeResult<()> {
         info!("Shutting down S3/Parquet connector");
-        
-        // Shutdown writer and reader
+
+        // Close writer
         if let Some(writer) = &self.writer {
             let _ = writer.close().await;
         }
-        
+
+        // Close reader
         if let Some(reader) = &self.reader {
             let _ = reader.close().await;
         }
-        
-        info!("S3/Parquet connector shutdown completed");
+
+        info!("S3/Parquet connector shutdown complete");
         Ok(())
     }
 }

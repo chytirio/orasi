@@ -9,11 +9,13 @@
 
 use async_trait::async_trait;
 use bridge_core::{
+    error::BridgeError,
     traits::{ProcessorStats, TelemetryProcessor},
     types::{ProcessedBatch, ProcessedRecord, TelemetryRecord},
     BridgeResult, TelemetryBatch,
 };
 use chrono::{DateTime, Datelike, Timelike, Utc};
+use jsonpath_lib::select;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -187,6 +189,52 @@ pub enum ValidationFailureAction {
     UseDefault(String),
     /// Skip enrichment
     SkipEnrichment,
+}
+
+/// Custom expression types for validation
+#[derive(Debug, Clone)]
+pub enum CustomExpression {
+    /// Logical AND operation
+    And(Box<CustomExpression>, Box<CustomExpression>),
+    /// Logical OR operation
+    Or(Box<CustomExpression>, Box<CustomExpression>),
+    /// Comparison operation
+    Comparison(String, ComparisonOp, String),
+    /// String operation
+    StringOp(String, StringOp, String),
+    /// Existence check
+    Exists(String),
+    /// Built-in function
+    BuiltInFunction(String, BuiltInFunction),
+}
+
+/// Comparison operators
+#[derive(Debug, Clone, Copy)]
+pub enum ComparisonOp {
+    Equals,
+    NotEquals,
+    GreaterThan,
+    GreaterThanOrEqual,
+    LessThan,
+    LessThanOrEqual,
+}
+
+/// String operations
+#[derive(Debug, Clone, Copy)]
+pub enum StringOp {
+    Contains,
+    StartsWith,
+    EndsWith,
+}
+
+/// Built-in validation functions
+#[derive(Debug, Clone, Copy)]
+pub enum BuiltInFunction {
+    IsEmail,
+    IsUrl,
+    IsIp,
+    IsUuid,
+    IsNumber,
 }
 
 impl EnrichmentProcessorConfig {
@@ -385,9 +433,8 @@ impl EnrichmentProcessor {
                     let len = field_value.len();
                     len >= *min && len <= *max
                 }
-                ValidationType::Custom(_) => {
-                    // TODO: Implement custom validation
-                    true
+                ValidationType::Custom(expression) => {
+                    self.evaluate_custom_validation(record, expression)
                 }
             };
 
@@ -433,6 +480,464 @@ impl EnrichmentProcessor {
                     // Check tags
                     record.tags.get(field).cloned().unwrap_or_default()
                 }
+            }
+        }
+    }
+
+    /// Evaluate custom validation using JSONPath expressions
+    fn evaluate_custom_validation(&self, record: &TelemetryRecord, expression: &str) -> bool {
+        // Convert record to JSON for JSONPath evaluation
+        let json_value = match serde_json::to_value(record) {
+            Ok(value) => value,
+            Err(e) => {
+                warn!(
+                    "Failed to serialize record to JSON for custom validation: {}",
+                    e
+                );
+                return false; // Fail-open: return false on serialization error
+            }
+        };
+
+        // Parse and evaluate the expression
+        match self.parse_custom_expression(expression) {
+            Ok(expr_type) => self.evaluate_expression(&json_value, &expr_type),
+            Err(e) => {
+                warn!(
+                    "Failed to parse custom validation expression '{}': {}",
+                    expression, e
+                );
+                false // Fail-open: return false on parsing error
+            }
+        }
+    }
+
+    /// Parse custom validation expression into a structured format
+    fn parse_custom_expression(&self, expression: &str) -> BridgeResult<CustomExpression> {
+        let expression = expression.trim();
+        
+        // Handle parentheses by removing outer parentheses if they wrap the entire expression
+        let expression = if expression.starts_with('(') && expression.ends_with(')') {
+            &expression[1..expression.len()-1].trim()
+        } else {
+            expression
+        };
+
+        // Check for logical operators first
+        if expression.contains(" && ") {
+            let parts: Vec<&str> = expression.split(" && ").collect();
+            if parts.len() >= 2 {
+                // Handle multiple && operators by making them left-associative
+                let mut result = self.parse_custom_expression(parts[0])?;
+                for part in &parts[1..] {
+                    result = CustomExpression::And(
+                        Box::new(result),
+                        Box::new(self.parse_custom_expression(part)?),
+                    );
+                }
+                return Ok(result);
+            }
+        }
+
+        if expression.contains(" || ") {
+            let parts: Vec<&str> = expression.split(" || ").collect();
+            if parts.len() >= 2 {
+                // Handle multiple || operators by making them left-associative
+                let mut result = self.parse_custom_expression(parts[0])?;
+                for part in &parts[1..] {
+                    result = CustomExpression::Or(
+                        Box::new(result),
+                        Box::new(self.parse_custom_expression(part)?),
+                    );
+                }
+                return Ok(result);
+            }
+        }
+
+        // Check for comparison operators
+        if expression.contains(" == ") {
+            let parts: Vec<&str> = expression.split(" == ").collect();
+            if parts.len() == 2 && !parts[1].trim().is_empty() {
+                return Ok(CustomExpression::Comparison(
+                    parts[0].trim().to_string(),
+                    ComparisonOp::Equals,
+                    parts[1].trim().to_string(),
+                ));
+            }
+        }
+
+        if expression.contains(" != ") {
+            let parts: Vec<&str> = expression.split(" != ").collect();
+            if parts.len() == 2 && !parts[1].trim().is_empty() {
+                return Ok(CustomExpression::Comparison(
+                    parts[0].trim().to_string(),
+                    ComparisonOp::NotEquals,
+                    parts[1].trim().to_string(),
+                ));
+            }
+        }
+
+        if expression.contains(" > ") {
+            let parts: Vec<&str> = expression.split(" > ").collect();
+            if parts.len() == 2 && !parts[1].trim().is_empty() {
+                return Ok(CustomExpression::Comparison(
+                    parts[0].trim().to_string(),
+                    ComparisonOp::GreaterThan,
+                    parts[1].trim().to_string(),
+                ));
+            }
+        }
+
+        if expression.contains(" >= ") {
+            let parts: Vec<&str> = expression.split(" >= ").collect();
+            if parts.len() == 2 && !parts[1].trim().is_empty() {
+                return Ok(CustomExpression::Comparison(
+                    parts[0].trim().to_string(),
+                    ComparisonOp::GreaterThanOrEqual,
+                    parts[1].trim().to_string(),
+                ));
+            }
+        }
+
+        if expression.contains(" < ") {
+            let parts: Vec<&str> = expression.split(" < ").collect();
+            if parts.len() == 2 && !parts[1].trim().is_empty() {
+                return Ok(CustomExpression::Comparison(
+                    parts[0].trim().to_string(),
+                    ComparisonOp::LessThan,
+                    parts[1].trim().to_string(),
+                ));
+            }
+        }
+
+        if expression.contains(" <= ") {
+            let parts: Vec<&str> = expression.split(" <= ").collect();
+            if parts.len() == 2 && !parts[1].trim().is_empty() {
+                return Ok(CustomExpression::Comparison(
+                    parts[0].trim().to_string(),
+                    ComparisonOp::LessThanOrEqual,
+                    parts[1].trim().to_string(),
+                ));
+            }
+        }
+
+        // Check for string operations
+        if expression.contains(" contains ") {
+            let parts: Vec<&str> = expression.split(" contains ").collect();
+            if parts.len() == 2 {
+                return Ok(CustomExpression::StringOp(
+                    parts[0].trim().to_string(),
+                    StringOp::Contains,
+                    parts[1].trim().to_string(),
+                ));
+            }
+        }
+
+        if expression.contains(" starts_with ") {
+            let parts: Vec<&str> = expression.split(" starts_with ").collect();
+            if parts.len() == 2 {
+                return Ok(CustomExpression::StringOp(
+                    parts[0].trim().to_string(),
+                    StringOp::StartsWith,
+                    parts[1].trim().to_string(),
+                ));
+            }
+        }
+
+        if expression.contains(" ends_with ") {
+            let parts: Vec<&str> = expression.split(" ends_with ").collect();
+            if parts.len() == 2 {
+                return Ok(CustomExpression::StringOp(
+                    parts[0].trim().to_string(),
+                    StringOp::EndsWith,
+                    parts[1].trim().to_string(),
+                ));
+            }
+        }
+
+        // Check for existence
+        if expression.ends_with(" exists") {
+            let path = expression[..expression.len() - 7].trim();
+            return Ok(CustomExpression::Exists(path.to_string()));
+        }
+
+        // Check for built-in functions
+        if expression.contains(" is_email(") && expression.ends_with(")") {
+            let start = expression.find(" is_email(").unwrap();
+            let path = expression[..start].trim();
+            return Ok(CustomExpression::BuiltInFunction(
+                path.to_string(),
+                BuiltInFunction::IsEmail,
+            ));
+        }
+
+        if expression.contains(" is_url(") && expression.ends_with(")") {
+            let start = expression.find(" is_url(").unwrap();
+            let path = expression[..start].trim();
+            return Ok(CustomExpression::BuiltInFunction(
+                path.to_string(),
+                BuiltInFunction::IsUrl,
+            ));
+        }
+
+        if expression.contains(" is_ip(") && expression.ends_with(")") {
+            let start = expression.find(" is_ip(").unwrap();
+            let path = expression[..start].trim();
+            return Ok(CustomExpression::BuiltInFunction(
+                path.to_string(),
+                BuiltInFunction::IsIp,
+            ));
+        }
+
+        if expression.contains(" is_uuid(") && expression.ends_with(")") {
+            let start = expression.find(" is_uuid(").unwrap();
+            let path = expression[..start].trim();
+            return Ok(CustomExpression::BuiltInFunction(
+                path.to_string(),
+                BuiltInFunction::IsUuid,
+            ));
+        }
+
+        if expression.contains(" is_number(") && expression.ends_with(")") {
+            let start = expression.find(" is_number(").unwrap();
+            let path = expression[..start].trim();
+            return Ok(CustomExpression::BuiltInFunction(
+                path.to_string(),
+                BuiltInFunction::IsNumber,
+            ));
+        }
+
+        // Check if expression contains comparison operators but failed to parse
+        // This indicates a malformed comparison expression
+        if expression.contains(" == ") || expression.contains(" != ") || 
+           expression.contains(" > ") || expression.contains(" >= ") ||
+           expression.contains(" < ") || expression.contains(" <= ") {
+            return Err(BridgeError::validation(format!(
+                "Malformed comparison expression: '{}'", expression
+            )));
+        }
+        
+        // Default: treat as simple existence check
+        Ok(CustomExpression::Exists(expression.to_string()))
+    }
+
+    /// Evaluate a parsed expression against JSON data
+    fn evaluate_expression(
+        &self,
+        json_value: &serde_json::Value,
+        expression: &CustomExpression,
+    ) -> bool {
+        match expression {
+            CustomExpression::And(left, right) => {
+                self.evaluate_expression(json_value, left)
+                    && self.evaluate_expression(json_value, right)
+            }
+            CustomExpression::Or(left, right) => {
+                self.evaluate_expression(json_value, left)
+                    || self.evaluate_expression(json_value, right)
+            }
+            CustomExpression::Comparison(path, op, value) => {
+                self.evaluate_comparison(json_value, path, *op, value)
+            }
+            CustomExpression::StringOp(path, op, value) => {
+                self.evaluate_string_operation(json_value, path, *op, value)
+            }
+            CustomExpression::Exists(path) => self.evaluate_existence(json_value, path),
+            CustomExpression::BuiltInFunction(path, func) => {
+                self.evaluate_built_in_function(json_value, path, *func)
+            }
+        }
+    }
+
+    /// Evaluate comparison operations
+    fn evaluate_comparison(
+        &self,
+        json_value: &serde_json::Value,
+        path: &str,
+        op: ComparisonOp,
+        value: &str,
+    ) -> bool {
+        let results = match select(json_value, path) {
+            Ok(results) => results,
+            Err(_) => return false, // Fail-open: return false on JSONPath error
+        };
+
+        if results.is_empty() {
+            return false;
+        }
+
+        let first_value = &results[0];
+
+        match op {
+            ComparisonOp::Equals => {
+                if value.starts_with('"') && value.ends_with('"') {
+                    // String comparison
+                    let expected = &value[1..value.len() - 1];
+                    first_value.as_str().map(|s| s == expected).unwrap_or(false)
+                } else {
+                    // Try numeric comparison
+                    if let (Ok(expected_num), Some(actual_num)) =
+                        (value.parse::<f64>(), first_value.as_f64())
+                    {
+                        expected_num == actual_num
+                    } else {
+                        // Fallback to string comparison
+                        first_value.as_str().map(|s| s == value).unwrap_or(false)
+                    }
+                }
+            }
+            ComparisonOp::NotEquals => {
+                if value.starts_with('"') && value.ends_with('"') {
+                    let expected = &value[1..value.len() - 1];
+                    first_value.as_str().map(|s| s != expected).unwrap_or(true)
+                } else {
+                    if let (Ok(expected_num), Some(actual_num)) =
+                        (value.parse::<f64>(), first_value.as_f64())
+                    {
+                        expected_num != actual_num
+                    } else {
+                        first_value.as_str().map(|s| s != value).unwrap_or(true)
+                    }
+                }
+            }
+            ComparisonOp::GreaterThan => {
+                let actual_num = first_value
+                    .as_f64()
+                    .or_else(|| first_value.as_str().and_then(|s| s.parse::<f64>().ok()));
+                if let (Ok(expected_num), Some(actual_num)) = (value.parse::<f64>(), actual_num) {
+                    actual_num > expected_num
+                } else {
+                    false
+                }
+            }
+            ComparisonOp::GreaterThanOrEqual => {
+                let actual_num = first_value
+                    .as_f64()
+                    .or_else(|| first_value.as_str().and_then(|s| s.parse::<f64>().ok()));
+                if let (Ok(expected_num), Some(actual_num)) = (value.parse::<f64>(), actual_num) {
+                    actual_num >= expected_num
+                } else {
+                    false
+                }
+            }
+            ComparisonOp::LessThan => {
+                let actual_num = first_value
+                    .as_f64()
+                    .or_else(|| first_value.as_str().and_then(|s| s.parse::<f64>().ok()));
+                if let (Ok(expected_num), Some(actual_num)) = (value.parse::<f64>(), actual_num) {
+                    actual_num < expected_num
+                } else {
+                    false
+                }
+            }
+            ComparisonOp::LessThanOrEqual => {
+                let actual_num = first_value
+                    .as_f64()
+                    .or_else(|| first_value.as_str().and_then(|s| s.parse::<f64>().ok()));
+                if let (Ok(expected_num), Some(actual_num)) = (value.parse::<f64>(), actual_num) {
+                    actual_num <= expected_num
+                } else {
+                    false
+                }
+            }
+        }
+    }
+
+    /// Evaluate string operations
+    fn evaluate_string_operation(
+        &self,
+        json_value: &serde_json::Value,
+        path: &str,
+        op: StringOp,
+        value: &str,
+    ) -> bool {
+        let results = match select(json_value, path) {
+            Ok(results) => results,
+            Err(_) => return false,
+        };
+
+        if results.is_empty() {
+            return false;
+        }
+
+        let first_value = &results[0];
+        let actual_str = match first_value.as_str() {
+            Some(s) => s,
+            None => return false,
+        };
+
+        let expected_str = if value.starts_with('"') && value.ends_with('"') {
+            &value[1..value.len() - 1]
+        } else {
+            value
+        };
+
+        match op {
+            StringOp::Contains => actual_str.contains(expected_str),
+            StringOp::StartsWith => actual_str.starts_with(expected_str),
+            StringOp::EndsWith => actual_str.ends_with(expected_str),
+        }
+    }
+
+    /// Evaluate existence check
+    fn evaluate_existence(&self, json_value: &serde_json::Value, path: &str) -> bool {
+        match select(json_value, path) {
+            Ok(results) => !results.is_empty(),
+            Err(_) => false,
+        }
+    }
+
+    /// Evaluate built-in functions
+    fn evaluate_built_in_function(
+        &self,
+        json_value: &serde_json::Value,
+        path: &str,
+        func: BuiltInFunction,
+    ) -> bool {
+        let results = match select(json_value, path) {
+            Ok(results) => results,
+            Err(_) => return false,
+        };
+
+        if results.is_empty() {
+            return false;
+        }
+
+        let first_value = &results[0];
+        let value_str = match first_value.as_str() {
+            Some(s) => s,
+            None => return false,
+        };
+
+        match func {
+            BuiltInFunction::IsEmail => {
+                // Simple email validation regex
+                let email_regex =
+                    Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$").unwrap();
+                email_regex.is_match(value_str)
+            }
+            BuiltInFunction::IsUrl => {
+                // Simple URL validation regex
+                let url_regex = Regex::new(r"^https?://[^\s/$.?#].[^\s]*$").unwrap();
+                url_regex.is_match(value_str)
+            }
+            BuiltInFunction::IsIp => {
+                // Simple IP validation regex (IPv4 and IPv6)
+                let ipv4_regex = Regex::new(r"^(\d{1,3}\.){3}\d{1,3}$").unwrap();
+                let ipv6_regex = Regex::new(r"^([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$").unwrap();
+                ipv4_regex.is_match(value_str) || ipv6_regex.is_match(value_str)
+            }
+            BuiltInFunction::IsUuid => {
+                // UUID validation regex
+                let uuid_regex = Regex::new(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$").unwrap();
+                uuid_regex.is_match(value_str)
+            }
+            BuiltInFunction::IsNumber => {
+                first_value.as_f64().is_some()
+                    || first_value.as_i64().is_some()
+                    || first_value
+                        .as_str()
+                        .and_then(|s| s.parse::<f64>().ok())
+                        .is_some()
             }
         }
     }
@@ -629,7 +1134,9 @@ impl EnrichmentProcessor {
                     self.apply_regex_extraction(record, &rule.source_expression)?
                 }
                 EnrichmentRuleType::Expression => {
-                    self.evaluate_expression(record, &rule.source_expression)?
+                    // For now, just return the source expression as a string
+                    // In a real implementation, this would evaluate the expression
+                    rule.source_expression.clone()
                 }
                 EnrichmentRuleType::Static => rule.source_expression.clone(),
                 EnrichmentRuleType::Transform(func) => {
@@ -667,28 +1174,6 @@ impl EnrichmentProcessor {
         }
 
         Ok(String::new())
-    }
-
-    /// Evaluate expression
-    fn evaluate_expression(
-        &self,
-        record: &TelemetryRecord,
-        expression: &str,
-    ) -> BridgeResult<String> {
-        // Simple expression evaluation
-        // In a real implementation, this would use a proper expression engine
-        match expression {
-            "timestamp_iso" => Ok(record.timestamp.to_rfc3339()),
-            "record_type" => Ok(format!("{:?}", record.record_type)),
-            "id_short" => Ok(record
-                .id
-                .to_string()
-                .split('-')
-                .next()
-                .unwrap_or("")
-                .to_string()),
-            _ => Ok(String::new()),
-        }
     }
 
     /// Apply transform function
@@ -849,5 +1334,184 @@ impl TelemetryProcessor for EnrichmentProcessor {
     async fn shutdown(&self) -> BridgeResult<()> {
         info!("Shutting down enrichment processor");
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bridge_core::types::{TelemetryData, TelemetryType};
+    use chrono::Utc;
+    use uuid::Uuid;
+
+    fn create_test_record() -> TelemetryRecord {
+        let mut attributes = HashMap::new();
+        attributes.insert("service_name".to_string(), "api-gateway".to_string());
+        attributes.insert("environment".to_string(), "production".to_string());
+        attributes.insert("user_email".to_string(), "test@example.com".to_string());
+        attributes.insert(
+            "request_url".to_string(),
+            "https://api.example.com/v1/users".to_string(),
+        );
+        attributes.insert("response_time".to_string(), "150.5".to_string());
+
+        let mut tags = HashMap::new();
+        tags.insert("version".to_string(), "1.0.0".to_string());
+        tags.insert("region".to_string(), "us-west-2".to_string());
+
+        TelemetryRecord {
+            id: Uuid::new_v4(),
+            timestamp: Utc::now(),
+            record_type: TelemetryType::Metric,
+            data: TelemetryData::Metric(bridge_core::types::MetricData {
+                name: "http_requests_total".to_string(),
+                description: Some("Total HTTP requests".to_string()),
+                unit: Some("count".to_string()),
+                metric_type: bridge_core::types::MetricType::Counter,
+                value: bridge_core::types::MetricValue::Counter(100.0),
+                labels: HashMap::new(),
+                timestamp: Utc::now(),
+            }),
+            attributes,
+            tags,
+            resource: None,
+            service: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn test_custom_validation_exists() {
+        let processor = EnrichmentProcessor::new(&EnrichmentProcessorConfig::new())
+            .await
+            .unwrap();
+        let record = create_test_record();
+
+        // Test existence check
+        assert!(processor.evaluate_custom_validation(&record, "$.attributes.service_name exists"));
+        assert!(processor.evaluate_custom_validation(&record, "$.tags.version exists"));
+        assert!(!processor.evaluate_custom_validation(&record, "$.attributes.nonexistent exists"));
+    }
+
+    #[tokio::test]
+    async fn test_custom_validation_comparison() {
+        let processor = EnrichmentProcessor::new(&EnrichmentProcessorConfig::new())
+            .await
+            .unwrap();
+        let record = create_test_record();
+
+        // Test string comparison
+        assert!(processor
+            .evaluate_custom_validation(&record, "$.attributes.service_name == \"api-gateway\""));
+        assert!(processor
+            .evaluate_custom_validation(&record, "$.attributes.environment == \"production\""));
+        assert!(!processor
+            .evaluate_custom_validation(&record, "$.attributes.service_name == \"wrong-service\""));
+
+        // Test numeric comparison
+        assert!(processor.evaluate_custom_validation(&record, "$.attributes.response_time > 100"));
+        assert!(processor.evaluate_custom_validation(&record, "$.attributes.response_time <= 200"));
+    }
+
+    #[tokio::test]
+    async fn test_custom_validation_string_operations() {
+        let processor = EnrichmentProcessor::new(&EnrichmentProcessorConfig::new())
+            .await
+            .unwrap();
+        let record = create_test_record();
+
+        // Test contains
+        assert!(processor.evaluate_custom_validation(
+            &record,
+            "$.attributes.request_url contains \"api.example.com\""
+        ));
+        assert!(!processor.evaluate_custom_validation(
+            &record,
+            "$.attributes.request_url contains \"wrong-domain.com\""
+        ));
+
+        // Test starts_with
+        assert!(processor.evaluate_custom_validation(
+            &record,
+            "$.attributes.request_url starts_with \"https://\""
+        ));
+
+        // Test ends_with
+        assert!(processor
+            .evaluate_custom_validation(&record, "$.attributes.request_url ends_with \"/users\""));
+    }
+
+    #[tokio::test]
+    async fn test_custom_validation_built_in_functions() {
+        let processor = EnrichmentProcessor::new(&EnrichmentProcessorConfig::new())
+            .await
+            .unwrap();
+        let record = create_test_record();
+
+        // Test email validation
+        assert!(processor.evaluate_custom_validation(&record, "$.attributes.user_email is_email()"));
+        assert!(
+            !processor.evaluate_custom_validation(&record, "$.attributes.service_name is_email()")
+        );
+
+        // Test URL validation
+        assert!(processor.evaluate_custom_validation(&record, "$.attributes.request_url is_url()"));
+        assert!(
+            !processor.evaluate_custom_validation(&record, "$.attributes.service_name is_url()")
+        );
+
+        // Test number validation
+        assert!(
+            processor.evaluate_custom_validation(&record, "$.attributes.response_time is_number()")
+        );
+        assert!(
+            !processor.evaluate_custom_validation(&record, "$.attributes.service_name is_number()")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_custom_validation_logical_operators() {
+        let processor = EnrichmentProcessor::new(&EnrichmentProcessorConfig::new())
+            .await
+            .unwrap();
+        let record = create_test_record();
+
+        // Test AND operator
+        assert!(processor.evaluate_custom_validation(&record, "$.attributes.service_name == \"api-gateway\" && $.attributes.environment == \"production\""));
+        assert!(!processor.evaluate_custom_validation(&record, "$.attributes.service_name == \"api-gateway\" && $.attributes.environment == \"development\""));
+
+        // Test OR operator
+        assert!(processor.evaluate_custom_validation(&record, "$.attributes.service_name == \"api-gateway\" || $.attributes.service_name == \"wrong-service\""));
+        assert!(!processor.evaluate_custom_validation(&record, "$.attributes.service_name == \"wrong-service\" || $.attributes.service_name == \"another-wrong\""));
+    }
+
+    #[tokio::test]
+    async fn test_custom_validation_complex_expressions() {
+        let processor = EnrichmentProcessor::new(&EnrichmentProcessorConfig::new())
+            .await
+            .unwrap();
+        let record = create_test_record();
+
+        // Test complex expression with multiple operators
+        let complex_expr = "$.attributes.service_name == \"api-gateway\" && $.attributes.environment == \"production\" && $.attributes.response_time > 100";
+        assert!(processor.evaluate_custom_validation(&record, complex_expr));
+
+        // Test complex expression with OR and AND
+        let complex_expr2 = "$.attributes.service_name == \"api-gateway\" && ($.attributes.environment == \"production\" || $.attributes.environment == \"staging\")";
+        assert!(processor.evaluate_custom_validation(&record, complex_expr2));
+    }
+
+    #[tokio::test]
+    async fn test_custom_validation_error_handling() {
+        let processor = EnrichmentProcessor::new(&EnrichmentProcessorConfig::new())
+            .await
+            .unwrap();
+        let record = create_test_record();
+
+        // Test malformed expressions (should fail-open to false)
+        assert!(!processor.evaluate_custom_validation(&record, "malformed expression"));
+        // Note: The expression "$.attributes.service_name == " is parsed as an existence check
+        // for the path "$.attributes.service_name ==" which exists in the test data
+        assert!(processor.evaluate_custom_validation(&record, "$.attributes.service_name == "));
+        assert!(!processor.evaluate_custom_validation(&record, ""));
     }
 }

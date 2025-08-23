@@ -6,7 +6,11 @@ use crate::registry::SchemaRegistryManager;
 use crate::schema::SchemaSearchCriteria;
 use std::sync::Arc;
 
-use super::{error::ApiError, requests::*, responses::*};
+use super::middleware::SharedResponseCache;
+use super::{
+    error::ApiError, middleware::AuthConfig, middleware::SharedRateLimiter, requests::*,
+    responses::*,
+};
 
 #[cfg(feature = "http")]
 use axum::{
@@ -28,7 +32,12 @@ type State<T> = T;
 
 /// Health check endpoint
 pub async fn health_check(
-    State(registry): State<Arc<SchemaRegistryManager>>,
+    State((registry, _, _, _)): State<(
+        Arc<SchemaRegistryManager>,
+        SharedRateLimiter,
+        Arc<AuthConfig>,
+        SharedResponseCache,
+    )>,
 ) -> Result<Json<HealthResponse>, ApiError> {
     let healthy = registry
         .health_check()
@@ -51,9 +60,22 @@ pub async fn health_check(
 
 /// Register schema endpoint
 pub async fn register_schema(
-    State(registry): State<Arc<SchemaRegistryManager>>,
+    State((registry, _, _, _)): State<(
+        Arc<SchemaRegistryManager>,
+        SharedRateLimiter,
+        Arc<AuthConfig>,
+        SharedResponseCache,
+    )>,
     Json(request): Json<RegisterSchemaRequest>,
 ) -> Result<Json<RegisterSchemaResponse>, ApiError> {
+    // Validate request
+    if let Err(validation_errors) = request.validate() {
+        return Err(ApiError::validation(&format!(
+            "Request validation failed: {}",
+            validation_errors.join(", ")
+        )));
+    }
+
     let schema = crate::schema::Schema::new(
         request.name,
         request.version,
@@ -77,7 +99,12 @@ pub async fn register_schema(
 
 /// List schemas endpoint
 pub async fn list_schemas(
-    State(registry): State<Arc<SchemaRegistryManager>>,
+    State((registry, _, _, _)): State<(
+        Arc<SchemaRegistryManager>,
+        SharedRateLimiter,
+        Arc<AuthConfig>,
+        SharedResponseCache,
+    )>,
     Query(criteria): Query<SchemaSearchCriteria>,
 ) -> Result<Json<ListSchemasResponse>, ApiError> {
     let schemas = registry
@@ -94,7 +121,12 @@ pub async fn list_schemas(
 
 /// Get schema endpoint
 pub async fn get_schema(
-    State(registry): State<Arc<SchemaRegistryManager>>,
+    State((registry, _, _, _)): State<(
+        Arc<SchemaRegistryManager>,
+        SharedRateLimiter,
+        Arc<AuthConfig>,
+        SharedResponseCache,
+    )>,
     Path(fingerprint): Path<String>,
 ) -> Result<Json<GetSchemaResponse>, ApiError> {
     let schema = registry
@@ -108,7 +140,12 @@ pub async fn get_schema(
 
 /// Delete schema endpoint
 pub async fn delete_schema(
-    State(registry): State<Arc<SchemaRegistryManager>>,
+    State((registry, _, _, _)): State<(
+        Arc<SchemaRegistryManager>,
+        SharedRateLimiter,
+        Arc<AuthConfig>,
+        SharedResponseCache,
+    )>,
     Path(fingerprint): Path<String>,
 ) -> Result<Json<DeleteSchemaResponse>, ApiError> {
     let deleted = registry
@@ -130,10 +167,23 @@ pub async fn delete_schema(
 
 /// Validate data endpoint
 pub async fn validate_data(
-    State(registry): State<Arc<SchemaRegistryManager>>,
+    State((registry, _, _, _)): State<(
+        Arc<SchemaRegistryManager>,
+        SharedRateLimiter,
+        Arc<AuthConfig>,
+        SharedResponseCache,
+    )>,
     Path(fingerprint): Path<String>,
     Json(request): Json<ValidateDataRequest>,
 ) -> Result<Json<ValidateDataResponse>, ApiError> {
+    // Validate request
+    if let Err(validation_errors) = request.validate() {
+        return Err(ApiError::validation(&format!(
+            "Request validation failed: {}",
+            validation_errors.join(", ")
+        )));
+    }
+
     let validation_result = registry
         .validate_data(&fingerprint, &request.data)
         .await
@@ -151,9 +201,22 @@ pub async fn validate_data(
 
 /// Validate schema endpoint
 pub async fn validate_schema(
-    State(registry): State<Arc<SchemaRegistryManager>>,
+    State((registry, _, _, _)): State<(
+        Arc<SchemaRegistryManager>,
+        SharedRateLimiter,
+        Arc<AuthConfig>,
+        SharedResponseCache,
+    )>,
     Json(request): Json<ValidateSchemaRequest>,
 ) -> Result<Json<ValidateSchemaResponse>, ApiError> {
+    // Validate request
+    if let Err(validation_errors) = request.validate() {
+        return Err(ApiError::validation(&format!(
+            "Request validation failed: {}",
+            validation_errors.join(", ")
+        )));
+    }
+
     let validation_result = registry
         .validate_schema(&request.schema)
         .await
@@ -171,9 +234,22 @@ pub async fn validate_schema(
 
 /// Evolve schema endpoint
 pub async fn evolve_schema(
-    State(registry): State<Arc<SchemaRegistryManager>>,
+    State((registry, _, _, _)): State<(
+        Arc<SchemaRegistryManager>,
+        SharedRateLimiter,
+        Arc<AuthConfig>,
+        SharedResponseCache,
+    )>,
     Json(request): Json<EvolveSchemaRequest>,
 ) -> Result<Json<EvolveSchemaResponse>, ApiError> {
+    // Validate request
+    if let Err(validation_errors) = request.validate() {
+        return Err(ApiError::validation(&format!(
+            "Request validation failed: {}",
+            validation_errors.join(", ")
+        )));
+    }
+
     let evolved_schema = registry
         .evolve_schema(&request.schema)
         .await
@@ -188,7 +264,12 @@ pub async fn evolve_schema(
 
 /// Get metrics endpoint
 pub async fn get_metrics(
-    State(registry): State<Arc<SchemaRegistryManager>>,
+    State((registry, _, _, _)): State<(
+        Arc<SchemaRegistryManager>,
+        SharedRateLimiter,
+        Arc<AuthConfig>,
+        SharedResponseCache,
+    )>,
 ) -> Result<Json<MetricsResponse>, ApiError> {
     let metrics = registry
         .get_metrics()
@@ -200,7 +281,12 @@ pub async fn get_metrics(
 
 /// Get stats endpoint
 pub async fn get_stats(
-    State(registry): State<Arc<SchemaRegistryManager>>,
+    State((registry, _, _, _)): State<(
+        Arc<SchemaRegistryManager>,
+        SharedRateLimiter,
+        Arc<AuthConfig>,
+        SharedResponseCache,
+    )>,
 ) -> Result<Json<StatsResponse>, ApiError> {
     let stats = registry
         .get_stats()
@@ -208,4 +294,10 @@ pub async fn get_stats(
         .map_err(|e| ApiError::from_registry_error(e))?;
 
     Ok(Json(StatsResponse { stats }))
+}
+
+/// Get OpenAPI documentation endpoint
+pub async fn get_openapi_docs() -> Result<Json<serde_json::Value>, ApiError> {
+    let docs = crate::api::generate_openapi_docs();
+    Ok(Json(docs))
 }

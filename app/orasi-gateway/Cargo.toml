@@ -10,6 +10,22 @@ repository = "https://github.com/chytirio/orasi"
 keywords = ["orasi", "gateway", "routing", "load-balancing", "api"]
 categories = ["web-programming", "asynchronous", "network-programming"]
 
+[[bin]]
+name = "orasi-gateway"
+path = "src/main.rs"
+
+[[example]]
+name = "basic_gateway_example"
+path = "examples/basic_gateway_example.rs"
+
+[[example]]
+name = "service_discovery_example"
+path = "examples/service_discovery_example.rs"
+
+[[example]]
+name = "consul_example"
+path = "examples/consul_example.rs"
+
 [dependencies]
 # Core dependencies
 bridge-core = { path = "../../crates/bridge-core" }
@@ -20,6 +36,7 @@ axum = { workspace = true }
 tonic = { workspace = true }
 prost = { workspace = true }
 hyper = { workspace = true, features = ["full"] }
+hyper-tls = "0.5"
 tower = { workspace = true }
 tower-http = { workspace = true, features = ["cors", "trace", "compression-br"] }
 tower-load = "0.3"
@@ -38,6 +55,7 @@ anyhow = "1.0"
 
 # Logging
 tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # Configuration
 config = "0.13"
@@ -47,6 +65,7 @@ toml = "0.8"
 uuid = { version = "1.0", features = ["v4"] }
 chrono = { version = "0.4", features = ["serde"] }
 futures = "0.3"
+rand = "0.8"
 
 # Metrics and monitoring
 prometheus = "0.13"
@@ -71,6 +90,9 @@ rustls-pemfile = "1.0"
 
 # HTTP client for backend communication
 reqwest = { version = "0.12", features = ["json", "stream"] }
+
+# URL parsing
+url = "2.5"
 
 # Circuit breaker
 failsafe = "1.3"

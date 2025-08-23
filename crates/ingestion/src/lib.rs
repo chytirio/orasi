@@ -10,6 +10,7 @@
 
 pub mod config;
 pub mod conversion;
+pub mod error_handling;
 pub mod exporters;
 pub mod monitoring;
 pub mod performance;
@@ -23,7 +24,9 @@ use bridge_core::{
     traits::{LakehouseExporter, TelemetryProcessor, TelemetryReceiver},
     BridgeResult, TelemetryBatch,
 };
+use monitoring::{Monitorable, MonitoringManager};
 use std::collections::HashMap;
+use std::sync::Arc;
 use tracing::info;
 
 /// Main ingestion system
@@ -31,15 +34,30 @@ pub struct IngestionSystem {
     receivers: HashMap<String, Box<dyn TelemetryReceiver>>,
     processors: HashMap<String, Box<dyn TelemetryProcessor>>,
     exporters: HashMap<String, Box<dyn LakehouseExporter>>,
+    monitoring: Arc<MonitoringManager>,
 }
 
 impl IngestionSystem {
     /// Create new ingestion system
     pub fn new() -> Self {
+        let monitoring_config = monitoring::MonitoringConfig::development();
+        let monitoring = Arc::new(MonitoringManager::new(monitoring_config));
+
         Self {
             receivers: HashMap::new(),
             processors: HashMap::new(),
             exporters: HashMap::new(),
+            monitoring,
+        }
+    }
+
+    /// Create new ingestion system with custom monitoring
+    pub fn with_monitoring(monitoring: Arc<MonitoringManager>) -> Self {
+        Self {
+            receivers: HashMap::new(),
+            processors: HashMap::new(),
+            exporters: HashMap::new(),
+            monitoring,
         }
     }
 
@@ -63,10 +81,35 @@ impl IngestionSystem {
 
     /// Process a telemetry batch through the pipeline
     pub async fn process_batch(&self, batch: TelemetryBatch) -> BridgeResult<()> {
+        let start_time = std::time::Instant::now();
+
+        // Start monitoring span
+        let span_id = self
+            .monitoring
+            .start_ingestion_span("batch_processing", batch.size as u64)
+            .await?;
+
+        // Record ingestion metrics
+        self.monitoring
+            .record_ingestion_metrics("batch", batch.size as usize, batch.size as usize, 0)
+            .await?;
+
         // Process through all processors
         for (name, processor) in &self.processors {
+            let processor_start = std::time::Instant::now();
+
             info!("Processing batch through processor: {}", name);
             let _processed_batch = processor.process(batch.clone()).await?;
+
+            let processor_duration = processor_start.elapsed().as_millis() as u64;
+            self.monitoring
+                .record_performance_metrics(
+                    &format!("processor_{}", name),
+                    processor_duration,
+                    true,
+                )
+                .await?;
+
             info!("Processor {} completed", name);
         }
 
@@ -77,11 +120,31 @@ impl IngestionSystem {
             info!("Exporter {} would export batch", name);
         }
 
+        let total_duration = start_time.elapsed().as_millis() as u64;
+        self.monitoring
+            .record_performance_metrics("total_batch_processing", total_duration, true)
+            .await?;
+
+        // End monitoring span
+        self.monitoring
+            .end_ingestion_span(&span_id, true, None)
+            .await?;
+
         Ok(())
     }
 
     /// Get system health status
     pub async fn health_check(&self) -> BridgeResult<()> {
+        // Check if monitoring is healthy
+        if !self.monitoring.is_healthy().await {
+            self.monitoring
+                .record_error_metrics("health_check", "Monitoring system unhealthy")
+                .await?;
+            return Err(bridge_core::BridgeError::configuration(
+                "Monitoring system unhealthy".to_string(),
+            ));
+        }
+
         // Check receivers
         for (name, receiver) in &self.receivers {
             let is_healthy = receiver.health_check().await?;
@@ -89,6 +152,9 @@ impl IngestionSystem {
                 info!("Receiver {} is healthy", name);
             } else {
                 info!("Receiver {} is unhealthy", name);
+                self.monitoring
+                    .record_error_metrics("health_check", &format!("Receiver {} unhealthy", name))
+                    .await?;
             }
         }
 
@@ -99,11 +165,14 @@ impl IngestionSystem {
                 info!("Processor {} is healthy", name);
             } else {
                 info!("Processor {} is unhealthy", name);
+                self.monitoring
+                    .record_error_metrics("health_check", &format!("Processor {} unhealthy", name))
+                    .await?;
             }
         }
 
         // Check exporters
-        for (name, exporter) in &self.exporters {
+        for (name, _exporter) in &self.exporters {
             // LakehouseExporter doesn't have health_check, so we'll skip for now
             info!("Exporter {} status unknown", name);
         }
@@ -113,6 +182,10 @@ impl IngestionSystem {
 
     /// Get system statistics
     pub async fn get_stats(&self) -> BridgeResult<()> {
+        // Get monitoring statistics
+        let monitoring_stats = self.monitoring.get_statistics().await;
+        info!("Monitoring stats: {:?}", monitoring_stats);
+
         // Get receiver stats
         for (name, receiver) in &self.receivers {
             let stats = receiver.get_stats().await?;
@@ -127,6 +200,19 @@ impl IngestionSystem {
 
         Ok(())
     }
+
+    /// Initialize the ingestion system
+    pub async fn initialize(&self) -> BridgeResult<()> {
+        // Initialize monitoring
+        self.monitoring.initialize().await?;
+        info!("Ingestion system initialized with monitoring");
+        Ok(())
+    }
+
+    /// Get monitoring manager
+    pub fn monitoring(&self) -> Arc<MonitoringManager> {
+        Arc::clone(&self.monitoring)
+    }
 }
 
 impl Default for IngestionSystem {
@@ -134,6 +220,15 @@ impl Default for IngestionSystem {
         Self::new()
     }
 }
+
+impl Monitorable for IngestionSystem {
+    fn monitoring(&self) -> Arc<MonitoringManager> {
+        Arc::clone(&self.monitoring)
+    }
+}
+
+#[cfg(test)]
+mod advanced_integration_test;
 
 #[cfg(test)]
 mod tests {
@@ -189,6 +284,9 @@ mod tests {
     #[tokio::test]
     async fn test_ingestion_system_lifecycle() {
         let mut system = IngestionSystem::new();
+
+        // Initialize the system first
+        system.initialize().await.unwrap();
 
         // Add components
         let receiver_config = crate::receivers::simple_http_receiver::SimpleHttpReceiverConfig::new(
@@ -249,6 +347,9 @@ mod tests {
     #[tokio::test]
     async fn test_ingestion_shutdown() {
         let mut system = IngestionSystem::new();
+
+        // Initialize the system first
+        system.initialize().await.unwrap();
 
         // Add a component
         let receiver_config = crate::receivers::simple_http_receiver::SimpleHttpReceiverConfig::new(

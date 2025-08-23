@@ -2,11 +2,11 @@
 
 use bridge_api::{
     config::BridgeAPIConfig,
-    services::grpc::{create_grpc_server, GrpcServer},
-    services::health::HealthMonitoringIntegration,
     metrics::ApiMetrics,
     proto::*,
-    services::query_engine_integration::QueryEngineIntegration,
+    services::grpc::{create_grpc_server, GrpcServer},
+    services::health::HealthMonitoringIntegration,
+    services::query::engine::QueryEngineIntegration,
     services::{QueryService, StatusService},
 };
 use std::collections::HashMap;
@@ -117,15 +117,24 @@ async fn test_health_monitoring_integration(
     println!("   📈 System Metrics:");
     println!(
         "      - CPU Usage: {:.1}%",
-        system_metrics.get("system.cpu_usage_percent").copied().unwrap_or(0.0)
+        system_metrics
+            .get("system.cpu_usage_percent")
+            .copied()
+            .unwrap_or(0.0)
     );
     println!(
         "      - Memory Usage: {:.1} MB",
-        system_metrics.get("system.memory_usage_mb").copied().unwrap_or(0.0)
+        system_metrics
+            .get("system.memory_usage_mb")
+            .copied()
+            .unwrap_or(0.0)
     );
     println!(
         "      - Active Connections: {}",
-        system_metrics.get("system.active_connections").copied().unwrap_or(0.0) as i64
+        system_metrics
+            .get("system.active_connections")
+            .copied()
+            .unwrap_or(0.0) as i64
     );
 
     // Test component health updates

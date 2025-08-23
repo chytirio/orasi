@@ -8,67 +8,65 @@
 //! including authentication, authorization, encryption, and circuit breakers.
 
 pub mod auth;
+pub mod authorization;
+pub mod circuit_breaker;
+pub mod encryption;
+pub mod tls;
 
-pub use bridge_auth::{AuthConfig, AuthManager, AuthMethod, AuthResult, JwtClaims, User};
+pub use auth::{
+    AuthConfig, AuthResult as InternalAuthResult, AuthenticationManager, User as LocalUser,
+};
+pub use authorization::{
+    Action, AuditLogEntry, AuditResult, AuthorizationConfig, AuthorizationContext,
+    AuthorizationManager, IpRestrictions, Permission, PermissionConditions, RbacSystem,
+    ResourcePermissions, ResourceRestrictions, Role, TimeRestrictions, TimeWindow,
+};
+pub use bridge_auth::{AuthMethod, JwtClaims, User};
+pub use circuit_breaker::{CircuitBreaker, CircuitBreakerState};
+pub use encryption::{EncryptionAlgorithm, EncryptionManager};
+pub use tls::{TlsConfig, TlsManager};
 
 /// Security manager for comprehensive security features
 pub struct SecurityManager {
-    auth_manager: AuthManager,
+    auth_manager: AuthenticationManager,
+    authorization_manager: AuthorizationManager,
     encryption_manager: EncryptionManager,
     circuit_breaker: CircuitBreaker,
-}
-
-/// Encryption manager for data encryption and decryption
-pub struct EncryptionManager {
-    algorithm: EncryptionAlgorithm,
-    key: Vec<u8>,
-    key_rotation_interval: std::time::Duration,
-    last_key_rotation: std::time::Instant,
-}
-
-/// Encryption algorithm
-#[derive(Debug, Clone)]
-pub enum EncryptionAlgorithm {
-    Aes256Gcm,
-    ChaCha20Poly1305,
-    Aes256Cbc,
-}
-
-/// Circuit breaker for fault tolerance
-pub struct CircuitBreaker {
-    failure_threshold: usize,
-    recovery_timeout: std::time::Duration,
-    state: std::sync::Arc<tokio::sync::Mutex<CircuitBreakerState>>,
-}
-
-/// Circuit breaker state
-#[derive(Debug, Clone)]
-pub enum CircuitBreakerState {
-    Closed {
-        failure_count: usize,
-    },
-    Open {
-        last_failure_time: std::time::Instant,
-    },
-    HalfOpen,
+    tls_manager: TlsManager,
 }
 
 impl SecurityManager {
     /// Create new security manager
-    pub async fn new(auth_config: AuthConfig) -> BridgeResult<Self> {
-        let auth_manager = AuthManager::new(auth_config).await.map_err(|e| {
+    pub async fn new(
+        auth_config: AuthConfig,
+        authorization_config: AuthorizationConfig,
+        tls_config: Option<TlsConfig>,
+    ) -> BridgeResult<Self> {
+        let auth_manager = AuthenticationManager::new(auth_config).map_err(|e| {
             bridge_core::BridgeError::authentication(format!(
                 "Failed to create auth manager: {}",
                 e
             ))
         })?;
+        let authorization_manager = AuthorizationManager::new(authorization_config);
         let encryption_manager = EncryptionManager::new(EncryptionAlgorithm::Aes256Gcm)?;
         let circuit_breaker = CircuitBreaker::new(5, std::time::Duration::from_secs(60));
 
+        // Create TLS manager with default config if none provided
+        let tls_config = tls_config.unwrap_or_else(|| TlsConfig {
+            cert_file: std::path::PathBuf::from(""),
+            key_file: std::path::PathBuf::from(""),
+            ca_file: None,
+            verify_client: false,
+        });
+        let tls_manager = TlsManager::new(tls_config)?;
+
         Ok(Self {
             auth_manager,
+            authorization_manager,
             encryption_manager,
             circuit_breaker,
+            tls_manager,
         })
     }
 
@@ -79,7 +77,7 @@ impl SecurityManager {
     }
 
     /// Get authentication manager
-    pub fn auth_manager(&self) -> &AuthManager {
+    pub fn auth_manager(&self) -> &AuthenticationManager {
         &self.auth_manager
     }
 
@@ -95,12 +93,12 @@ impl SecurityManager {
 
     /// Encrypt data
     pub async fn encrypt_data(&mut self, data: &[u8]) -> BridgeResult<Vec<u8>> {
-        self.encryption_manager.encrypt(data).await
+        self.encryption_manager.encrypt(data)
     }
 
     /// Decrypt data
     pub async fn decrypt_data(&self, encrypted_data: &[u8]) -> BridgeResult<Vec<u8>> {
-        self.encryption_manager.decrypt(encrypted_data).await
+        self.encryption_manager.decrypt(encrypted_data)
     }
 
     /// Execute with circuit breaker
@@ -109,267 +107,238 @@ impl SecurityManager {
         F: FnOnce() -> Result<T, E>,
         E: std::error::Error + 'static + std::convert::From<std::io::Error>,
     {
-        self.circuit_breaker.execute(operation).await
-    }
-}
-
-impl EncryptionManager {
-    /// Create new encryption manager
-    pub fn new(algorithm: EncryptionAlgorithm) -> BridgeResult<Self> {
-        // In a real implementation, you would generate or load a proper encryption key
-        let key = vec![0u8; 32]; // 256-bit key for AES-256
-
-        Ok(Self {
-            algorithm,
-            key,
-            key_rotation_interval: std::time::Duration::from_secs(86400), // 24 hours
-            last_key_rotation: std::time::Instant::now(),
-        })
-    }
-
-    /// Encrypt data
-    pub async fn encrypt(&mut self, data: &[u8]) -> BridgeResult<Vec<u8>> {
-        // Check if key rotation is needed
-        if self.last_key_rotation.elapsed() > self.key_rotation_interval {
-            self.rotate_key().await?;
+        if !self.circuit_breaker.can_execute() {
+            return Err(
+                std::io::Error::new(std::io::ErrorKind::Other, "Circuit breaker is open").into(),
+            );
         }
 
-        match self.algorithm {
-            EncryptionAlgorithm::Aes256Gcm => self.encrypt_aes256_gcm(data).await,
-            EncryptionAlgorithm::ChaCha20Poly1305 => self.encrypt_chacha20_poly1305(data).await,
-            EncryptionAlgorithm::Aes256Cbc => self.encrypt_aes256_cbc(data).await,
-        }
-    }
-
-    /// Decrypt data
-    pub async fn decrypt(&self, encrypted_data: &[u8]) -> BridgeResult<Vec<u8>> {
-        match self.algorithm {
-            EncryptionAlgorithm::Aes256Gcm => self.decrypt_aes256_gcm(encrypted_data).await,
-            EncryptionAlgorithm::ChaCha20Poly1305 => {
-                self.decrypt_chacha20_poly1305(encrypted_data).await
+        match operation() {
+            Ok(result) => {
+                self.circuit_breaker.record_success();
+                Ok(result)
             }
-            EncryptionAlgorithm::Aes256Cbc => self.decrypt_aes256_cbc(encrypted_data).await,
-        }
-    }
-
-    /// Encrypt with AES-256-GCM
-    async fn encrypt_aes256_gcm(&self, data: &[u8]) -> BridgeResult<Vec<u8>> {
-        use aes_gcm::{
-            aead::{Aead, KeyInit},
-            Aes256Gcm,
-        };
-
-        let cipher = Aes256Gcm::new_from_slice(&self.key).map_err(|e| {
-            bridge_core::BridgeError::configuration(format!("Failed to create cipher: {}", e))
-        })?;
-
-        let nonce = aes_gcm::Nonce::from_slice(b"unique nonce"); // In production, use a random nonce
-        let ciphertext = cipher.encrypt(nonce, data).map_err(|e| {
-            bridge_core::BridgeError::configuration(format!("Failed to encrypt: {}", e))
-        })?;
-
-        Ok(ciphertext)
-    }
-
-    /// Decrypt with AES-256-GCM
-    async fn decrypt_aes256_gcm(&self, encrypted_data: &[u8]) -> BridgeResult<Vec<u8>> {
-        use aes_gcm::{
-            aead::{Aead, KeyInit},
-            Aes256Gcm,
-        };
-
-        let cipher = Aes256Gcm::new_from_slice(&self.key).map_err(|e| {
-            bridge_core::BridgeError::configuration(format!("Failed to create cipher: {}", e))
-        })?;
-
-        let nonce = aes_gcm::Nonce::from_slice(b"unique nonce"); // In production, use the same nonce as encryption
-        let plaintext = cipher.decrypt(nonce, encrypted_data).map_err(|e| {
-            bridge_core::BridgeError::configuration(format!("Failed to decrypt: {}", e))
-        })?;
-
-        Ok(plaintext)
-    }
-
-    /// Encrypt with ChaCha20-Poly1305
-    async fn encrypt_chacha20_poly1305(&self, data: &[u8]) -> BridgeResult<Vec<u8>> {
-        // Simplified implementation - in production, use a proper ChaCha20-Poly1305 library
-        Ok(data.to_vec())
-    }
-
-    /// Decrypt with ChaCha20-Poly1305
-    async fn decrypt_chacha20_poly1305(&self, encrypted_data: &[u8]) -> BridgeResult<Vec<u8>> {
-        // Simplified implementation - in production, use a proper ChaCha20-Poly1305 library
-        Ok(encrypted_data.to_vec())
-    }
-
-    /// Encrypt with AES-256-CBC
-    async fn encrypt_aes256_cbc(&self, data: &[u8]) -> BridgeResult<Vec<u8>> {
-        // Simplified implementation - in production, use a proper AES-CBC library
-        Ok(data.to_vec())
-    }
-
-    /// Decrypt with AES-256-CBC
-    async fn decrypt_aes256_cbc(&self, encrypted_data: &[u8]) -> BridgeResult<Vec<u8>> {
-        // Simplified implementation - in production, use a proper AES-CBC library
-        Ok(encrypted_data.to_vec())
-    }
-
-    /// Rotate encryption key
-    async fn rotate_key(&mut self) -> BridgeResult<()> {
-        // In a real implementation, you would generate a new key and handle key rotation
-        self.last_key_rotation = std::time::Instant::now();
-        info!("Encryption key rotated successfully");
-        Ok(())
-    }
-}
-
-impl CircuitBreaker {
-    /// Create new circuit breaker
-    pub fn new(failure_threshold: usize, recovery_timeout: std::time::Duration) -> Self {
-        Self {
-            failure_threshold,
-            recovery_timeout,
-            state: std::sync::Arc::new(tokio::sync::Mutex::new(CircuitBreakerState::Closed {
-                failure_count: 0,
-            })),
-        }
-    }
-
-    /// Execute operation with circuit breaker
-    pub async fn execute<F, T, E>(&self, operation: F) -> Result<T, E>
-    where
-        F: FnOnce() -> Result<T, E>,
-        E: std::error::Error + 'static + std::convert::From<std::io::Error>,
-    {
-        let mut state = self.state.lock().await;
-
-        match &*state {
-            CircuitBreakerState::Closed { failure_count } => {
-                if *failure_count >= self.failure_threshold {
-                    *state = CircuitBreakerState::Open {
-                        last_failure_time: std::time::Instant::now(),
-                    };
-                    return Err(std::io::Error::new(
-                        std::io::ErrorKind::Other,
-                        "Circuit breaker is open",
-                    )
-                    .into());
-                }
-
-                match operation() {
-                    Ok(result) => {
-                        *state = CircuitBreakerState::Closed { failure_count: 0 };
-                        Ok(result)
-                    }
-                    Err(e) => {
-                        *state = CircuitBreakerState::Closed {
-                            failure_count: failure_count + 1,
-                        };
-                        Err(e)
-                    }
-                }
+            Err(e) => {
+                self.circuit_breaker.record_failure();
+                Err(e)
             }
-            CircuitBreakerState::Open { last_failure_time } => {
-                if last_failure_time.elapsed() >= self.recovery_timeout {
-                    *state = CircuitBreakerState::HalfOpen;
-                    match operation() {
-                        Ok(result) => {
-                            *state = CircuitBreakerState::Closed { failure_count: 0 };
-                            Ok(result)
-                        }
+        }
+    }
+
+    /// Authenticate a user
+    pub async fn authenticate(
+        &self,
+        request: bridge_auth::AuthRequest,
+    ) -> BridgeResult<bridge_auth::AuthResponse> {
+        // Convert the bridge_auth::AuthRequest to our internal authentication
+        let auth_result = match &request.method {
+            bridge_auth::AuthMethod::UsernamePassword => {
+                if let bridge_auth::AuthCredentials::UsernamePassword { username, password } =
+                    &request.credentials
+                {
+                    // Use the internal authentication manager
+                    match self
+                        .auth_manager
+                        .authenticate_user(username, password)
+                        .await
+                    {
+                        Ok(result) => result,
                         Err(e) => {
-                            *state = CircuitBreakerState::Open {
-                                last_failure_time: std::time::Instant::now(),
-                            };
-                            Err(e)
+                            return Err(bridge_core::BridgeError::authentication(format!(
+                                "Authentication failed: {}",
+                                e
+                            )))
                         }
                     }
                 } else {
-                    Err(
-                        std::io::Error::new(std::io::ErrorKind::Other, "Circuit breaker is open")
-                            .into(),
-                    )
+                    return Err(bridge_core::BridgeError::authentication(
+                        "Invalid credentials for username/password authentication".to_string(),
+                    ));
                 }
             }
-            CircuitBreakerState::HalfOpen => match operation() {
-                Ok(result) => {
-                    *state = CircuitBreakerState::Closed { failure_count: 0 };
-                    Ok(result)
+            bridge_auth::AuthMethod::Jwt => {
+                if let bridge_auth::AuthCredentials::JwtToken { token } = &request.credentials {
+                    // Use the internal authentication manager for JWT validation
+                    match self.auth_manager.authenticate_token(token).await {
+                        Ok(result) => result,
+                        Err(e) => {
+                            return Err(bridge_core::BridgeError::authentication(format!(
+                                "JWT authentication failed: {}",
+                                e
+                            )))
+                        }
+                    }
+                } else {
+                    return Err(bridge_core::BridgeError::authentication(
+                        "Invalid credentials for JWT authentication".to_string(),
+                    ));
                 }
-                Err(e) => {
-                    *state = CircuitBreakerState::Open {
-                        last_failure_time: std::time::Instant::now(),
-                    };
-                    Err(e)
+            }
+            bridge_auth::AuthMethod::ApiKey => {
+                if let bridge_auth::AuthCredentials::ApiKey { key } = &request.credentials {
+                    // Use the internal authentication manager for API key validation
+                    match self.auth_manager.authenticate_api_key(key).await {
+                        Ok(result) => result,
+                        Err(e) => {
+                            return Err(bridge_core::BridgeError::authentication(format!(
+                                "API key authentication failed: {}",
+                                e
+                            )))
+                        }
+                    }
+                } else {
+                    return Err(bridge_core::BridgeError::authentication(
+                        "Invalid credentials for API key authentication".to_string(),
+                    ));
                 }
-            },
+            }
+            bridge_auth::AuthMethod::OAuth { provider, .. } => {
+                // OAuth authentication is not implemented in the internal auth manager
+                return Err(bridge_core::BridgeError::authentication(
+                    "OAuth authentication not implemented in internal auth manager".to_string(),
+                ));
+            }
+        };
+
+        // Convert internal AuthResult to bridge_auth::AuthResponse
+        let response = self
+            .convert_auth_result_to_response(auth_result, &request)
+            .await;
+        Ok(response)
+    }
+
+    /// Convert internal AuthResult to bridge_auth::AuthResponse
+    async fn convert_auth_result_to_response(
+        &self,
+        auth_result: InternalAuthResult,
+        request: &bridge_auth::AuthRequest,
+    ) -> bridge_auth::AuthResponse {
+        if auth_result.success {
+            // Convert internal User to bridge_auth::User if authentication was successful
+            let bridge_user = if let Some(internal_user) = auth_result.user {
+                Some(bridge_auth::User {
+                    id: internal_user.id,
+                    username: internal_user.username,
+                    email: internal_user.email,
+                    password_hash: internal_user.password_hash,
+                    roles: internal_user
+                        .roles
+                        .iter()
+                        .map(|role| {
+                            // Convert string role to UserRole enum
+                            match role.as_str() {
+                                "admin" => bridge_auth::UserRole::Admin,
+                                "user" => bridge_auth::UserRole::User,
+                                "readonly" => bridge_auth::UserRole::ReadOnly,
+                                _ => bridge_auth::UserRole::Custom(role.clone()),
+                            }
+                        })
+                        .collect(),
+                    is_active: internal_user.active,
+                    is_locked: false, // Internal auth manager doesn't track lockouts
+                    failed_login_attempts: 0, // Internal auth manager doesn't track failed attempts
+                    lockout_until: None,
+                    created_at: internal_user.created_at,
+                    last_login_at: internal_user.last_login,
+                    oauth_provider: None,
+                    oauth_provider_user_id: None,
+                })
+            } else {
+                None
+            };
+
+            // Calculate expiration time based on token type
+            let expires_at = match request.method {
+                bridge_auth::AuthMethod::Jwt => {
+                    // JWT tokens typically expire in 1 hour
+                    Some(chrono::Utc::now() + chrono::Duration::hours(1))
+                }
+                bridge_auth::AuthMethod::ApiKey => {
+                    // API keys typically expire in 30 days
+                    Some(chrono::Utc::now() + chrono::Duration::days(30))
+                }
+                _ => None,
+            };
+
+            bridge_auth::AuthResponse {
+                status: bridge_auth::AuthStatus::Authenticated {
+                    user_id: bridge_user
+                        .as_ref()
+                        .map(|u| u.id.clone())
+                        .unwrap_or_default(),
+                    roles: bridge_user
+                        .as_ref()
+                        .map(|u| u.roles.iter().map(|r| format!("{:?}", r)).collect())
+                        .unwrap_or_default(),
+                    permissions: bridge_user.as_ref().map(|u| vec![]).unwrap_or_default(), // Internal user doesn't have permissions in the bridge_auth format
+                },
+                token: auth_result.token,
+                refresh_token: auth_result.refresh_token,
+                user: bridge_user,
+                expires_at,
+            }
+        } else {
+            bridge_auth::AuthResponse {
+                status: bridge_auth::AuthStatus::Failed {
+                    reason: auth_result
+                        .error_message
+                        .unwrap_or_else(|| "Authentication failed".to_string()),
+                },
+                token: None,
+                refresh_token: None,
+                user: None,
+                expires_at: None,
+            }
         }
     }
 
-    /// Get circuit breaker state
-    pub async fn get_state(&self) -> CircuitBreakerState {
-        let state = self.state.lock().await;
-        state.clone()
+    /// Authorize an action
+    pub async fn check_permission(
+        &self,
+        user_id: &str,
+        resource: &str,
+        action: &authorization::Action,
+        context: Option<AuthorizationContext>,
+    ) -> BridgeResult<bool> {
+        self.authorization_manager
+            .check_permission(user_id, resource, action, context)
+            .await
     }
 
-    /// Reset circuit breaker
-    pub async fn reset(&self) {
-        let mut state = self.state.lock().await;
-        *state = CircuitBreakerState::Closed { failure_count: 0 };
+    /// Check if operation can be executed (circuit breaker)
+    pub fn can_execute_operation(&self) -> bool {
+        self.circuit_breaker.can_execute()
     }
-}
 
-/// TLS configuration for secure connections
-pub struct TlsManager {
-    cert_file: Option<std::path::PathBuf>,
-    key_file: Option<std::path::PathBuf>,
-    ca_file: Option<std::path::PathBuf>,
-    enabled: bool,
-}
+    /// Record operation success
+    pub fn record_operation_success(&self) {
+        self.circuit_breaker.record_success();
+    }
 
-impl TlsManager {
-    /// Create new TLS manager
-    pub fn new(
-        cert_file: Option<std::path::PathBuf>,
-        key_file: Option<std::path::PathBuf>,
-        ca_file: Option<std::path::PathBuf>,
-        enabled: bool,
-    ) -> Self {
-        Self {
-            cert_file,
-            key_file,
-            ca_file,
-            enabled,
-        }
+    /// Record operation failure
+    pub fn record_operation_failure(&self) {
+        self.circuit_breaker.record_failure();
     }
 
     /// Check if TLS is enabled
-    pub fn is_enabled(&self) -> bool {
-        self.enabled
+    pub fn is_tls_enabled(&self) -> bool {
+        self.tls_manager.is_enabled()
     }
 
-    /// Get TLS configuration
-    pub fn get_config(&self) -> BridgeResult<TlsConfig> {
-        if !self.enabled {
-            return Err(bridge_core::BridgeError::configuration(
-                "TLS is not enabled".to_string(),
-            ));
-        }
-
-        Ok(TlsConfig {
-            cert_file: self.cert_file.clone(),
-            key_file: self.key_file.clone(),
-            ca_file: self.ca_file.clone(),
-        })
+    /// Validate TLS configuration
+    pub fn validate_tls_config(&self) -> BridgeResult<()> {
+        self.tls_manager.validate_config()
     }
-}
 
-/// TLS configuration
-#[derive(Debug, Clone)]
-pub struct TlsConfig {
-    pub cert_file: Option<std::path::PathBuf>,
-    pub key_file: Option<std::path::PathBuf>,
-    pub ca_file: Option<std::path::PathBuf>,
+    /// Initialize TLS
+    pub async fn initialize_tls(&mut self) -> BridgeResult<()> {
+        self.tls_manager.initialize().await
+    }
+
+    /// Get audit logs
+    pub async fn get_audit_logs(&self) -> BridgeResult<Vec<AuditLogEntry>> {
+        self.authorization_manager.get_audit_log(None).await
+    }
 }
 
 use bridge_core::BridgeResult;

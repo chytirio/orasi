@@ -296,9 +296,6 @@ impl TransformProcessor {
 
     /// Remove field value from record
     fn remove_field_value(&self, record: &mut TelemetryRecord, field: &str) {
-        // Implement field value removal
-        // Remove values from record attributes, tags, etc.
-
         // Handle nested field paths (e.g., "attributes.service.name")
         let field_parts: Vec<&str> = field.split('.').collect();
 
@@ -310,9 +307,106 @@ impl TransformProcessor {
                 record.tags.remove(*key);
             }
             _ => {
-                // Try to remove from attributes first, then tags
+                // Default to removing from attributes
                 record.attributes.remove(field);
-                record.tags.remove(field);
+            }
+        }
+    }
+
+    /// Apply template variables to a string
+    fn apply_template_variables(&self, template: &str, record: &TelemetryRecord) -> String {
+        let mut result = template.to_string();
+
+        // Replace timestamp variables
+        result = result.replace("${timestamp}", &record.timestamp.to_rfc3339());
+        result = result.replace(
+            "${timestamp_unix}",
+            &record.timestamp.timestamp().to_string(),
+        );
+        result = result.replace(
+            "${timestamp_ms}",
+            &record.timestamp.timestamp_millis().to_string(),
+        );
+
+        // Replace ID variables
+        result = result.replace("${id}", &record.id.to_string());
+
+        // Replace record type variables
+        result = result.replace("${record_type}", &format!("{:?}", record.record_type));
+
+        // Replace service variables
+        if let Some(service) = &record.service {
+            result = result.replace("${service}", &service.name);
+        }
+
+        // Replace attribute variables
+        for (key, value) in &record.attributes {
+            result = result.replace(&format!("${{attributes.{}}}", key), value);
+        }
+
+        // Replace tag variables
+        for (key, value) in &record.tags {
+            result = result.replace(&format!("${{tags.{}}}", key), value);
+        }
+
+        result
+    }
+
+    /// Evaluate conditional expression
+    fn evaluate_condition(&self, condition: &str, record: &TelemetryRecord) -> bool {
+        // Simple condition evaluation for now
+        // In a full implementation, this would use a proper expression evaluator
+
+        if condition.contains("${") {
+            // Replace template variables in condition
+            let evaluated_condition = self.apply_template_variables(condition, record);
+
+            // Simple boolean evaluation
+            match evaluated_condition.as_str() {
+                "true" | "1" | "yes" => true,
+                "false" | "0" | "no" => false,
+                _ => {
+                    // Try to evaluate as a comparison
+                    if evaluated_condition.contains("==") {
+                        let parts: Vec<&str> = evaluated_condition.split("==").collect();
+                        if parts.len() == 2 {
+                            return parts[0].trim() == parts[1].trim();
+                        }
+                    } else if evaluated_condition.contains("!=") {
+                        let parts: Vec<&str> = evaluated_condition.split("!=").collect();
+                        if parts.len() == 2 {
+                            return parts[0].trim() != parts[1].trim();
+                        }
+                    } else if evaluated_condition.contains(">") {
+                        let parts: Vec<&str> = evaluated_condition.split(">").collect();
+                        if parts.len() == 2 {
+                            if let (Ok(left), Ok(right)) = (
+                                parts[0].trim().parse::<f64>(),
+                                parts[1].trim().parse::<f64>(),
+                            ) {
+                                return left > right;
+                            }
+                        }
+                    } else if evaluated_condition.contains("<") {
+                        let parts: Vec<&str> = evaluated_condition.split("<").collect();
+                        if parts.len() == 2 {
+                            if let (Ok(left), Ok(right)) = (
+                                parts[0].trim().parse::<f64>(),
+                                parts[1].trim().parse::<f64>(),
+                            ) {
+                                return left < right;
+                            }
+                        }
+                    }
+                    false
+                }
+            }
+        } else {
+            // No template variables, evaluate as simple boolean
+            match condition.to_lowercase().as_str() {
+                "true" | "1" | "yes" => true,
+                "false" | "0" | "no" => false,
+                _ => false,
             }
         }
     }

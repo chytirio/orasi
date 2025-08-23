@@ -3,12 +3,12 @@
 //!
 
 //! Error handling for the S3/Parquet connector
-//! 
+//!
 //! This module provides structured error types with context and recovery strategies
 //! for the S3/Parquet connector.
 
-use std::fmt;
 use std::error::Error as StdError;
+use std::fmt;
 use thiserror::Error;
 
 /// Result type for S3/Parquet operations
@@ -19,55 +19,94 @@ pub type S3ParquetResult<T> = Result<T, S3ParquetError>;
 pub enum S3ParquetError {
     /// Configuration errors
     #[error("S3/Parquet configuration error: {message}")]
-    Configuration { message: String, source: Option<Box<dyn StdError + Send + Sync>> },
+    Configuration {
+        message: String,
+        source: Option<Box<dyn StdError + Send + Sync>>,
+    },
 
     /// S3 connection errors
     #[error("S3 connection error: {message}")]
-    S3Connection { message: String, source: Option<Box<dyn StdError + Send + Sync>> },
+    S3Connection {
+        message: String,
+        source: Option<Box<dyn StdError + Send + Sync>>,
+    },
 
     /// S3 operation errors
     #[error("S3 operation error: {message}")]
-    S3Operation { message: String, source: Option<Box<dyn StdError + Send + Sync>> },
+    S3Operation {
+        message: String,
+        source: Option<Box<dyn StdError + Send + Sync>>,
+    },
 
     /// Parquet errors
     #[error("Parquet error: {message}")]
-    Parquet { message: String, source: Option<Box<dyn StdError + Send + Sync>> },
+    Parquet {
+        message: String,
+        source: Option<Box<dyn StdError + Send + Sync>>,
+    },
 
     /// Write operation errors
     #[error("S3/Parquet write error: {message}")]
-    Write { message: String, source: Option<Box<dyn StdError + Send + Sync>> },
+    Write {
+        message: String,
+        source: Option<Box<dyn StdError + Send + Sync>>,
+    },
 
     /// Read operation errors
     #[error("S3/Parquet read error: {message}")]
-    Read { message: String, source: Option<Box<dyn StdError + Send + Sync>> },
+    Read {
+        message: String,
+        source: Option<Box<dyn StdError + Send + Sync>>,
+    },
 
     /// Storage errors
     #[error("S3/Parquet storage error: {message}")]
-    Storage { message: String, source: Option<Box<dyn StdError + Send + Sync>> },
+    Storage {
+        message: String,
+        source: Option<Box<dyn StdError + Send + Sync>>,
+    },
 
     /// Serialization/deserialization errors
     #[error("S3/Parquet serialization error: {message}")]
-    Serialization { message: String, source: Option<Box<dyn StdError + Send + Sync>> },
+    Serialization {
+        message: String,
+        source: Option<Box<dyn StdError + Send + Sync>>,
+    },
 
     /// Validation errors
     #[error("S3/Parquet validation error: {message}")]
-    Validation { message: String, source: Option<Box<dyn StdError + Send + Sync>> },
+    Validation {
+        message: String,
+        source: Option<Box<dyn StdError + Send + Sync>>,
+    },
 
     /// Timeout errors
     #[error("S3/Parquet timeout error: {message}")]
-    Timeout { message: String, source: Option<Box<dyn StdError + Send + Sync>> },
+    Timeout {
+        message: String,
+        source: Option<Box<dyn StdError + Send + Sync>>,
+    },
 
     /// Rate limiting errors
     #[error("S3/Parquet rate limiting error: {message}")]
-    RateLimit { message: String, source: Option<Box<dyn StdError + Send + Sync>> },
+    RateLimit {
+        message: String,
+        source: Option<Box<dyn StdError + Send + Sync>>,
+    },
 
     /// Internal errors
     #[error("S3/Parquet internal error: {message}")]
-    Internal { message: String, source: Option<Box<dyn StdError + Send + Sync>> },
+    Internal {
+        message: String,
+        source: Option<Box<dyn StdError + Send + Sync>>,
+    },
 
     /// Unknown errors
     #[error("S3/Parquet unknown error: {message}")]
-    Unknown { message: String, source: Option<Box<dyn StdError + Send + Sync>> },
+    Unknown {
+        message: String,
+        source: Option<Box<dyn StdError + Send + Sync>>,
+    },
 }
 
 impl S3ParquetError {

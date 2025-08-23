@@ -389,7 +389,7 @@ pub struct ComponentStatusResponse {
 }
 
 /// Component status
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ComponentStatus {
     Running,
     Stopped,

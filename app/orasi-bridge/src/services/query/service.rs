@@ -18,9 +18,10 @@ use crate::{
     },
 };
 
-use super::{engine::QueryEngineIntegration, conversion, execution};
+use super::{conversion, engine::QueryEngineIntegration, execution};
 
 /// Query service for handling telemetry queries
+#[derive(Clone)]
 pub struct QueryService {
     config: BridgeAPIConfig,
     metrics: ApiMetrics,
@@ -68,7 +69,8 @@ impl QueryService {
         let query_result = self.execute_telemetry_query(&telemetry_query).await?;
 
         // Convert result back to gRPC response
-        let response = conversion::convert_telemetry_result_to_grpc(query_result, start_time.elapsed())?;
+        let response =
+            conversion::convert_telemetry_result_to_grpc(query_result, start_time.elapsed())?;
 
         // Record metrics
         self.metrics
@@ -92,22 +94,24 @@ impl QueryService {
         );
 
         // Convert gRPC request to bridge-core query
-        let telemetry_query = conversion::convert_grpc_to_telemetry_query(&QueryTelemetryRequest {
-            query_type: stream_request.query_type.clone(),
-            time_range: stream_request.time_range.clone(),
-            filters: stream_request.filters.clone(),
-            limit: stream_request.batch_size,
-            offset: 0,
-            sort_by: String::new(),
-            sort_order: String::new(),
-        })?;
+        let telemetry_query =
+            conversion::convert_grpc_to_telemetry_query(&QueryTelemetryRequest {
+                query_type: stream_request.query_type.clone(),
+                time_range: stream_request.time_range.clone(),
+                filters: stream_request.filters.clone(),
+                limit: stream_request.batch_size,
+                offset: 0,
+                sort_by: String::new(),
+                sort_order: String::new(),
+            })?;
 
         // Execute the query with streaming
         let query_results = execution::execute_telemetry_stream(
-            &telemetry_query, 
+            &telemetry_query,
             stream_request.batch_size,
             &self.config,
-        ).await?;
+        )
+        .await?;
 
         // Convert results to gRPC streaming responses
         let responses = conversion::convert_stream_results_to_grpc(query_results)?;

@@ -9,10 +9,13 @@
 
 use ::prost::Message;
 use async_trait::async_trait;
-use bridge_core::types::{
-    LogData, MetricData, MetricValue, TelemetryData, TelemetryRecord, TelemetryType,
+use bridge_core::{
+    types::{
+        HistogramBucket, LogData, LogLevel, MetricData, MetricType, MetricValue, ResourceInfo,
+        ServiceInfo, SummaryQuantile, TelemetryData, TelemetryRecord, TelemetryType,
+    },
+    BridgeResult, TelemetryBatch,
 };
-use bridge_core::{BridgeResult, TelemetryBatch};
 use chrono::{DateTime, Utc};
 use opentelemetry_proto::tonic::collector::{
     logs::v1::logs_service_server::LogsService,
@@ -263,316 +266,615 @@ impl OtlpGrpcProtocol {
         Ok(())
     }
 
-    /// Process OTLP metrics request
+    /// Process OTLP gRPC metrics request
     async fn process_metrics_request(
         &self,
         request: ExportMetricsServiceRequest,
     ) -> BridgeResult<TelemetryBatch> {
-        // Implement metrics processing
-        // Convert OTLP metrics to TelemetryBatch
+        info!("Processing OTLP gRPC metrics request");
 
         let mut records = Vec::new();
+        let mut total_size = 0;
 
+        // Process each resource metrics in the request
         for resource_metrics in request.resource_metrics {
-            let resource_attrs: HashMap<String, String> = resource_metrics
-                .resource
-                .map(|r| {
-                    r.attributes
-                        .into_iter()
-                        .map(|attr| {
-                            (
-                                attr.key,
-                                attr.value
-                                    .map(|v| match v.value {
-                                        Some(AnyValueValue::StringValue(s)) => s,
-                                        Some(AnyValueValue::IntValue(i)) => i.to_string(),
-                                        Some(AnyValueValue::DoubleValue(d)) => d.to_string(),
-                                        Some(AnyValueValue::BoolValue(b)) => b.to_string(),
-                                        _ => "unknown".to_string(),
-                                    })
-                                    .unwrap_or_default(),
-                            )
-                        })
-                        .collect()
+            // Extract resource information
+            let resource_info = if let Some(resource) = resource_metrics.resource {
+                let mut attributes = HashMap::new();
+                for attr in resource.attributes {
+                    if let Some(value) = attr.value {
+                        attributes.insert(attr.key, self.extract_any_value(&value));
+                    }
+                }
+
+                Some(ResourceInfo {
+                    resource_type: attributes
+                        .get("service.name")
+                        .cloned()
+                        .unwrap_or_else(|| "unknown".to_string()),
+                    attributes: attributes.clone(),
+                    resource_id: attributes.get("service.instance.id").cloned(),
                 })
-                .unwrap_or_default();
+            } else {
+                None
+            };
 
+            // Extract service information from resource
+            let service_info = if let Some(ref resource) = resource_info {
+                Some(ServiceInfo {
+                    name: resource
+                        .attributes
+                        .get("service.name")
+                        .cloned()
+                        .unwrap_or_else(|| "unknown".to_string()),
+                    version: resource.attributes.get("service.version").cloned(),
+                    namespace: resource.attributes.get("service.namespace").cloned(),
+                    instance_id: resource.attributes.get("service.instance.id").cloned(),
+                })
+            } else {
+                None
+            };
+
+            // Process each scope metrics
             for scope_metrics in resource_metrics.scope_metrics {
-                for metric in scope_metrics.metrics {
-                    let metric_name = metric.name;
-                    let metric_description = metric.description;
-                    let metric_unit = metric.unit;
-
-                    // Convert OTLP metric data points to our format
-                    for data_point in metric.data {
-                        match data_point {
-                            OtlpMetricData::Gauge(gauge) => {
-                                for point in gauge.data_points {
-                                    let value = match point.value {
-                                        Some(NumberDataPointValue::AsDouble(v)) => {
-                                            MetricValue::Gauge(v)
-                                        }
-                                        Some(NumberDataPointValue::AsInt(v)) => {
-                                            MetricValue::Gauge(v as f64)
-                                        }
-                                        None => MetricValue::Gauge(0.0),
-                                    };
-
-                                    let labels: HashMap<String, String> = point
-                                        .attributes
-                                        .into_iter()
-                                        .map(|attr| {
-                                            (
-                                                attr.key,
-                                                attr.value
-                                                    .map(|v| match v.value {
-                                                        Some(AnyValueValue::StringValue(s)) => s,
-                                                        Some(AnyValueValue::IntValue(i)) => {
-                                                            i.to_string()
-                                                        }
-                                                        Some(AnyValueValue::DoubleValue(d)) => {
-                                                            d.to_string()
-                                                        }
-                                                        Some(AnyValueValue::BoolValue(b)) => {
-                                                            b.to_string()
-                                                        }
-                                                        _ => "unknown".to_string(),
-                                                    })
-                                                    .unwrap_or_default(),
-                                            )
-                                        })
-                                        .collect();
-
-                                    let timestamp = if point.time_unix_nano > 0 {
-                                        DateTime::from_timestamp_nanos(point.time_unix_nano as i64)
-                                    } else {
-                                        Utc::now()
-                                    };
-
-                                    records.push(TelemetryRecord {
-                                        id: Uuid::new_v4(),
-                                        timestamp,
-                                        record_type: TelemetryType::Metric,
-                                        data: TelemetryData::Metric(MetricData {
-                                            name: metric_name.clone(),
-                                            description: Some(metric_description.clone()),
-                                            unit: Some(metric_unit.clone()),
-                                            metric_type: bridge_core::types::MetricType::Gauge,
-                                            value,
-                                            labels,
-                                            timestamp,
-                                        }),
-                                        attributes: resource_attrs.clone(),
-                                        tags: HashMap::new(),
-                                        resource: None,
-                                        service: None,
-                                    });
-                                }
-                            }
-                            OtlpMetricData::Sum(sum) => {
-                                for point in sum.data_points {
-                                    let value = match point.value {
-                                        Some(NumberDataPointValue::AsDouble(v)) => {
-                                            MetricValue::Counter(v)
-                                        }
-                                        Some(NumberDataPointValue::AsInt(v)) => {
-                                            MetricValue::Counter(v as f64)
-                                        }
-                                        None => MetricValue::Counter(0.0),
-                                    };
-
-                                    let labels: HashMap<String, String> = point
-                                        .attributes
-                                        .into_iter()
-                                        .map(|attr| {
-                                            (
-                                                attr.key,
-                                                attr.value
-                                                    .map(|v| match v.value {
-                                                        Some(AnyValueValue::StringValue(s)) => s,
-                                                        Some(AnyValueValue::IntValue(i)) => {
-                                                            i.to_string()
-                                                        }
-                                                        Some(AnyValueValue::DoubleValue(d)) => {
-                                                            d.to_string()
-                                                        }
-                                                        Some(AnyValueValue::BoolValue(b)) => {
-                                                            b.to_string()
-                                                        }
-                                                        _ => "unknown".to_string(),
-                                                    })
-                                                    .unwrap_or_default(),
-                                            )
-                                        })
-                                        .collect();
-
-                                    let timestamp = if point.time_unix_nano > 0 {
-                                        DateTime::from_timestamp_nanos(point.time_unix_nano as i64)
-                                    } else {
-                                        Utc::now()
-                                    };
-
-                                    records.push(TelemetryRecord {
-                                        id: Uuid::new_v4(),
-                                        timestamp,
-                                        record_type: TelemetryType::Metric,
-                                        data: TelemetryData::Metric(MetricData {
-                                            name: metric_name.clone(),
-                                            description: Some(metric_description.clone()),
-                                            unit: Some(metric_unit.clone()),
-                                            metric_type: bridge_core::types::MetricType::Counter,
-                                            value,
-                                            labels,
-                                            timestamp,
-                                        }),
-                                        attributes: resource_attrs.clone(),
-                                        tags: HashMap::new(),
-                                        resource: None,
-                                        service: None,
-                                    });
-                                }
-                            }
-                            _ => {
-                                // Handle other metric types (Histogram, Summary, etc.) as needed
-                                info!("Unsupported metric type for metric: {}", metric_name);
-                            }
+                // Extract scope attributes
+                let mut scope_attributes = HashMap::new();
+                if let Some(scope) = scope_metrics.scope {
+                    if !scope.name.is_empty() {
+                        scope_attributes.insert("scope.name".to_string(), scope.name);
+                    }
+                    if !scope.version.is_empty() {
+                        scope_attributes.insert("scope.version".to_string(), scope.version);
+                    }
+                    for attr in scope.attributes {
+                        if let Some(value) = attr.value {
+                            scope_attributes.insert(attr.key, self.extract_any_value(&value));
                         }
                     }
+                }
+
+                // Process each metric
+                for metric in scope_metrics.metrics {
+                    let metric_record = self.convert_otlp_metric_to_record(
+                        metric,
+                        resource_info.clone(),
+                        service_info.clone(),
+                        &scope_attributes,
+                    )?;
+
+                    total_size += std::mem::size_of_val(&metric_record);
+                    records.push(metric_record);
                 }
             }
         }
 
+        let size = records.len();
+
+        // Update stats
+        {
+            let mut stats = self.stats.write().await;
+            stats.total_messages += 1;
+            stats.total_bytes += total_size as u64;
+            stats.last_message_time = Some(Utc::now());
+        }
+
         Ok(TelemetryBatch {
-            id: Uuid::new_v4(),
-            timestamp: Utc::now(),
-            source: "otlp-grpc".to_string(),
-            size: records.len(),
+            id: uuid::Uuid::new_v4(),
             records,
-            metadata: HashMap::from([
-                ("protocol".to_string(), "otlp-grpc".to_string()),
-                ("content_type".to_string(), "application/grpc".to_string()),
-            ]),
+            timestamp: Utc::now(),
+            source: "otlp_grpc".to_string(),
+            size,
+            metadata: HashMap::new(),
         })
     }
 
-    /// Process OTLP logs request
+    /// Process OTLP gRPC logs request
     async fn process_logs_request(
         &self,
         request: ExportLogsServiceRequest,
     ) -> BridgeResult<TelemetryBatch> {
-        // Implement logs processing
-        // Convert OTLP logs to TelemetryBatch
+        info!("Processing OTLP gRPC logs request");
 
         let mut records = Vec::new();
+        let mut total_size = 0;
 
+        // Process each resource logs in the request
         for resource_logs in request.resource_logs {
-            let resource_attrs: HashMap<String, String> = resource_logs
-                .resource
-                .map(|r| {
-                    r.attributes
-                        .into_iter()
-                        .map(|attr| {
-                            (
-                                attr.key,
-                                attr.value
-                                    .map(|v| match v.value {
-                                        Some(AnyValueValue::StringValue(s)) => s,
-                                        Some(AnyValueValue::IntValue(i)) => i.to_string(),
-                                        Some(AnyValueValue::DoubleValue(d)) => d.to_string(),
-                                        Some(AnyValueValue::BoolValue(b)) => b.to_string(),
-                                        _ => "unknown".to_string(),
-                                    })
-                                    .unwrap_or_default(),
-                            )
-                        })
-                        .collect()
+            // Extract resource information
+            let resource_info = if let Some(resource) = resource_logs.resource {
+                let mut attributes = HashMap::new();
+                for attr in resource.attributes {
+                    if let Some(value) = attr.value {
+                        attributes.insert(attr.key, self.extract_any_value(&value));
+                    }
+                }
+
+                Some(ResourceInfo {
+                    resource_type: attributes
+                        .get("service.name")
+                        .cloned()
+                        .unwrap_or_else(|| "unknown".to_string()),
+                    attributes: attributes.clone(),
+                    resource_id: attributes.get("service.instance.id").cloned(),
                 })
-                .unwrap_or_default();
+            } else {
+                None
+            };
 
-            for scope_logs in resource_logs.scope_logs {
-                for log_record in scope_logs.log_records {
-                    let timestamp = if log_record.time_unix_nano > 0 {
-                        DateTime::from_timestamp_nanos(log_record.time_unix_nano as i64)
-                    } else {
-                        Utc::now()
-                    };
-
-                    let severity_number = log_record.severity_number;
-                    let severity_text = log_record.severity_text;
-
-                    // Convert OTLP severity to our log level
-                    let level = match severity_number {
-                        1..=4 => bridge_core::types::LogLevel::Trace,
-                        5..=8 => bridge_core::types::LogLevel::Debug,
-                        9..=12 => bridge_core::types::LogLevel::Info,
-                        13..=16 => bridge_core::types::LogLevel::Warn,
-                        17..=20 => bridge_core::types::LogLevel::Error,
-                        21..=24 => bridge_core::types::LogLevel::Fatal,
-                        _ => bridge_core::types::LogLevel::Info,
-                    };
-
-                    let message = log_record
-                        .body
-                        .map(|v| match v.value {
-                            Some(AnyValueValue::StringValue(s)) => s,
-                            Some(AnyValueValue::IntValue(i)) => i.to_string(),
-                            Some(AnyValueValue::DoubleValue(d)) => d.to_string(),
-                            Some(AnyValueValue::BoolValue(b)) => b.to_string(),
-                            _ => "unknown".to_string(),
-                        })
-                        .unwrap_or_default();
-
-                    let attributes: HashMap<String, String> = log_record
+            // Extract service information from resource
+            let service_info = if let Some(ref resource) = resource_info {
+                Some(ServiceInfo {
+                    name: resource
                         .attributes
-                        .into_iter()
-                        .map(|attr| {
-                            (
-                                attr.key,
-                                attr.value
-                                    .map(|v| match v.value {
-                                        Some(AnyValueValue::StringValue(s)) => s,
-                                        Some(AnyValueValue::IntValue(i)) => i.to_string(),
-                                        Some(AnyValueValue::DoubleValue(d)) => d.to_string(),
-                                        Some(AnyValueValue::BoolValue(b)) => b.to_string(),
-                                        _ => "unknown".to_string(),
-                                    })
-                                    .unwrap_or_default(),
-                            )
-                        })
-                        .collect();
+                        .get("service.name")
+                        .cloned()
+                        .unwrap_or_else(|| "unknown".to_string()),
+                    version: resource.attributes.get("service.version").cloned(),
+                    namespace: resource.attributes.get("service.namespace").cloned(),
+                    instance_id: resource.attributes.get("service.instance.id").cloned(),
+                })
+            } else {
+                None
+            };
 
-                    records.push(TelemetryRecord {
-                        id: Uuid::new_v4(),
-                        timestamp,
-                        record_type: TelemetryType::Log,
-                        data: TelemetryData::Log(LogData {
-                            timestamp,
-                            level,
-                            message,
-                            attributes: attributes.clone(),
-                            body: None,
-                            severity_number: Some(severity_number as u32),
-                            severity_text: Some(severity_text),
-                        }),
-                        attributes: resource_attrs.clone(),
-                        tags: HashMap::new(),
-                        resource: None,
-                        service: None,
-                    });
+            // Process each scope logs
+            for scope_logs in resource_logs.scope_logs {
+                // Extract scope attributes
+                let mut scope_attributes = HashMap::new();
+                if let Some(scope) = scope_logs.scope {
+                    if !scope.name.is_empty() {
+                        scope_attributes.insert("scope.name".to_string(), scope.name);
+                    }
+                    if !scope.version.is_empty() {
+                        scope_attributes.insert("scope.version".to_string(), scope.version);
+                    }
+                    for attr in scope.attributes {
+                        if let Some(value) = attr.value {
+                            scope_attributes.insert(attr.key, self.extract_any_value(&value));
+                        }
+                    }
+                }
+
+                // Process each log record
+                for log_record in scope_logs.log_records {
+                    let log_record = self.convert_otlp_log_to_record(
+                        log_record,
+                        resource_info.clone(),
+                        service_info.clone(),
+                        &scope_attributes,
+                    )?;
+
+                    total_size += std::mem::size_of_val(&log_record);
+                    records.push(log_record);
                 }
             }
         }
 
+        let size = records.len();
+
+        // Update stats
+        {
+            let mut stats = self.stats.write().await;
+            stats.total_messages += 1;
+            stats.total_bytes += total_size as u64;
+            stats.last_message_time = Some(Utc::now());
+        }
+
         Ok(TelemetryBatch {
-            id: Uuid::new_v4(),
-            timestamp: Utc::now(),
-            source: "otlp-grpc".to_string(),
-            size: records.len(),
+            id: uuid::Uuid::new_v4(),
             records,
-            metadata: HashMap::from([
-                ("protocol".to_string(), "otlp-grpc".to_string()),
-                ("content_type".to_string(), "application/grpc".to_string()),
-            ]),
+            timestamp: Utc::now(),
+            source: "otlp_grpc".to_string(),
+            size,
+            metadata: HashMap::new(),
+        })
+    }
+
+    /// Extract string value from OTLP AnyValue
+    fn extract_any_value(
+        &self,
+        any_value: &opentelemetry_proto::tonic::common::v1::AnyValue,
+    ) -> String {
+        match &any_value.value {
+            Some(AnyValueValue::StringValue(s)) => s.clone(),
+            Some(AnyValueValue::BoolValue(b)) => b.to_string(),
+            Some(AnyValueValue::IntValue(i)) => i.to_string(),
+            Some(AnyValueValue::DoubleValue(d)) => d.to_string(),
+            Some(AnyValueValue::BytesValue(b)) => format!("{:?}", b),
+            Some(AnyValueValue::ArrayValue(arr)) => {
+                let values: Vec<String> = arr
+                    .values
+                    .iter()
+                    .map(|v| self.extract_any_value(v))
+                    .collect();
+                format!("[{}]", values.join(", "))
+            }
+            Some(AnyValueValue::KvlistValue(kv)) => {
+                let pairs: Vec<String> = kv
+                    .values
+                    .iter()
+                    .map(|kv| {
+                        format!(
+                            "{}: {}",
+                            kv.key,
+                            self.extract_any_value(&kv.value.as_ref().unwrap_or(
+                                &opentelemetry_proto::tonic::common::v1::AnyValue::default()
+                            ))
+                        )
+                    })
+                    .collect();
+                format!("{{{}}}", pairs.join(", "))
+            }
+            None => "".to_string(),
+        }
+    }
+
+    /// Convert OTLP metric to TelemetryRecord
+    fn convert_otlp_metric_to_record(
+        &self,
+        metric: opentelemetry_proto::tonic::metrics::v1::Metric,
+        resource_info: Option<ResourceInfo>,
+        service_info: Option<ServiceInfo>,
+        scope_attributes: &HashMap<String, String>,
+    ) -> BridgeResult<TelemetryRecord> {
+        let mut attributes = HashMap::new();
+
+        // Add scope attributes
+        for (key, value) in scope_attributes {
+            attributes.insert(key.clone(), value.clone());
+        }
+
+        // Note: OTLP metrics don't have direct attributes, they use data point attributes
+        // Attributes are extracted from data points in the specific metric type processing
+
+        // Convert metric data based on type
+        let metric_data = match metric.data {
+            Some(OtlpMetricData::Gauge(gauge)) => {
+                if let Some(data_point) = gauge.data_points.first() {
+                    let value = match &data_point.value {
+                        Some(NumberDataPointValue::AsDouble(d)) => *d,
+                        Some(NumberDataPointValue::AsInt(i)) => *i as f64,
+                        None => 0.0,
+                    };
+
+                    MetricData {
+                        name: metric.name,
+                        description: Some(metric.description),
+                        unit: Some(metric.unit),
+                        metric_type: MetricType::Gauge,
+                        value: MetricValue::Gauge(value),
+                        labels: attributes.clone(),
+                        timestamp: DateTime::from_timestamp_millis(
+                            (data_point.time_unix_nano / 1_000_000) as i64,
+                        )
+                        .unwrap_or_else(|| Utc::now()),
+                    }
+                } else {
+                    return Err(bridge_core::BridgeError::processing(
+                        "No data points in gauge metric",
+                    ));
+                }
+            }
+            Some(OtlpMetricData::Sum(sum)) => {
+                if let Some(data_point) = sum.data_points.first() {
+                    let value = match &data_point.value {
+                        Some(NumberDataPointValue::AsDouble(d)) => *d,
+                        Some(NumberDataPointValue::AsInt(i)) => *i as f64,
+                        None => 0.0,
+                    };
+
+                    let metric_type = if sum.is_monotonic {
+                        MetricType::Counter
+                    } else {
+                        MetricType::Gauge
+                    };
+
+                    let metric_value = if sum.is_monotonic {
+                        MetricValue::Counter(value)
+                    } else {
+                        MetricValue::Gauge(value)
+                    };
+
+                    MetricData {
+                        name: metric.name,
+                        description: Some(metric.description),
+                        unit: Some(metric.unit),
+                        metric_type,
+                        value: metric_value,
+                        labels: attributes.clone(),
+                        timestamp: DateTime::from_timestamp_millis(
+                            (data_point.time_unix_nano / 1_000_000) as i64,
+                        )
+                        .unwrap_or_else(|| Utc::now()),
+                    }
+                } else {
+                    return Err(bridge_core::BridgeError::processing(
+                        "No data points in sum metric",
+                    ));
+                }
+            }
+            Some(OtlpMetricData::Histogram(histogram)) => {
+                if let Some(data_point) = histogram.data_points.first() {
+                    // Extract histogram buckets from OTLP data
+                    let mut buckets = Vec::new();
+
+                    // Process bucket counts and explicit bounds
+                    if !data_point.bucket_counts.is_empty()
+                        && !data_point.explicit_bounds.is_empty()
+                    {
+                        // Create buckets based on explicit bounds
+                        for (i, &count) in data_point.bucket_counts.iter().enumerate() {
+                            let upper_bound = if i < data_point.explicit_bounds.len() {
+                                data_point.explicit_bounds[i]
+                            } else {
+                                // Last bucket goes to infinity
+                                f64::INFINITY
+                            };
+
+                            buckets.push(HistogramBucket { upper_bound, count });
+                        }
+                    } else if !data_point.bucket_counts.is_empty() {
+                        // If no explicit bounds, create default buckets
+                        // This is a fallback for histograms without explicit bounds
+                        let bucket_count = data_point.bucket_counts.len();
+                        for (i, &count) in data_point.bucket_counts.iter().enumerate() {
+                            let upper_bound = if i == bucket_count - 1 {
+                                f64::INFINITY
+                            } else {
+                                // Create a simple linear scale as fallback
+                                (i + 1) as f64
+                            };
+
+                            buckets.push(HistogramBucket { upper_bound, count });
+                        }
+                    } else {
+                        // No bucket data available, create a single bucket with total count
+                        buckets.push(HistogramBucket {
+                            upper_bound: f64::INFINITY,
+                            count: data_point.count,
+                        });
+                    }
+
+                    // Extract attributes from data point
+                    let mut data_point_attributes = attributes.clone();
+                    for attr in &data_point.attributes {
+                        if let Some(value) = &attr.value {
+                            data_point_attributes
+                                .insert(attr.key.clone(), self.extract_any_value(value));
+                        }
+                    }
+
+                    MetricData {
+                        name: metric.name,
+                        description: Some(metric.description),
+                        unit: Some(metric.unit),
+                        metric_type: MetricType::Histogram,
+                        value: MetricValue::Histogram {
+                            buckets,
+                            sum: data_point.sum.unwrap_or(0.0),
+                            count: data_point.count,
+                        },
+                        labels: data_point_attributes,
+                        timestamp: DateTime::from_timestamp_millis(
+                            (data_point.time_unix_nano / 1_000_000) as i64,
+                        )
+                        .unwrap_or_else(|| Utc::now()),
+                    }
+                } else {
+                    return Err(bridge_core::BridgeError::processing(
+                        "No data points in histogram metric",
+                    ));
+                }
+            }
+            Some(OtlpMetricData::Summary(summary)) => {
+                if let Some(data_point) = summary.data_points.first() {
+                    let quantiles: Vec<SummaryQuantile> = data_point
+                        .quantile_values
+                        .iter()
+                        .map(|q| SummaryQuantile {
+                            quantile: q.quantile,
+                            value: q.value,
+                        })
+                        .collect();
+
+                    MetricData {
+                        name: metric.name,
+                        description: Some(metric.description),
+                        unit: Some(metric.unit),
+                        metric_type: MetricType::Summary,
+                        value: MetricValue::Summary {
+                            quantiles,
+                            sum: data_point.sum,
+                            count: data_point.count,
+                        },
+                        labels: attributes.clone(),
+                        timestamp: DateTime::from_timestamp_millis(
+                            (data_point.time_unix_nano / 1_000_000) as i64,
+                        )
+                        .unwrap_or_else(|| Utc::now()),
+                    }
+                } else {
+                    return Err(bridge_core::BridgeError::processing(
+                        "No data points in summary metric",
+                    ));
+                }
+            }
+            Some(OtlpMetricData::ExponentialHistogram(exponential_histogram)) => {
+                if let Some(data_point) = exponential_histogram.data_points.first() {
+                    // Convert exponential histogram to regular histogram buckets
+                    let mut buckets = Vec::new();
+
+                    // Calculate base from scale: base = 2^(2^-scale)
+                    let scale = data_point.scale;
+                    let base = 2.0_f64.powf(2.0_f64.powf(-scale as f64));
+
+                    // Process positive buckets
+                    if let Some(positive_buckets) = &data_point.positive {
+                        for (i, &count) in positive_buckets.bucket_counts.iter().enumerate() {
+                            if count > 0 {
+                                let bucket_index = positive_buckets.offset + i as i32;
+                                let lower_bound = if bucket_index == 0 {
+                                    0.0
+                                } else {
+                                    base.powi(bucket_index)
+                                };
+                                let upper_bound = base.powi(bucket_index + 1);
+
+                                buckets.push(HistogramBucket { upper_bound, count });
+                            }
+                        }
+                    }
+
+                    // Process negative buckets
+                    if let Some(negative_buckets) = &data_point.negative {
+                        for (i, &count) in negative_buckets.bucket_counts.iter().enumerate() {
+                            if count > 0 {
+                                let bucket_index = negative_buckets.offset + i as i32;
+                                let lower_bound = -base.powi(bucket_index + 1);
+                                let upper_bound = -base.powi(bucket_index);
+
+                                buckets.push(HistogramBucket { upper_bound, count });
+                            }
+                        }
+                    }
+
+                    // Add zero bucket if it has counts
+                    if data_point.zero_count > 0 {
+                        buckets.push(HistogramBucket {
+                            upper_bound: 0.0,
+                            count: data_point.zero_count,
+                        });
+                    }
+
+                    // Sort buckets by upper bound
+                    buckets.sort_by(|a, b| {
+                        a.upper_bound
+                            .partial_cmp(&b.upper_bound)
+                            .unwrap_or(std::cmp::Ordering::Equal)
+                    });
+
+                    // Extract attributes from data point
+                    let mut data_point_attributes = attributes.clone();
+                    for attr in &data_point.attributes {
+                        if let Some(value) = &attr.value {
+                            data_point_attributes
+                                .insert(attr.key.clone(), self.extract_any_value(value));
+                        }
+                    }
+
+                    // Add exponential histogram specific attributes
+                    data_point_attributes
+                        .insert("histogram_type".to_string(), "exponential".to_string());
+                    data_point_attributes.insert("scale".to_string(), scale.to_string());
+                    data_point_attributes.insert("base".to_string(), base.to_string());
+
+                    MetricData {
+                        name: metric.name,
+                        description: Some(metric.description),
+                        unit: Some(metric.unit),
+                        metric_type: MetricType::Histogram,
+                        value: MetricValue::Histogram {
+                            buckets,
+                            sum: data_point.sum.unwrap_or(0.0),
+                            count: data_point.count,
+                        },
+                        labels: data_point_attributes,
+                        timestamp: DateTime::from_timestamp_millis(
+                            (data_point.time_unix_nano / 1_000_000) as i64,
+                        )
+                        .unwrap_or_else(|| Utc::now()),
+                    }
+                } else {
+                    return Err(bridge_core::BridgeError::processing(
+                        "No data points in exponential histogram metric",
+                    ));
+                }
+            }
+            None => {
+                return Err(bridge_core::BridgeError::processing(
+                    "No metric data available",
+                ));
+            }
+        };
+
+        Ok(TelemetryRecord {
+            id: Uuid::new_v4(),
+            timestamp: metric_data.timestamp,
+            record_type: TelemetryType::Metric,
+            data: TelemetryData::Metric(metric_data),
+            attributes,
+            tags: HashMap::new(),
+            resource: resource_info,
+            service: service_info,
+        })
+    }
+
+    /// Convert OTLP log to TelemetryRecord
+    fn convert_otlp_log_to_record(
+        &self,
+        log_record: opentelemetry_proto::tonic::logs::v1::LogRecord,
+        resource_info: Option<ResourceInfo>,
+        service_info: Option<ServiceInfo>,
+        scope_attributes: &HashMap<String, String>,
+    ) -> BridgeResult<TelemetryRecord> {
+        let mut attributes = HashMap::new();
+
+        // Add scope attributes
+        for (key, value) in scope_attributes {
+            attributes.insert(key.clone(), value.clone());
+        }
+
+        // Extract log attributes
+        for attr in log_record.attributes {
+            if let Some(value) = attr.value {
+                attributes.insert(attr.key, self.extract_any_value(&value));
+            }
+        }
+
+        // Convert severity number to log level
+        let level = match log_record.severity_number {
+            1..=4 => LogLevel::Trace,
+            5..=8 => LogLevel::Debug,
+            9..=12 => LogLevel::Info,
+            13..=16 => LogLevel::Warn,
+            17..=20 => LogLevel::Error,
+            21..=24 => LogLevel::Fatal,
+            _ => LogLevel::Info,
+        };
+
+        // Extract log body
+        let body = if let Some(ref body) = log_record.body {
+            Some(self.extract_any_value(body))
+        } else {
+            None
+        };
+
+        let log_data = LogData {
+            timestamp: DateTime::from_timestamp_millis(
+                (log_record.time_unix_nano / 1_000_000) as i64,
+            )
+            .unwrap_or_else(|| Utc::now()),
+            level,
+            message: log_record
+                .body
+                .as_ref()
+                .map(|b| self.extract_any_value(b))
+                .unwrap_or_else(|| "".to_string()),
+            attributes,
+            body,
+            severity_number: Some(log_record.severity_number as u32),
+            severity_text: Some(log_record.severity_text),
+        };
+
+        Ok(TelemetryRecord {
+            id: Uuid::new_v4(),
+            timestamp: log_data.timestamp,
+            record_type: TelemetryType::Log,
+            data: TelemetryData::Log(log_data),
+            attributes: HashMap::new(),
+            tags: HashMap::new(),
+            resource: resource_info,
+            service: service_info,
         })
     }
 }
@@ -668,61 +970,50 @@ impl OtlpGrpcMessageHandler {
         Self
     }
 
+    /// Process metrics request
+    async fn process_metrics_request(
+        &self,
+        request: ExportMetricsServiceRequest,
+    ) -> BridgeResult<TelemetryBatch> {
+        // For now, return empty batch - implement actual processing later
+        Ok(TelemetryBatch {
+            id: Uuid::new_v4(),
+            timestamp: Utc::now(),
+            source: "otlp-grpc".to_string(),
+            size: 0,
+            records: vec![],
+            metadata: HashMap::new(),
+        })
+    }
+
+    /// Process logs request
+    async fn process_logs_request(
+        &self,
+        request: ExportLogsServiceRequest,
+    ) -> BridgeResult<TelemetryBatch> {
+        // For now, return empty batch - implement actual processing later
+        Ok(TelemetryBatch {
+            id: Uuid::new_v4(),
+            timestamp: Utc::now(),
+            source: "otlp-grpc".to_string(),
+            size: 0,
+            records: vec![],
+            metadata: HashMap::new(),
+        })
+    }
+
     /// Decode OTLP gRPC message
     async fn decode_otlp_message(&self, payload: &[u8]) -> BridgeResult<Vec<TelemetryRecord>> {
-        // Implement OTLP message decoding
-        // Decode the protobuf message and convert to TelemetryRecord
-
         // Try to decode as ExportMetricsServiceRequest first
         if let Ok(request) = ExportMetricsServiceRequest::decode(payload) {
-            // Create a simple batch from the request
-            let mut records = Vec::new();
-            // For now, create a placeholder record since we can't call process_metrics_request
-            records.push(TelemetryRecord {
-                id: Uuid::new_v4(),
-                timestamp: Utc::now(),
-                record_type: TelemetryType::Metric,
-                data: TelemetryData::Metric(MetricData {
-                    name: "decoded_metric".to_string(),
-                    description: Some("Decoded from OTLP gRPC".to_string()),
-                    unit: Some("count".to_string()),
-                    metric_type: bridge_core::types::MetricType::Gauge,
-                    value: MetricValue::Gauge(1.0),
-                    labels: HashMap::new(),
-                    timestamp: Utc::now(),
-                }),
-                attributes: HashMap::new(),
-                tags: HashMap::new(),
-                resource: None,
-                service: None,
-            });
-            return Ok(records);
+            let batch = self.process_metrics_request(request).await?;
+            return Ok(batch.records);
         }
 
         // Try to decode as ExportLogsServiceRequest
         if let Ok(request) = ExportLogsServiceRequest::decode(payload) {
-            // Create a simple batch from the request
-            let mut records = Vec::new();
-            // For now, create a placeholder record since we can't call process_logs_request
-            records.push(TelemetryRecord {
-                id: Uuid::new_v4(),
-                timestamp: Utc::now(),
-                record_type: TelemetryType::Log,
-                data: TelemetryData::Log(LogData {
-                    timestamp: Utc::now(),
-                    level: bridge_core::types::LogLevel::Info,
-                    message: "Decoded from OTLP gRPC".to_string(),
-                    attributes: HashMap::new(),
-                    body: None,
-                    severity_number: Some(9),
-                    severity_text: Some("INFO".to_string()),
-                }),
-                attributes: HashMap::new(),
-                tags: HashMap::new(),
-                resource: None,
-                service: None,
-            });
-            return Ok(records);
+            let batch = self.process_logs_request(request).await?;
+            return Ok(batch.records);
         }
 
         // Try to decode as ExportTraceServiceRequest (if traces are enabled)
@@ -848,5 +1139,64 @@ impl LogsService for OtlpLogsService {
                 Err(Status::internal("Failed to process logs"))
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use opentelemetry_proto::tonic::collector::logs::v1::ExportLogsServiceRequest;
+    use opentelemetry_proto::tonic::collector::metrics::v1::ExportMetricsServiceRequest;
+
+    #[tokio::test]
+    async fn test_otlp_grpc_config_creation() {
+        let config = OtlpGrpcConfig::new("127.0.0.1".to_string(), 4317);
+        assert_eq!(config.name, "otlp-grpc");
+        assert_eq!(config.version, "1.0.0");
+        assert_eq!(config.endpoint, "127.0.0.1");
+        assert_eq!(config.port, 4317);
+    }
+
+    #[tokio::test]
+    async fn test_otlp_grpc_protocol_creation() {
+        let config = OtlpGrpcConfig::new("127.0.0.1".to_string(), 4317);
+        let protocol = OtlpGrpcProtocol::new(&config).await;
+        assert!(protocol.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_metrics_processing() {
+        let config = OtlpGrpcConfig::new("127.0.0.1".to_string(), 4317);
+        let protocol = OtlpGrpcProtocol::new(&config).await.unwrap();
+
+        // Create an empty metrics request
+        let request = ExportMetricsServiceRequest {
+            resource_metrics: vec![],
+        };
+
+        let result = protocol.process_metrics_request(request).await;
+        assert!(result.is_ok());
+
+        let batch = result.unwrap();
+        assert_eq!(batch.source, "otlp_grpc");
+        assert_eq!(batch.size, 0);
+    }
+
+    #[tokio::test]
+    async fn test_logs_processing() {
+        let config = OtlpGrpcConfig::new("127.0.0.1".to_string(), 4317);
+        let protocol = OtlpGrpcProtocol::new(&config).await.unwrap();
+
+        // Create an empty logs request
+        let request = ExportLogsServiceRequest {
+            resource_logs: vec![],
+        };
+
+        let result = protocol.process_logs_request(request).await;
+        assert!(result.is_ok());
+
+        let batch = result.unwrap();
+        assert_eq!(batch.source, "otlp_grpc");
+        assert_eq!(batch.size, 0);
     }
 }

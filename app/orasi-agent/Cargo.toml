@@ -10,6 +10,10 @@ repository = "https://github.com/chytirio/orasi"
 keywords = ["orasi", "agent", "ingestion", "indexing", "distributed", "telemetry"]
 categories = ["asynchronous", "network-programming", "data-processing"]
 
+[[bin]]
+name = "orasi-agent"
+path = "src/main.rs"
+
 [dependencies]
 # Core dependencies
 bridge-core = { path = "../../crates/bridge-core" }
@@ -24,9 +28,10 @@ prost = { workspace = true }
 hyper = { version = "1.1", features = ["full"] }
 tower = "0.5"
 tower-http = { workspace = true, features = ["cors", "trace", "compression-br"] }
+reqwest = { version = "0.11", features = ["json"] }
 
 # Async runtime
-tokio = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
 async-trait = "0.1"
 
 # Serialization
@@ -39,6 +44,7 @@ anyhow = "1.0"
 
 # Logging
 tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # Configuration
 config = "0.13"
@@ -48,6 +54,7 @@ toml = "0.8"
 uuid = { version = "1.0", features = ["v4"] }
 chrono = { version = "0.4", features = ["serde"] }
 futures = "0.3"
+futures-util = "0.3"
 
 # Metrics and monitoring
 prometheus = "0.13"
@@ -66,6 +73,11 @@ tonic-health = { workspace = true }
 arrow = "56.0"
 parquet = "56.0"
 
+# Indexing dependencies
+sha2 = "0.10"
+regex = "1.0"
+sysinfo = "0.30"
+
 # Database for local state
 sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "sqlite"] }
 
@@ -77,3 +89,7 @@ tokio-test = "0.4"
 tempfile = "3.8"
 test-log = "0.2"
 mockall = "0.12"
+
+[[example]]
+name = "basic_agent_example"
+path = "examples/basic_agent_example.rs"

@@ -1,7 +1,7 @@
 //! Component health monitoring and restart functionality
 
-use std::collections::HashMap;
 use crate::types::*;
+use std::collections::HashMap;
 
 /// Get component status
 pub async fn get_component_status(component_name: &str) -> ComponentStatusResponse {

@@ -3,25 +3,28 @@
 //!
 
 //! S3/Parquet reader implementation
-//! 
+//!
 //! This module provides the S3/Parquet reader that implements
 //! the LakehouseReader trait for reading telemetry data from S3 in Parquet format.
 
+use async_trait::async_trait;
+use bridge_core::error::BridgeResult;
+use bridge_core::traits::LakehouseReader;
+use bridge_core::types::queries::{QueryError, QueryStatus};
+use bridge_core::types::{
+    LogsQuery, LogsResult, MetricsQuery, MetricsResult, TracesQuery, TracesResult,
+};
+use chrono::{DateTime, Utc};
 use std::sync::Arc;
 use std::time::Instant;
-use async_trait::async_trait;
-use tracing::{debug, error, info};
-use bridge_core::traits::LakehouseReader;
-use bridge_core::types::{MetricsQuery, TracesQuery, LogsQuery, MetricsResult, TracesResult, LogsResult};
-use bridge_core::types::queries::{QueryStatus, QueryError};
-use bridge_core::error::BridgeResult;
 use tokio::sync::RwLock;
-use chrono::{DateTime, Utc};
+use tracing::{debug, error, info};
 
 use crate::config::S3ParquetConfig;
 use crate::error::{S3ParquetError, S3ParquetResult};
 
 /// S3/Parquet reader implementation
+#[derive(Clone)]
 pub struct S3ParquetReader {
     /// S3/Parquet configuration
     config: S3ParquetConfig,
@@ -54,13 +57,13 @@ impl S3ParquetReader {
     /// Create a new S3/Parquet reader
     pub async fn new(config: S3ParquetConfig) -> S3ParquetResult<Self> {
         info!("Creating S3/Parquet reader for bucket: {}", config.bucket());
-        
+
         let reader = Self {
             config,
             initialized: false,
             stats: Arc::new(RwLock::new(ReaderStats::default())),
         };
-        
+
         reader.initialize().await?;
         Ok(reader)
     }
@@ -68,10 +71,10 @@ impl S3ParquetReader {
     /// Initialize the reader
     async fn initialize(&self) -> S3ParquetResult<()> {
         debug!("Initializing S3/Parquet reader");
-        
+
         // For now, just mark as initialized
         // In a real implementation, this would set up S3 client and test connection
-        
+
         info!("S3/Parquet reader initialized successfully");
         Ok(())
     }
@@ -82,9 +85,10 @@ impl S3ParquetReader {
         stats.total_reads += 1;
         stats.total_records += record_count as u64;
         stats.last_read_time = Some(chrono::Utc::now());
-        
+
         // Calculate average read time
-        let total_time = stats.avg_read_time_ms * (stats.total_reads - 1) as f64 + read_time_ms as f64;
+        let total_time =
+            stats.avg_read_time_ms * (stats.total_reads - 1) as f64 + read_time_ms as f64;
         stats.avg_read_time_ms = total_time / stats.total_reads as f64;
     }
 
@@ -123,18 +127,22 @@ impl LakehouseReader for S3ParquetReader {
     async fn query_metrics(&self, query: MetricsQuery) -> BridgeResult<MetricsResult> {
         let start_time = Instant::now();
         debug!("Querying metrics from S3/Parquet: {:?}", query);
-        
+
         let query_id = query.id;
-        
+
         // For now, return empty results
         // In a real implementation, this would query S3 Parquet files
         let metrics = vec![];
-        
+
         let duration_ms = start_time.elapsed().as_millis() as u64;
         self.update_stats(duration_ms, metrics.len()).await;
-        
-        info!("Successfully queried {} metrics from S3/Parquet in {}ms", metrics.len(), duration_ms);
-        
+
+        info!(
+            "Successfully queried {} metrics from S3/Parquet in {}ms",
+            metrics.len(),
+            duration_ms
+        );
+
         Ok(MetricsResult {
             query_id,
             timestamp: chrono::Utc::now(),
@@ -149,18 +157,22 @@ impl LakehouseReader for S3ParquetReader {
     async fn query_traces(&self, query: TracesQuery) -> BridgeResult<TracesResult> {
         let start_time = Instant::now();
         debug!("Querying traces from S3/Parquet: {:?}", query);
-        
+
         let query_id = query.id;
-        
+
         // For now, return empty results
         // In a real implementation, this would query S3 Parquet files
         let traces = vec![];
-        
+
         let duration_ms = start_time.elapsed().as_millis() as u64;
         self.update_stats(duration_ms, traces.len()).await;
-        
-        info!("Successfully queried {} traces from S3/Parquet in {}ms", traces.len(), duration_ms);
-        
+
+        info!(
+            "Successfully queried {} traces from S3/Parquet in {}ms",
+            traces.len(),
+            duration_ms
+        );
+
         Ok(TracesResult {
             query_id,
             timestamp: chrono::Utc::now(),
@@ -175,18 +187,22 @@ impl LakehouseReader for S3ParquetReader {
     async fn query_logs(&self, query: LogsQuery) -> BridgeResult<LogsResult> {
         let start_time = Instant::now();
         debug!("Querying logs from S3/Parquet: {:?}", query);
-        
+
         let query_id = query.id;
-        
+
         // For now, return empty results
         // In a real implementation, this would query S3 Parquet files
         let logs = vec![];
-        
+
         let duration_ms = start_time.elapsed().as_millis() as u64;
         self.update_stats(duration_ms, logs.len()).await;
-        
-        info!("Successfully queried {} logs from S3/Parquet in {}ms", logs.len(), duration_ms);
-        
+
+        info!(
+            "Successfully queried {} logs from S3/Parquet in {}ms",
+            logs.len(),
+            duration_ms
+        );
+
         Ok(LogsResult {
             query_id,
             timestamp: chrono::Utc::now(),
@@ -200,12 +216,12 @@ impl LakehouseReader for S3ParquetReader {
 
     async fn execute_query(&self, query: String) -> BridgeResult<serde_json::Value> {
         debug!("Executing custom query on S3/Parquet: {}", query);
-        
+
         // For now, return empty results
         // In a real implementation, this would execute the query
-        
+
         info!("Successfully executed custom query on S3/Parquet");
-        
+
         Ok(serde_json::json!({
             "status": "success",
             "message": "Query executed successfully",
@@ -216,7 +232,7 @@ impl LakehouseReader for S3ParquetReader {
 
     async fn get_stats(&self) -> BridgeResult<bridge_core::traits::ReaderStats> {
         let stats = self.stats.read().await;
-        
+
         Ok(bridge_core::traits::ReaderStats {
             total_reads: stats.total_reads,
             total_records: stats.total_records,
@@ -230,7 +246,7 @@ impl LakehouseReader for S3ParquetReader {
 
     async fn close(&self) -> BridgeResult<()> {
         info!("Closing S3/Parquet reader");
-        
+
         info!("S3/Parquet reader closed successfully");
         Ok(())
     }

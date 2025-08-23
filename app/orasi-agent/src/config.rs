@@ -1,6 +1,7 @@
 //! Configuration for Orasi Agent
 
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::time::Duration;
 
 /// Configuration for the Orasi Agent
@@ -56,6 +57,15 @@ pub struct ClusterConfig {
     /// Service discovery backend (etcd, consul, etc.)
     pub service_discovery: ServiceDiscoveryBackend,
 
+    /// etcd endpoints for service discovery
+    pub etcd_endpoints: Vec<String>,
+
+    /// Consul URL for service discovery
+    pub consul_url: String,
+
+    /// Static services for service discovery
+    pub static_services: Vec<StaticServiceConfig>,
+
     /// Service discovery endpoints
     pub service_discovery_endpoints: Vec<String>,
 
@@ -73,12 +83,34 @@ impl Default for ClusterConfig {
     fn default() -> Self {
         Self {
             service_discovery: ServiceDiscoveryBackend::Etcd,
+            etcd_endpoints: vec!["http://localhost:2379".to_string()],
+            consul_url: "http://localhost:8500".to_string(),
+            static_services: Vec::new(),
             service_discovery_endpoints: vec!["http://localhost:2379".to_string()],
             heartbeat_interval: Duration::from_secs(30),
             session_timeout: Duration::from_secs(90),
             leader_election: LeaderElectionConfig::default(),
         }
     }
+}
+
+/// Static service configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StaticServiceConfig {
+    /// Service ID
+    pub id: String,
+
+    /// Service name
+    pub name: String,
+
+    /// Service endpoint
+    pub endpoint: String,
+
+    /// Service metadata
+    pub metadata: HashMap<String, String>,
+
+    /// Health check endpoint
+    pub health_endpoint: Option<String>,
 }
 
 /// Service discovery backend types
@@ -168,6 +200,9 @@ pub struct ProcessingConfig {
 
     /// Enable parallel processing
     pub parallel_processing: bool,
+
+    /// Maximum concurrent tasks
+    pub max_concurrent_tasks: usize,
 }
 
 impl Default for ProcessingConfig {
@@ -178,6 +213,7 @@ impl Default for ProcessingConfig {
             retry_delay: Duration::from_secs(5),
             batch_size: 1000,
             parallel_processing: true,
+            max_concurrent_tasks: 10,
         }
     }
 }

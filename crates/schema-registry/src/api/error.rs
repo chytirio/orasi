@@ -53,6 +53,13 @@ impl ApiError {
         }
     }
 
+    /// Create an unauthorized error
+    pub fn unauthorized(message: &str) -> Self {
+        Self::BadRequest {
+            message: format!("Unauthorized: {}", message),
+        }
+    }
+
     /// Convert from registry error
     pub fn from_registry_error(error: SchemaRegistryError) -> Self {
         match error {

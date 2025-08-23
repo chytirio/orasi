@@ -14,6 +14,9 @@ pub enum GatewayError {
     #[error("Load balancing error: {0}")]
     LoadBalancing(String),
 
+    #[error("Load balancing error: {0}")]
+    LoadBalancingError(String),
+
     #[error("Routing error: {0}")]
     Routing(String),
 
@@ -61,6 +64,18 @@ pub enum GatewayError {
 
     #[error("Shutdown error: {0}")]
     Shutdown(String),
+
+    #[error("Route not found: {0}")]
+    RouteNotFound(String),
+
+    #[error("Service not found: {0}")]
+    ServiceNotFound(String),
+
+    #[error("No healthy endpoints: {0}")]
+    NoHealthyEndpoints(String),
+
+    #[error("Configuration error: {0}")]
+    ConfigurationError(String),
 
     #[error(transparent)]
     Other(#[from] anyhow::Error),

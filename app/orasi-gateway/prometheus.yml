@@ -1,0 +1,56 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  # - "first_rules.yml"
+  # - "second_rules.yml"
+
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Orasi Gateway
+  - job_name: 'orasi-gateway'
+    static_configs:
+      - targets: ['orasi-gateway:8081']
+    metrics_path: '/metrics/prometheus'
+    scrape_interval: 15s
+    scrape_timeout: 10s
+
+  # Orasi Gateway health
+  - job_name: 'orasi-gateway-health'
+    static_configs:
+      - targets: ['orasi-gateway:8081']
+    metrics_path: '/health'
+    scrape_interval: 30s
+
+  # Bridge API service
+  - job_name: 'bridge-api'
+    static_configs:
+      - targets: ['bridge-api:80']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+
+  # Orasi Agent
+  - job_name: 'orasi-agent'
+    static_configs:
+      - targets: ['orasi-agent:80']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+
+  # etcd
+  - job_name: 'etcd'
+    static_configs:
+      - targets: ['etcd:2379']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  # Grafana
+  - job_name: 'grafana'
+    static_configs:
+      - targets: ['grafana:3000']
+    metrics_path: '/metrics'
+    scrape_interval: 30s

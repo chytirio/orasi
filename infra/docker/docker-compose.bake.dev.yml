@@ -129,12 +129,15 @@ services:
   ballista-scheduler:
     image: ghcr.io/apache/datafusion-ballista-scheduler:48.0.0
     container_name: orasi-ballista-scheduler-dev
+    command: "--bind-host 0.0.0.0"
     ports:
       - "50050:50050"
     environment:
       - RUST_LOG=ballista=info
     volumes:
       - ./benchmarks/data:/data
+    networks:
+      - orasi-network-dev
     healthcheck:
       test: ["CMD", "nc", "-z", "ballista-scheduler", "50050"]
       interval: 5s
@@ -144,12 +147,15 @@ services:
   ballista-executor:
     image: ghcr.io/apache/datafusion-ballista-executor:48.0.0
     container_name: orasi-ballista-executor-dev
+    command: "--bind-host 0.0.0.0 --scheduler-host ballista-scheduler --scheduler-connect-timeout-seconds 15"
     deploy: { replicas: 1 }
     restart: always
     environment:
       - RUST_LOG=ballista=info
     volumes:
       - ./benchmarks/data:/data
+    networks:
+      - orasi-network-dev
     depends_on:
       - ballista-scheduler
     healthcheck:

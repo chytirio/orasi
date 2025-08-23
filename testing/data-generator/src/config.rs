@@ -1283,8 +1283,8 @@ pub fn validate_config(config: &GeneratorConfig) -> anyhow::Result<()> {
         return Err(anyhow::anyhow!("Start time must be before end time"));
     }
 
-    // Validate probabilities
-    if config
+    // Validate probabilities with floating-point tolerance
+    let sum = config
         .scale
         .multi_tenant
         .tenant_size_distribution
@@ -1303,11 +1303,12 @@ pub fn validate_config(config: &GeneratorConfig) -> anyhow::Result<()> {
             .scale
             .multi_tenant
             .tenant_size_distribution
-            .enterprise_tenants
-        != 1.0
-    {
+            .enterprise_tenants;
+    
+    if (sum - 1.0).abs() > f64::EPSILON {
         return Err(anyhow::anyhow!(
-            "Tenant size distribution probabilities must sum to 1.0"
+            "Tenant size distribution probabilities must sum to 1.0 (got {})",
+            sum
         ));
     }
 

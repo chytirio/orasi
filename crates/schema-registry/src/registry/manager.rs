@@ -5,9 +5,9 @@
 
 use crate::config::SchemaRegistryConfig;
 use crate::error::{SchemaRegistryError, SchemaRegistryResult};
+use crate::schema::validation::{SchemaValidator, SchemaValidatorTrait, ValidationResult};
 use crate::schema::{Schema, SchemaMetadata, SchemaSearchCriteria, SchemaVersion};
 use crate::storage::{MemoryStorage, PostgresStorage, RedisStorage, SqliteStorage, StorageBackend};
-use crate::schema::validation::{SchemaValidator, SchemaValidatorTrait, ValidationResult};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -188,6 +188,30 @@ impl SchemaRegistryManager {
     /// Get latest schema version
     pub async fn get_latest_schema(&self, name: &str) -> SchemaRegistryResult<Option<Schema>> {
         self.operations.get_latest_schema(name).await
+    }
+
+    /// Get configuration
+    pub fn get_config(&self) -> &SchemaRegistryConfig {
+        &self.config
+    }
+
+    /// Update configuration
+    pub async fn update_config(
+        &mut self,
+        new_config: SchemaRegistryConfig,
+    ) -> SchemaRegistryResult<()> {
+        // Validate the new configuration
+        new_config
+            .validate()
+            .map_err(|e| SchemaRegistryError::config(&e))?;
+
+        // Update the configuration
+        self.config = new_config;
+
+        // Re-initialize with new configuration
+        self.initialize().await?;
+
+        Ok(())
     }
 
     /// Validate telemetry data against a schema

@@ -9,7 +9,9 @@
 
 use async_trait::async_trait;
 use chrono::Utc;
+use serde::Deserialize;
 use std::collections::HashMap;
+use std::fs;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
@@ -26,19 +28,155 @@ use bridge_core::{
 };
 use uuid::Uuid;
 
-/// Simple mock receiver for streaming processor testing
+/// Enhanced mock receiver for streaming processor testing
+#[derive(Clone)]
 pub struct StreamingMockReceiver {
     name: String,
     is_running: bool,
-    record_counter: u64,
+    record_counter: Arc<RwLock<u64>>,
+    data_generator: Arc<RwLock<DataGenerator>>,
+}
+
+/// Data generator for creating realistic telemetry data
+pub struct DataGenerator {
+    cpu_usage: f64,
+    memory_usage: f64,
+    error_counter: u64,
+    log_levels: Vec<String>,
+    error_probability: f64,
+}
+
+impl DataGenerator {
+    pub fn new() -> Self {
+        Self {
+            cpu_usage: 50.0,
+            memory_usage: 60.0,
+            error_counter: 0,
+            log_levels: vec!["info".to_string(), "warn".to_string(), "error".to_string()],
+            error_probability: 0.1,
+        }
+    }
+
+    pub fn new_with_probability(probability: f64) -> Self {
+        let mut s = Self::new();
+        s.error_probability = probability;
+        s
+    }
+
+    pub fn generate_metrics(&mut self) -> Vec<TelemetryRecord> {
+        let mut records = Vec::new();
+
+        // Simulate CPU usage fluctuations
+        self.cpu_usage += (rand::random::<f64>() - 0.5) * 20.0;
+        self.cpu_usage = self.cpu_usage.clamp(10.0, 120.0);
+
+        // Simulate memory usage
+        self.memory_usage += (rand::random::<f64>() - 0.5) * 10.0;
+        self.memory_usage = self.memory_usage.clamp(20.0, 95.0);
+
+        // Generate CPU metric
+        let cpu_record = TelemetryRecord {
+            id: Uuid::new_v4(),
+            timestamp: Utc::now(),
+            record_type: TelemetryType::Metric,
+            data: TelemetryData::Metric(MetricData {
+                name: "cpu_usage".to_string(),
+                description: Some("CPU usage percentage".to_string()),
+                unit: Some("percent".to_string()),
+                metric_type: bridge_core::types::MetricType::Gauge,
+                value: MetricValue::Gauge(self.cpu_usage),
+                labels: HashMap::new(),
+                timestamp: Utc::now(),
+            }),
+            attributes: HashMap::new(),
+            tags: HashMap::new(),
+            resource: None,
+            service: None,
+        };
+        records.push(cpu_record);
+
+        // Generate memory metric
+        let memory_record = TelemetryRecord {
+            id: Uuid::new_v4(),
+            timestamp: Utc::now(),
+            record_type: TelemetryType::Metric,
+            data: TelemetryData::Metric(MetricData {
+                name: "memory_usage".to_string(),
+                description: Some("Memory usage percentage".to_string()),
+                unit: Some("percent".to_string()),
+                metric_type: bridge_core::types::MetricType::Gauge,
+                value: MetricValue::Gauge(self.memory_usage),
+                labels: HashMap::new(),
+                timestamp: Utc::now(),
+            }),
+            attributes: HashMap::new(),
+            tags: HashMap::new(),
+            resource: None,
+            service: None,
+        };
+        records.push(memory_record);
+
+        // Generate log record (occasionally with errors)
+        if rand::random::<f64>() < self.error_probability {
+            self.error_counter += 1;
+            let log_record = TelemetryRecord {
+                id: Uuid::new_v4(),
+                timestamp: Utc::now(),
+                record_type: TelemetryType::Log,
+                data: TelemetryData::Log(bridge_core::types::LogData {
+                    timestamp: Utc::now(),
+                    level: bridge_core::types::LogLevel::Error,
+                    message: format!("Database connection failed (error #{})", self.error_counter),
+                    attributes: HashMap::new(),
+                    body: Some(format!(
+                        "Database connection failed (error #{})",
+                        self.error_counter
+                    )),
+                    severity_number: Some(17), // ERROR level
+                    severity_text: Some("ERROR".to_string()),
+                }),
+                attributes: HashMap::new(),
+                tags: HashMap::new(),
+                resource: None,
+                service: None,
+            };
+            records.push(log_record);
+        } else {
+            // Generate info log
+            let log_record = TelemetryRecord {
+                id: Uuid::new_v4(),
+                timestamp: Utc::now(),
+                record_type: TelemetryType::Log,
+                data: TelemetryData::Log(bridge_core::types::LogData {
+                    timestamp: Utc::now(),
+                    level: bridge_core::types::LogLevel::Info,
+                    message: "Application running normally".to_string(),
+                    attributes: HashMap::new(),
+                    body: Some("Application running normally".to_string()),
+                    severity_number: Some(9), // INFO level
+                    severity_text: Some("INFO".to_string()),
+                }),
+                attributes: HashMap::new(),
+                tags: HashMap::new(),
+                resource: None,
+                service: None,
+            };
+            records.push(log_record);
+        }
+
+        records
+    }
 }
 
 impl StreamingMockReceiver {
-    pub fn new(name: String) -> Self {
+    pub fn new(name: String, error_probability: f64) -> Self {
         Self {
             name,
             is_running: false,
-            record_counter: 0,
+            record_counter: Arc::new(RwLock::new(0)),
+            data_generator: Arc::new(RwLock::new(DataGenerator::new_with_probability(
+                error_probability,
+            ))),
         }
     }
 }
@@ -46,30 +184,12 @@ impl StreamingMockReceiver {
 #[async_trait]
 impl TelemetryReceiver for StreamingMockReceiver {
     async fn receive(&self) -> BridgeResult<bridge_core::types::TelemetryBatch> {
-        // Create streaming telemetry records
-        let mut records = Vec::new();
-
-        // Generate multiple records to simulate streaming data
-        for i in 0..5 {
-            let record = TelemetryRecord {
-                id: Uuid::new_v4(),
-                timestamp: Utc::now(),
-                record_type: TelemetryType::Metric,
-                data: TelemetryData::Metric(MetricData {
-                    name: format!("streaming_metric_{}", i),
-                    description: Some(format!("Streaming metric {} for real-time processing", i)),
-                    unit: Some("count".to_string()),
-                    metric_type: bridge_core::types::MetricType::Gauge,
-                    value: MetricValue::Gauge((self.record_counter + i as u64) as f64),
-                    labels: HashMap::new(),
-                    timestamp: Utc::now(),
-                }),
-                attributes: HashMap::new(),
-                tags: HashMap::new(),
-                resource: None,
-                service: None,
-            };
-            records.push(record);
+        // Generate realistic telemetry data
+        let mut generator = self.data_generator.write().await;
+        let records = generator.generate_metrics();
+        {
+            let mut counter = self.record_counter.write().await;
+            *counter += records.len() as u64;
         }
 
         let batch = bridge_core::types::TelemetryBatch {
@@ -93,8 +213,9 @@ impl TelemetryReceiver for StreamingMockReceiver {
     }
 
     async fn get_stats(&self) -> BridgeResult<bridge_core::traits::ReceiverStats> {
+        let counter = self.record_counter.read().await;
         Ok(bridge_core::traits::ReceiverStats {
-            total_records: self.record_counter,
+            total_records: *counter,
             records_per_minute: 5,
             total_bytes: 500,
             bytes_per_minute: 500,
@@ -342,11 +463,67 @@ impl StreamProcessor for RealTimeStreamingProcessor {
     }
 }
 
-/// Streaming-aware exporter that handles real-time data
+/// Enhanced streaming-aware exporter that handles real-time data
 pub struct StreamingExporter {
     name: String,
     is_running: Arc<RwLock<bool>>,
     stats: Arc<RwLock<ExporterStats>>,
+    http_sink: Option<Arc<tokio::sync::RwLock<HttpSink>>>,
+}
+
+/// Simple HTTP sink for testing
+pub struct HttpSink {
+    endpoint_url: String,
+    is_initialized: bool,
+    is_running: bool,
+}
+
+impl HttpSink {
+    pub fn new(endpoint_url: String) -> Self {
+        Self {
+            endpoint_url,
+            is_initialized: false,
+            is_running: false,
+        }
+    }
+
+    pub async fn init(&mut self) -> BridgeResult<()> {
+        info!("Initializing HTTP sink: {}", self.endpoint_url);
+        self.is_initialized = true;
+        Ok(())
+    }
+
+    pub async fn start(&mut self) -> BridgeResult<()> {
+        if !self.is_initialized {
+            return Err(bridge_core::error::BridgeError::internal(
+                "HTTP sink not initialized".to_string(),
+            ));
+        }
+        info!("Starting HTTP sink: {}", self.endpoint_url);
+        self.is_running = true;
+        Ok(())
+    }
+
+    pub async fn stop(&mut self) -> BridgeResult<()> {
+        info!("Stopping HTTP sink: {}", self.endpoint_url);
+        self.is_running = false;
+        Ok(())
+    }
+
+    pub fn is_running(&self) -> bool {
+        self.is_running
+    }
+
+    pub async fn send(&self, _data: &str) -> BridgeResult<()> {
+        if !self.is_running {
+            return Err(bridge_core::error::BridgeError::internal(
+                "HTTP sink is not running".to_string(),
+            ));
+        }
+        // Simulate HTTP request
+        info!("HTTP sink '{}' sending data (simulated)", self.endpoint_url);
+        Ok(())
+    }
 }
 
 impl StreamingExporter {
@@ -365,7 +542,18 @@ impl StreamingExporter {
             name,
             is_running: Arc::new(RwLock::new(true)), // Start as running
             stats: Arc::new(RwLock::new(stats)),
+            http_sink: None,
         }
+    }
+
+    pub async fn add_http_sink(&mut self, endpoint_url: String) -> BridgeResult<()> {
+        let mut http_sink = HttpSink::new(endpoint_url);
+        http_sink.init().await?;
+        http_sink.start().await?;
+
+        self.http_sink = Some(Arc::new(tokio::sync::RwLock::new(http_sink)));
+        info!("HTTP sink added and started for exporter '{}'", self.name);
+        Ok(())
     }
 
     async fn update_stats(&self, records: usize, duration: Duration, success: bool) {
@@ -390,14 +578,8 @@ impl StreamingExporter {
     }
 
     async fn stream_export(&self, batch: &ProcessedBatch) -> (bool, usize, Vec<String>) {
-        // Simulate streaming export operation
-        // In a real implementation, this would:
-        // 1. Check if data is real-time processed
-        // 2. Apply streaming-specific export logic
-        // 3. Handle real-time data sinks
-        // 4. Return export results
-
         let records_count = batch.records.len();
+        let mut errors = Vec::new();
 
         // Check if this is real-time processed data
         let is_real_time = batch.metadata.get("real_time_processor").is_some();
@@ -408,8 +590,16 @@ impl StreamingExporter {
                 self.name, records_count
             );
 
+            // Try to send to HTTP sink if available
+            if let Some(http_sink) = &self.http_sink {
+                let sink = http_sink.read().await;
+                if let Err(e) = sink.send("simulated_data").await {
+                    errors.push(format!("HTTP sink error: {}", e));
+                }
+            }
+
             // Simulate success for real-time data
-            (true, records_count, Vec::new())
+            (errors.is_empty(), records_count, errors)
         } else {
             // Simulate failure for non-real-time data
             (false, 0, vec!["Data not real-time processed".to_string()])
@@ -505,6 +695,14 @@ impl LakehouseExporter for StreamingExporter {
     async fn shutdown(&self) -> BridgeResult<()> {
         info!("Streaming exporter '{}' shutting down", self.name);
 
+        // Stop HTTP sink if available
+        if let Some(http_sink) = &self.http_sink {
+            let mut sink = http_sink.write().await;
+            if let Err(e) = sink.stop().await {
+                warn!("Failed to stop HTTP sink: {}", e);
+            }
+        }
+
         let mut is_running = self.is_running.write().await;
         *is_running = false;
 
@@ -518,7 +716,45 @@ async fn main() -> BridgeResult<()> {
     // Initialize tracing
     tracing_subscriber::fmt::init();
 
-    info!("Starting streaming processor example");
+    info!("Starting enhanced streaming processor example");
+
+    // Load configuration from file (TOML)
+    #[derive(Debug, Deserialize)]
+    struct ExampleConfig {
+        run_seconds: Option<u64>,
+        http_sink_endpoint: Option<String>,
+        receiver_healthy: Option<bool>,
+        error_probability: Option<f64>,
+    }
+
+    let cfg_path = std::env::var("ORASI_STREAMING_EXAMPLE_CONFIG")
+        .unwrap_or_else(|_| "config/streaming_example.toml".to_string());
+    let example_cfg: ExampleConfig = match fs::read_to_string(&cfg_path) {
+        Ok(contents) => match toml::from_str(&contents) {
+            Ok(cfg) => cfg,
+            Err(err) => {
+                warn!(
+                    "Failed to parse {} as TOML ({}). Falling back to defaults.",
+                    cfg_path, err
+                );
+                ExampleConfig {
+                    run_seconds: None,
+                    http_sink_endpoint: None,
+                    receiver_healthy: None,
+                    error_probability: None,
+                }
+            }
+        },
+        Err(_) => {
+            warn!("Config file {} not found. Using defaults.", cfg_path);
+            ExampleConfig {
+                run_seconds: None,
+                http_sink_endpoint: None,
+                receiver_healthy: None,
+                error_probability: None,
+            }
+        }
+    };
 
     // Create pipeline configuration
     let config = PipelineConfig {
@@ -537,28 +773,42 @@ async fn main() -> BridgeResult<()> {
     let mut pipeline = TelemetryIngestionPipeline::new(config);
 
     // Create and add receiver
-    let mut receiver = StreamingMockReceiver::new("streaming-receiver".to_string());
-    receiver.is_running = true; // Make receiver healthy
+    let mut receiver = StreamingMockReceiver::new(
+        "streaming-receiver".to_string(),
+        example_cfg.error_probability.unwrap_or(0.1),
+    );
+    receiver.is_running = example_cfg.receiver_healthy.unwrap_or(true); // Make receiver healthy
     let receiver = Arc::new(receiver);
     pipeline.add_receiver(receiver);
 
-    // Create and add streaming exporter
-    let streaming_exporter = StreamingExporter::new("streaming-exporter".to_string());
+    // Create and add streaming exporter with HTTP sink
+    let mut streaming_exporter = StreamingExporter::new("streaming-exporter".to_string());
+
+    // Add and initialize HTTP sink
+    streaming_exporter
+        .add_http_sink(
+            example_cfg
+                .http_sink_endpoint
+                .unwrap_or_else(|| "http://localhost:8080/api/telemetry".to_string()),
+        )
+        .await?;
+
     let streaming_exporter = Arc::new(streaming_exporter);
     pipeline.add_exporter(streaming_exporter);
 
     // Start pipeline
     pipeline.start().await?;
 
-    info!("Streaming processor pipeline started successfully");
+    info!("Enhanced streaming processor pipeline started successfully");
 
-    // Let it run for a few seconds
-    tokio::time::sleep(Duration::from_secs(5)).await;
+    // Let it run for a configured number of seconds to generate data
+    let run_secs = example_cfg.run_seconds.unwrap_or(5);
+    tokio::time::sleep(Duration::from_secs(run_secs)).await;
 
     // Stop pipeline
     pipeline.stop().await?;
 
-    info!("Streaming processor example completed successfully");
+    info!("Enhanced streaming processor example completed successfully");
     Ok(())
 }
 
@@ -648,5 +898,34 @@ mod tests {
         assert_eq!(result.status, ExportStatus::Success);
         assert_eq!(result.records_exported, 1);
         assert_eq!(result.records_failed, 0);
+    }
+
+    #[tokio::test]
+    async fn test_data_generator() {
+        let mut generator = DataGenerator::new();
+        let records = generator.generate_metrics();
+
+        assert!(!records.is_empty());
+        assert!(records.len() >= 2); // Should have at least CPU and memory metrics
+    }
+
+    #[tokio::test]
+    async fn test_http_sink_lifecycle() {
+        let mut http_sink = HttpSink::new("http://localhost:8080/test".to_string());
+
+        // Initially not initialized
+        assert!(!http_sink.is_initialized);
+
+        // Initialize
+        http_sink.init().await.unwrap();
+        assert!(http_sink.is_initialized);
+
+        // Start
+        http_sink.start().await.unwrap();
+        assert!(http_sink.is_running());
+
+        // Stop
+        http_sink.stop().await.unwrap();
+        assert!(!http_sink.is_running());
     }
 }

@@ -1,0 +1,67 @@
+# Orasi Agent Configuration
+
+# Agent identification
+agent_id = "agent-001"
+agent_endpoint = "0.0.0.0:8082"
+health_endpoint = "0.0.0.0:8083"
+metrics_endpoint = "0.0.0.0:9092"
+cluster_endpoint = "0.0.0.0:8084"
+
+# Cluster coordination settings
+[cluster]
+service_discovery = "Etcd"  # Etcd, Consul, or Static
+service_discovery_endpoints = ["http://localhost:2379"]
+heartbeat_interval = 30  # seconds
+session_timeout = 90     # seconds
+
+[cluster.leader_election]
+enabled = true
+election_timeout = 10    # seconds
+
+# Processing capabilities
+[capabilities]
+max_concurrent_tasks = 10
+supported_formats = ["json", "parquet", "avro", "csv"]
+
+# Task processing settings
+[processing]
+max_concurrent_tasks = 10
+batch_size = 1000
+batch_timeout_ms = 5000
+max_memory_mb = 512
+
+# Storage settings
+[storage]
+data_directory = "/var/lib/orasi/agent"
+temp_directory = "/tmp/orasi/agent"
+max_disk_usage_gb = 10
+
+# Health check settings
+[health]
+check_interval = 30      # seconds
+resource_thresholds = { cpu_percent = 80.0, memory_percent = 80.0, disk_percent = 80.0 }
+
+# Metrics settings
+[metrics]
+collection_interval = 15  # seconds
+prometheus_enabled = true
+custom_metrics_enabled = true
+
+# Logging settings
+[logging]
+level = "info"  # debug, info, warn, error
+format = "json"  # json, text
+output = "stdout"  # stdout, stderr, file
+
+# Security settings
+[security]
+tls_enabled = false
+cert_file = ""
+key_file = ""
+ca_file = ""
+
+# Network settings
+[network]
+timeout_seconds = 30
+retry_attempts = 3
+connection_pool_size = 10

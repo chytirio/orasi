@@ -61,11 +61,12 @@ pub async fn execute_telemetry_stream(
         max_retries: 3,
         retry_delay_ms: 1000,
         rate_limit_requests_per_second: Some(10),
+        response_format: streaming_processor::sources::http_source::HttpResponseFormat::Json,
+        expected_content_type: Some("application/json".to_string()),
     };
 
     // Create and add HTTP source
-    let http_source =
-        streaming_processor::sources::HttpSource::new(&http_source_config).await?;
+    let http_source = streaming_processor::sources::HttpSource::new(&http_source_config).await?;
     source_manager.add_source("http_source".to_string(), Box::new(http_source));
 
     // Create filter processor based on query filters
@@ -119,7 +120,8 @@ pub async fn execute_telemetry_stream(
             let processed_stream = pipeline.process_stream(input_stream).await?;
 
             // Convert processed stream to query result
-            let batch_result = streaming::convert_stream_to_query_result(processed_stream, query).await?;
+            let batch_result =
+                streaming::convert_stream_to_query_result(processed_stream, query).await?;
             results.push(batch_result);
 
             batch_count += 1;
@@ -170,9 +172,7 @@ pub fn determine_query_type(query: &TelemetryQuery) -> BridgeResult<String> {
 }
 
 /// Execute traces query
-pub async fn execute_traces_query(
-    query: &TelemetryQuery,
-) -> BridgeResult<TelemetryQueryResult> {
+pub async fn execute_traces_query(query: &TelemetryQuery) -> BridgeResult<TelemetryQueryResult> {
     // Create mock trace data
     let mock_traces = vec![TelemetryRecord::new(
         TelemetryType::Trace,
@@ -208,9 +208,7 @@ pub async fn execute_traces_query(
 }
 
 /// Execute metrics query
-pub async fn execute_metrics_query(
-    query: &TelemetryQuery,
-) -> BridgeResult<TelemetryQueryResult> {
+pub async fn execute_metrics_query(query: &TelemetryQuery) -> BridgeResult<TelemetryQueryResult> {
     // Create mock metric data
     let mock_metrics = vec![TelemetryRecord::new(
         TelemetryType::Metric,
@@ -241,9 +239,7 @@ pub async fn execute_metrics_query(
 }
 
 /// Execute logs query
-pub async fn execute_logs_query(
-    query: &TelemetryQuery,
-) -> BridgeResult<TelemetryQueryResult> {
+pub async fn execute_logs_query(query: &TelemetryQuery) -> BridgeResult<TelemetryQueryResult> {
     // Create mock log data
     let mock_logs = vec![TelemetryRecord::new(
         TelemetryType::Log,
@@ -271,9 +267,7 @@ pub async fn execute_logs_query(
 }
 
 /// Execute events query
-pub async fn execute_events_query(
-    query: &TelemetryQuery,
-) -> BridgeResult<TelemetryQueryResult> {
+pub async fn execute_events_query(query: &TelemetryQuery) -> BridgeResult<TelemetryQueryResult> {
     // Create mock event data
     let mock_events = vec![TelemetryRecord::new(
         TelemetryType::Event,
@@ -301,9 +295,7 @@ pub async fn execute_events_query(
 }
 
 /// Execute generic query
-pub async fn execute_generic_query(
-    query: &TelemetryQuery,
-) -> BridgeResult<TelemetryQueryResult> {
+pub async fn execute_generic_query(query: &TelemetryQuery) -> BridgeResult<TelemetryQueryResult> {
     // Create mock generic data
     let mock_data = vec![TelemetryRecord::new(
         TelemetryType::Metric,

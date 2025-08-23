@@ -42,10 +42,6 @@ pub fn format_bytes(bytes: u64) -> String {
     }
 }
 
-
-
-
-
 /// Sanitize a string for use in file names
 pub fn sanitize_filename(input: &str) -> String {
     input
@@ -78,8 +74,6 @@ pub fn merge_hash_maps(
     base.extend(additional);
     base
 }
-
-
 
 /// Truncate a string to a maximum length
 pub fn truncate_string(input: &str, max_length: usize) -> String {
@@ -144,8 +138,6 @@ pub fn simple_hash(input: &str) -> u64 {
     hasher.finish()
 }
 
-
-
 /// Escape special characters in a string
 pub fn escape_string(input: &str) -> String {
     input
@@ -170,8 +162,6 @@ pub fn unescape_string(input: &str) -> String {
 mod tests {
     use super::*;
 
-
-
     #[test]
     fn test_format_duration() {
         let duration = std::time::Duration::from_millis(1234);
@@ -188,10 +178,6 @@ mod tests {
         assert_eq!(format_bytes(1024 * 1024 * 1024), "1.0 GB");
         assert_eq!(format_bytes(512), "512 B");
     }
-
-
-
-
 
     #[test]
     fn test_sanitize_filename() {
@@ -222,8 +208,6 @@ mod tests {
         assert_eq!(merged.get("key1"), Some(&"value1".to_string()));
         assert_eq!(merged.get("key2"), Some(&"value2".to_string()));
     }
-
-
 
     #[test]
     fn test_truncate_string() {
@@ -266,8 +250,6 @@ mod tests {
             assert_eq!(str1, str2); // Both are "random_10"
         }
     }
-
-
 
     #[test]
     fn test_escape_unescape_string() {

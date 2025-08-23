@@ -1,0 +1,90 @@
+# Production Schema Registry Configuration
+# This configuration is optimized for production use
+
+version = "1.0.0"
+
+[storage]
+backend = "Postgres"
+connection_string = "postgresql://user:pass@localhost:5432/schema_registry"
+max_connections = 50
+connection_timeout = 60
+
+[storage.postgres]
+url = "postgresql://user:pass@localhost:5432/schema_registry"
+database = "schema_registry"
+username = "schema_registry_user"
+password = "secure_password_here"
+host = "localhost"
+port = 5432
+ssl_mode = "require"
+pool_size = 20
+
+[storage.redis]
+url = "redis://redis-cluster:6379"
+host = "redis-cluster"
+port = 6379
+password = "your-redis-password"
+database = 0
+pool_size = 20
+connection_timeout = 60
+read_timeout = 60
+write_timeout = 60
+key_prefix = "schema_registry:"
+schema_ttl = 86400  # 24 hours TTL for production
+enable_clustering = true
+persistence_mode = "Both"
+memory_policy = "AllKeysLru"
+enable_sentinel = true
+sentinel_master_name = "mymaster"
+sentinel_hosts = ["sentinel1:26379", "sentinel2:26379", "sentinel3:26379"]
+enable_ssl = true
+ssl_cert_path = "/etc/ssl/certs/redis.crt"
+ssl_key_path = "/etc/ssl/private/redis.key"
+ssl_ca_path = "/etc/ssl/certs/ca.crt"
+enable_compression = true
+compression_threshold = 512
+
+[api]
+host = "0.0.0.0"
+port = 8080
+base_path = "/api/v1"
+max_request_size = 52428800
+request_timeout = 60
+enable_cors = true
+cors_origins = ["https://your-domain.com", "https://api.your-domain.com"]
+enable_cache = true
+cache_ttl_seconds = 300
+cache_max_entries = 10000
+
+[api.versioning]
+enabled = true
+supported_versions = ["v1.0.0", "v2.0.0"]
+default_version = "v2.0.0"
+allow_version_negotiation = true
+deprecated_versions = { "v1.0.0" = "API v1.0.0 is deprecated and will be removed in Q2 2025. Please upgrade to v2.0.0." }
+compatibility_matrix = { "v1.0.0" = ["v1.0.0", "v1.1.0"], "v2.0.0" = ["v2.0.0", "v2.1.0"] }
+
+[validation]
+enable_validation = true
+strict_mode = true
+max_schema_size = 5242880  # 5MB
+allowed_formats = ["Json", "Yaml", "Avro", "Protobuf"]
+
+[security]
+enable_auth = true
+api_key_header = "X-API-Key"
+allowed_api_keys = ["prod-api-key-read", "prod-api-key-admin"]
+enable_authorization = true
+
+[security.api_key_permissions]
+"prod-api-key-read" = ["schemas:read", "stats:read", "metrics:read"]
+"prod-api-key-admin" = ["*:*"]
+
+[monitoring]
+enable_metrics = true
+metrics_endpoint = "/metrics"
+enable_health_checks = true
+health_check_endpoint = "/health"
+enable_structured_logging = true
+log_level = "info"
+log_format = "Json"

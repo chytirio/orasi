@@ -118,11 +118,13 @@ impl ConfigService {
         info!("Processing configuration update request");
 
         // Parse the new configuration
-        let config_value: serde_json::Value = serde_json::from_str(config_json)
-            .map_err(|e| BridgeError::serialization(format!("Invalid configuration format: {}", e)))?;
-        
-        let new_config: BridgeConfig = serde_json::from_value(config_value)
-            .map_err(|e| BridgeError::serialization(format!("Invalid configuration format: {}", e)))?;
+        let config_value: serde_json::Value = serde_json::from_str(config_json).map_err(|e| {
+            BridgeError::serialization(format!("Invalid configuration format: {}", e))
+        })?;
+
+        let new_config: BridgeConfig = serde_json::from_value(config_value).map_err(|e| {
+            BridgeError::serialization(format!("Invalid configuration format: {}", e))
+        })?;
 
         // Validate configuration
         self.validate_config_internal(&new_config).await?;
@@ -152,7 +154,10 @@ impl ConfigService {
             validation_errors: Vec::new(),
         };
 
-        info!("Configuration updated successfully with {} changes", changes.len());
+        info!(
+            "Configuration updated successfully with {} changes",
+            changes.len()
+        );
 
         Ok(response)
     }
@@ -161,11 +166,13 @@ impl ConfigService {
     pub async fn validate_config(&self, config_json: &str) -> BridgeResult<bool> {
         info!("Validating configuration");
 
-        let config_value: serde_json::Value = serde_json::from_str(config_json)
-            .map_err(|e| BridgeError::serialization(format!("Invalid configuration format: {}", e)))?;
-        
-        let config: BridgeConfig = serde_json::from_value(config_value)
-            .map_err(|e| BridgeError::serialization(format!("Invalid configuration format: {}", e)))?;
+        let config_value: serde_json::Value = serde_json::from_str(config_json).map_err(|e| {
+            BridgeError::serialization(format!("Invalid configuration format: {}", e))
+        })?;
+
+        let config: BridgeConfig = serde_json::from_value(config_value).map_err(|e| {
+            BridgeError::serialization(format!("Invalid configuration format: {}", e))
+        })?;
 
         let validation_result = self.validate_config_internal(&config).await;
 
@@ -182,18 +189,26 @@ impl ConfigService {
     }
 
     /// Get component status
-    pub async fn get_component_status(&self, component_name: &str) -> BridgeResult<crate::proto::ComponentStatus> {
+    pub async fn get_component_status(
+        &self,
+        component_name: &str,
+    ) -> BridgeResult<crate::proto::ComponentStatus> {
         info!("Getting status for component: {}", component_name);
 
         let handlers = self.component_restart_handlers.read().await;
-        
+
         if let Some(handler) = handlers.get(component_name) {
             match handler.get_status().await {
                 Ok(status) => {
                     let grpc_status = crate::proto::ComponentStatus {
                         name: status.name,
                         state: status.status as i32,
-                        uptime_seconds: status.last_restart.map(|t| t.duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() as i64).unwrap_or(0),
+                        uptime_seconds: status
+                            .last_restart
+                            .map(|t| {
+                                t.duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() as i64
+                            })
+                            .unwrap_or(0),
                         error_message: status.error_message.unwrap_or_default(),
                         metrics: HashMap::new(),
                     };
@@ -201,12 +216,21 @@ impl ConfigService {
                     Ok(grpc_status)
                 }
                 Err(e) => {
-                    error!("Failed to get status for component {}: {}", component_name, e);
-                    Err(BridgeError::configuration(format!("Failed to get status: {}", e)))
+                    error!(
+                        "Failed to get status for component {}: {}",
+                        component_name, e
+                    );
+                    Err(BridgeError::configuration(format!(
+                        "Failed to get status: {}",
+                        e
+                    )))
                 }
             }
         } else {
-            Err(BridgeError::configuration(format!("Component not found: {}", component_name)))
+            Err(BridgeError::configuration(format!(
+                "Component not found: {}",
+                component_name
+            )))
         }
     }
 
@@ -215,10 +239,10 @@ impl ConfigService {
         info!("Restarting component: {}", component_name);
 
         let handlers = self.component_restart_handlers.read().await;
-        
+
         if let Some(handler) = handlers.get(component_name) {
             let bridge_config = self.bridge_config.read().await;
-            
+
             match handler.restart(&bridge_config).await {
                 Ok(_) => {
                     info!("Component {} restarted successfully", component_name);
@@ -226,11 +250,17 @@ impl ConfigService {
                 }
                 Err(e) => {
                     error!("Failed to restart component {}: {}", component_name, e);
-                    Err(BridgeError::configuration(format!("Failed to restart: {}", e)))
+                    Err(BridgeError::configuration(format!(
+                        "Failed to restart: {}",
+                        e
+                    )))
                 }
             }
         } else {
-            Err(BridgeError::configuration(format!("Component not found: {}", component_name)))
+            Err(BridgeError::configuration(format!(
+                "Component not found: {}",
+                component_name
+            )))
         }
     }
 
@@ -254,7 +284,9 @@ impl ConfigService {
                     &bridge_config,
                     &last_config_hash,
                     &metrics,
-                ).await {
+                )
+                .await
+                {
                     error!("Configuration monitoring error: {}", e);
                 }
             }
@@ -281,8 +313,9 @@ impl ConfigService {
             info!("Configuration file changed, reloading...");
 
             // Read and parse new configuration
-            let config_content = fs::read_to_string(config_path).await
-                .map_err(|e| BridgeError::configuration(format!("Failed to read config file: {}", e)))?;
+            let config_content = fs::read_to_string(config_path).await.map_err(|e| {
+                BridgeError::configuration(format!("Failed to read config file: {}", e))
+            })?;
 
             let new_config: BridgeConfig = serde_json::from_str(&config_content)
                 .map_err(|e| BridgeError::serialization(format!("Invalid config file: {}", e)))?;
@@ -314,11 +347,15 @@ impl ConfigService {
         use std::collections::hash_map::DefaultHasher;
         use std::hash::{Hash, Hasher};
 
-        let metadata = fs::metadata(path).await
-            .map_err(|e| BridgeError::configuration(format!("Failed to get file metadata: {}", e)))?;
+        let metadata = fs::metadata(path).await.map_err(|e| {
+            BridgeError::configuration(format!("Failed to get file metadata: {}", e))
+        })?;
 
         let mut hasher = DefaultHasher::new();
-        metadata.modified().unwrap_or(SystemTime::now()).hash(&mut hasher);
+        metadata
+            .modified()
+            .unwrap_or(SystemTime::now())
+            .hash(&mut hasher);
         metadata.len().hash(&mut hasher);
 
         Ok(format!("{:x}", hasher.finish()))
@@ -328,28 +365,40 @@ impl ConfigService {
     async fn validate_config_internal(&self, config: &BridgeConfig) -> BridgeResult<()> {
         // Validate processing configuration
         if config.processing.worker_threads == 0 {
-            return Err(BridgeError::validation("Worker threads must be greater than 0".to_string()));
+            return Err(BridgeError::validation(
+                "Worker threads must be greater than 0".to_string(),
+            ));
         }
 
         if config.processing.query_timeout_secs == 0 {
-            return Err(BridgeError::validation("Query timeout must be greater than 0".to_string()));
+            return Err(BridgeError::validation(
+                "Query timeout must be greater than 0".to_string(),
+            ));
         }
 
         // Validate ingestion configuration
         if config.ingestion.batch_size == 0 {
-            return Err(BridgeError::validation("Batch size must be greater than 0".to_string()));
+            return Err(BridgeError::validation(
+                "Batch size must be greater than 0".to_string(),
+            ));
         }
 
         if config.ingestion.flush_interval_ms == 0 {
-            return Err(BridgeError::validation("Flush interval must be greater than 0".to_string()));
+            return Err(BridgeError::validation(
+                "Flush interval must be greater than 0".to_string(),
+            ));
         }
 
         if config.ingestion.buffer_size == 0 {
-            return Err(BridgeError::validation("Buffer size must be greater than 0".to_string()));
+            return Err(BridgeError::validation(
+                "Buffer size must be greater than 0".to_string(),
+            ));
         }
 
         if config.ingestion.compression_level > 9 {
-            return Err(BridgeError::validation("Compression level must be between 0 and 9".to_string()));
+            return Err(BridgeError::validation(
+                "Compression level must be between 0 and 9".to_string(),
+            ));
         }
 
         Ok(())
@@ -364,12 +413,12 @@ impl ConfigService {
         if current_config.processing.worker_threads != new_config.processing.worker_threads {
             changes.push(format!(
                 "Worker threads: {} -> {}",
-                current_config.processing.worker_threads,
-                new_config.processing.worker_threads
+                current_config.processing.worker_threads, new_config.processing.worker_threads
             ));
         }
 
-        if current_config.processing.query_timeout_secs != new_config.processing.query_timeout_secs {
+        if current_config.processing.query_timeout_secs != new_config.processing.query_timeout_secs
+        {
             changes.push(format!(
                 "Query timeout: {}s -> {}s",
                 current_config.processing.query_timeout_secs,
@@ -377,7 +426,9 @@ impl ConfigService {
             ));
         }
 
-        if current_config.processing.enable_query_caching != new_config.processing.enable_query_caching {
+        if current_config.processing.enable_query_caching
+            != new_config.processing.enable_query_caching
+        {
             changes.push(format!(
                 "Query caching: {} -> {}",
                 current_config.processing.enable_query_caching,
@@ -389,32 +440,28 @@ impl ConfigService {
         if current_config.ingestion.batch_size != new_config.ingestion.batch_size {
             changes.push(format!(
                 "Batch size: {} -> {}",
-                current_config.ingestion.batch_size,
-                new_config.ingestion.batch_size
+                current_config.ingestion.batch_size, new_config.ingestion.batch_size
             ));
         }
 
         if current_config.ingestion.flush_interval_ms != new_config.ingestion.flush_interval_ms {
             changes.push(format!(
                 "Flush interval: {}ms -> {}ms",
-                current_config.ingestion.flush_interval_ms,
-                new_config.ingestion.flush_interval_ms
+                current_config.ingestion.flush_interval_ms, new_config.ingestion.flush_interval_ms
             ));
         }
 
         if current_config.ingestion.buffer_size != new_config.ingestion.buffer_size {
             changes.push(format!(
                 "Buffer size: {} -> {}",
-                current_config.ingestion.buffer_size,
-                new_config.ingestion.buffer_size
+                current_config.ingestion.buffer_size, new_config.ingestion.buffer_size
             ));
         }
 
         if current_config.ingestion.compression_level != new_config.ingestion.compression_level {
             changes.push(format!(
                 "Compression level: {} -> {}",
-                current_config.ingestion.compression_level,
-                new_config.ingestion.compression_level
+                current_config.ingestion.compression_level, new_config.ingestion.compression_level
             ));
         }
 
@@ -426,7 +473,8 @@ impl ConfigService {
             ));
         }
 
-        if current_config.ingestion.enable_backpressure != new_config.ingestion.enable_backpressure {
+        if current_config.ingestion.enable_backpressure != new_config.ingestion.enable_backpressure
+        {
             changes.push(format!(
                 "Backpressure: {} -> {}",
                 current_config.ingestion.enable_backpressure,
@@ -448,12 +496,15 @@ impl ConfigService {
 
         for (name, handler) in handlers.iter() {
             info!("Restarting component {} due to configuration changes", name);
-            
+
             match handler.restart(new_config).await {
                 Ok(_) => info!("Component {} restarted successfully", name),
                 Err(e) => {
                     error!("Failed to restart component {}: {}", name, e);
-                    return Err(BridgeError::configuration(format!("Failed to restart {}: {}", name, e)));
+                    return Err(BridgeError::configuration(format!(
+                        "Failed to restart {}: {}",
+                        name, e
+                    )));
                 }
             }
         }
@@ -474,7 +525,11 @@ impl ConfigService {
         config_json.hash(&mut hasher);
 
         // Add timestamp for uniqueness
-        SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs().hash(&mut hasher);
+        SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+            .hash(&mut hasher);
 
         format!("{:x}", hasher.finish())
     }
@@ -485,8 +540,11 @@ impl ConfigService {
         let config_json = serde_json::to_string_pretty(&*config)
             .map_err(|e| BridgeError::serialization(e.to_string()))?;
 
-        fs::write(&self.config_path, config_json).await
-            .map_err(|e| BridgeError::configuration(format!("Failed to write config file: {}", e)))?;
+        fs::write(&self.config_path, config_json)
+            .await
+            .map_err(|e| {
+                BridgeError::configuration(format!("Failed to write config file: {}", e))
+            })?;
 
         info!("Configuration saved to file: {:?}", self.config_path);
         Ok(())

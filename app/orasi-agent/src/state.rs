@@ -1,7 +1,60 @@
 //! Agent state management
 
-use crate::{config::AgentConfig, types::*};
+use crate::config::AgentConfig;
+use crate::error::AgentError;
+use crate::metrics::AgentMetrics;
+use crate::types::{
+    AgentCapabilities, AgentInfo, AgentLoad, AgentStatus, HealthStatus, ResourceLimits, Task,
+    TaskType,
+};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::Arc;
+use tokio::sync::RwLock;
+use tracing::{error, info, warn};
+use uuid::Uuid;
+
+/// Get current timestamp in milliseconds
+fn current_timestamp() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as u64
+}
+
+/// Ingestion metrics
+#[derive(Debug, Clone, Default)]
+pub struct IngestionMetrics {
+    /// Total number of ingestion tasks processed
+    pub total_processed: u64,
+    /// Total bytes processed
+    pub total_bytes_processed: u64,
+    /// Average processing time in milliseconds
+    pub avg_processing_time_ms: f64,
+    /// Total processing time in milliseconds
+    pub total_processing_time_ms: u64,
+    /// Number of failed ingestions
+    pub failed_count: u64,
+    /// Last processing timestamp
+    pub last_processed_at: Option<u64>,
+}
+
+/// Indexing metrics
+#[derive(Debug, Clone, Default)]
+pub struct IndexingMetrics {
+    /// Total number of indexes built
+    pub total_indexes_built: u64,
+    /// Total indexing time in milliseconds
+    pub total_indexing_time_ms: u64,
+    /// Average indexing time in milliseconds
+    pub avg_indexing_time_ms: f64,
+    /// Total index size in bytes
+    pub total_index_size_bytes: u64,
+    /// Number of failed index builds
+    pub failed_count: u64,
+    /// Last indexing timestamp
+    pub last_indexed_at: Option<u64>,
+}
 
 /// Agent state management
 pub struct AgentState {
@@ -19,6 +72,12 @@ pub struct AgentState {
 
     /// Task queue
     task_queue: Vec<Task>,
+
+    /// Ingestion metrics
+    ingestion_metrics: IngestionMetrics,
+
+    /// Indexing metrics
+    indexing_metrics: IndexingMetrics,
 }
 
 impl AgentState {
@@ -55,6 +114,8 @@ impl AgentState {
             load_metrics: AgentLoad::default(),
             active_tasks: HashMap::new(),
             task_queue: Vec::new(),
+            ingestion_metrics: IngestionMetrics::default(),
+            indexing_metrics: IndexingMetrics::default(),
         })
     }
 
@@ -122,5 +183,25 @@ impl AgentState {
     /// Get queue length
     pub fn get_queue_length(&self) -> usize {
         self.task_queue.len()
+    }
+
+    /// Get ingestion metrics
+    pub fn get_ingestion_metrics(&self) -> IngestionMetrics {
+        self.ingestion_metrics.clone()
+    }
+
+    /// Get indexing metrics
+    pub fn get_indexing_metrics(&self) -> IndexingMetrics {
+        self.indexing_metrics.clone()
+    }
+
+    /// Update ingestion metrics
+    pub fn update_ingestion_metrics(&mut self, metrics: IngestionMetrics) {
+        self.ingestion_metrics = metrics;
+    }
+
+    /// Update indexing metrics
+    pub fn update_indexing_metrics(&mut self, metrics: IndexingMetrics) {
+        self.indexing_metrics = metrics;
     }
 }

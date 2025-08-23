@@ -4,8 +4,8 @@ use std::collections::HashMap;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::{
-    config::BridgeAPIConfig, services::health::HealthMonitoringIntegration,
-    metrics::ApiMetrics, proto::*,
+    config::BridgeAPIConfig, metrics::ApiMetrics, proto::*,
+    services::health::HealthMonitoringIntegration,
 };
 use bridge_core::BridgeResult;
 
@@ -185,12 +185,20 @@ impl StatusService {
         if let Some(health_monitoring) = &self.health_monitoring {
             let metrics = health_monitoring.get_system_metrics().await?;
             return Ok(SystemMetrics {
-                cpu_usage_percent: metrics.get("system.cpu_usage_percent").copied().unwrap_or(0.0),
-                memory_usage_bytes: (metrics.get("system.memory_usage_mb").copied().unwrap_or(0.0) * 1024.0 * 1024.0) as i64,
+                cpu_usage_percent: metrics
+                    .get("system.cpu_usage_percent")
+                    .copied()
+                    .unwrap_or(0.0),
+                memory_usage_bytes: (metrics
+                    .get("system.memory_usage_mb")
+                    .copied()
+                    .unwrap_or(0.0)
+                    * 1024.0
+                    * 1024.0) as i64,
                 disk_usage_bytes: 1024 * 1024 * 1024, // Default 1GB
                 network_bytes_received: 1024 * 1024,  // Default 1MB
                 network_bytes_sent: 512 * 1024,       // Default 512KB
-                active_connections: 10,                // Default
+                active_connections: 10,               // Default
                 request_rate: metrics.get("api.request_rate").copied().unwrap_or(0.0),
                 error_rate: metrics.get("api.error_rate").copied().unwrap_or(0.0),
             });

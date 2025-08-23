@@ -22,6 +22,14 @@ tracing = { workspace = true }
 chrono = { workspace = true }
 uuid = { workspace = true }
 
+# Connector dependencies
+deltalake-connector = { path = "../../connectors/deltalake" }
+lakehouse-iceberg = { path = "../../connectors/iceberg" }
+lakehouse-s3-parquet = { path = "../../connectors/s3-parquet" }
+
+# Delta Lake dependencies
+deltalake = { version = "0.27", default-features = false, features = ["datafusion-ext", "rustls"] }
+
 # OpenTelemetry dependencies
 opentelemetry = { workspace = true }
 opentelemetry-http = { workspace = true }
@@ -40,16 +48,23 @@ bytes = "1.5"
 futures = "0.3"
 async-trait = "0.1"
 
+# SQL parsing
+sqlparser = "0.39"
+
 # DataFusion and Arrow ecosystem
 datafusion = { version = "49.0", default-features = false, features = ["parquet"] }
-arrow = { workspace = true }
-arrow-array = { workspace = true }
-arrow-schema = { workspace = true }
-arrow-cast = { workspace = true }
-# arrow-compute = { workspace = true }
-arrow-ipc = { workspace = true }
-arrow-json = { workspace = true }
-parquet = { workspace = true }
+arrow = { version = "55.2" }
+arrow-array = { version = "55.2" }
+arrow-schema = { version = "55.2" }
+arrow-cast = { version = "55.2" }
+arrow-ipc = { version = "55.2" }
+arrow-json = { version = "55.2" }
+parquet = { version = "55.2" }
+
+# AWS S3 dependencies
+aws-sdk-s3 = "1.0"
+aws-config = "1.0"
+aws-types = "1.0"
 
 # Additional dependencies
 dashmap = "5.5"
@@ -59,3 +74,9 @@ parking_lot = "0.12"
 [dev-dependencies]
 tokio-test = "0.4"
 mockall = { workspace = true }
+tempfile = "3.8"
+tracing-subscriber = "0.3"
+
+[[example]]
+name = "sql_parser_example"
+path = "examples/sql_parser_example.rs"

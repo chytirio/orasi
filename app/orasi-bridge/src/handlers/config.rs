@@ -1,9 +1,6 @@
 //! Configuration handlers
 
-use axum::{
-    extract::State,
-    response::Json,
-};
+use axum::{extract::State, response::Json};
 use std::time::Instant;
 use uuid::Uuid;
 

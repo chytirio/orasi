@@ -11,6 +11,7 @@ pub mod config;
 pub mod discovery;
 pub mod error;
 pub mod gateway;
+pub mod http;
 pub mod load_balancer;
 pub mod metrics;
 pub mod routing;

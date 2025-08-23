@@ -1,0 +1,10 @@
+[workspace]
+
+[package]
+name = "test_jsonpath"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde_json = "1.0"
+jsonpath_lib = "0.3"

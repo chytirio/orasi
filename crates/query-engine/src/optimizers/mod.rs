@@ -7,6 +7,8 @@
 //! This module provides optimizer implementations for query optimization
 //! including optimization rules and cost-based optimization.
 
+pub mod sql_optimizer;
+
 use async_trait::async_trait;
 use bridge_core::{BridgeResult, TelemetryBatch};
 use chrono::{DateTime, Utc};
@@ -19,6 +21,80 @@ use tracing::{error, info, warn};
 use uuid::Uuid;
 
 use crate::parsers::{ParsedQuery, QueryAst};
+
+// Re-export SQL optimizer
+pub use sql_optimizer::{SqlOptimizer, SqlOptimizerConfig};
+
+/// Basic query optimizer implementation
+pub struct BasicQueryOptimizer {
+    name: String,
+    version: String,
+    stats: Arc<RwLock<OptimizerStats>>,
+}
+
+impl BasicQueryOptimizer {
+    /// Create a new basic query optimizer
+    pub fn new() -> Self {
+        Self {
+            name: "basic_optimizer".to_string(),
+            version: "1.0.0".to_string(),
+            stats: Arc::new(RwLock::new(OptimizerStats {
+                optimizer: "basic_optimizer".to_string(),
+                total_queries: 0,
+                queries_per_minute: 0,
+                total_optimization_time_ms: 0,
+                avg_optimization_time_ms: 0.0,
+                error_count: 0,
+                last_optimization_time: None,
+                is_optimizing: false,
+            })),
+        }
+    }
+}
+
+#[async_trait]
+impl QueryOptimizer for BasicQueryOptimizer {
+    async fn init(&mut self) -> BridgeResult<()> {
+        info!("Initializing Basic Query Optimizer");
+        Ok(())
+    }
+
+    async fn optimize(&self, query: ParsedQuery) -> BridgeResult<ParsedQuery> {
+        let start_time = std::time::Instant::now();
+
+        // For now, just return the original query
+        // TODO: Implement actual optimization logic
+        let optimized_query = query;
+
+        let optimization_time = start_time.elapsed().as_millis() as u64;
+
+        // Update statistics
+        {
+            let mut stats = self.stats.write().await;
+            stats.total_queries += 1;
+            stats.total_optimization_time_ms += optimization_time;
+            stats.avg_optimization_time_ms =
+                stats.total_optimization_time_ms as f64 / stats.total_queries as f64;
+            stats.last_optimization_time = Some(Utc::now());
+        }
+
+        info!("Query optimized in {}ms", optimization_time);
+
+        Ok(optimized_query)
+    }
+
+    async fn get_stats(&self) -> BridgeResult<OptimizerStats> {
+        Ok(self.stats.read().await.clone())
+    }
+
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn version(&self) -> &str {
+        &self.version
+    }
+}
 
 /// Optimizer configuration trait
 #[async_trait]
@@ -235,16 +311,25 @@ impl OptimizerFactory {
     ) -> BridgeResult<Box<dyn QueryOptimizer>> {
         match config.name() {
             "sql" => {
-                // TODO: Create SQL optimizer
-                Err(bridge_core::BridgeError::configuration(
-                    "SQL optimizer not implemented yet",
-                ))
+                // Create SQL optimizer
+                if let Some(sql_config) = config.as_any().downcast_ref::<SqlOptimizerConfig>() {
+                    let mut optimizer = SqlOptimizer::new(sql_config.clone());
+                    optimizer.init().await?;
+                    Ok(Box::new(optimizer))
+                } else {
+                    // Create with default config if not provided
+                    let sql_config = SqlOptimizerConfig::new();
+                    let mut optimizer = SqlOptimizer::new(sql_config);
+                    optimizer.init().await?;
+                    Ok(Box::new(optimizer))
+                }
             }
             "query" => {
-                // TODO: Create generic query optimizer
-                Err(bridge_core::BridgeError::configuration(
-                    "Generic query optimizer not implemented yet",
-                ))
+                // Use SQL optimizer as the generic query optimizer for now
+                let sql_config = SqlOptimizerConfig::new();
+                let mut optimizer = SqlOptimizer::new(sql_config);
+                optimizer.init().await?;
+                Ok(Box::new(optimizer))
             }
             _ => Err(bridge_core::BridgeError::configuration(format!(
                 "Unsupported optimizer: {}",

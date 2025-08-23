@@ -17,11 +17,13 @@ ingestion = { path = "../crates/ingestion" }
 bridge-auth = { path = "../crates/bridge-auth" }
 streaming-processor = { path = "../crates/streaming-processor" }
 schema-registry = { path = "../crates/schema-registry" }
+multi-tenancy = { path = "../crates/multi-tenancy" }
 bridge-api = { path = "../app/orasi-bridge" }
 query-engine = { path = "../crates/query-engine" }
 
 # Connectors
 lakehouse-snowflake = { path = "../connectors/snowflake" }
+deltalake-connector = { path = "../connectors/deltalake" }
 
 # Runtime
 orasi-agent = { path = "../app/orasi-agent" }
@@ -52,6 +54,8 @@ arrow-json = { workspace = true }
 async-trait = "0.1"
 toml = "0.8"
 num_cpus = "1.16"
+rand = "0.8"
+tempfile = "3.8"
 
 [[example]]
 name = "otap_example"
@@ -96,6 +100,10 @@ path = "connectors/hudi_example.rs"
 [[example]]
 name = "iceberg_example"
 path = "connectors/iceberg_example.rs"
+
+[[example]]
+name = "custom_validation_example"
+path = "custom_validation_example.rs"
 
 # [[example]]
 # name = "kafka_connector_example"
@@ -148,3 +156,27 @@ path = "core/config_management_example.rs"
 [[example]]
 name = "streaming_exporter_example"
 path = "ingestion/streaming_exporter_example.rs"
+
+[[example]]
+name = "multi_tenancy_example"
+path = "multi_tenancy_example.rs"
+
+[[example]]
+name = "datafusion_integration_example"
+path = "datafusion_integration_example.rs"
+
+[[example]]
+name = "datafusion_standalone_example"
+path = "datafusion_standalone_example.rs"
+
+[[example]]
+name = "minimal_datafusion_example"
+path = "minimal_datafusion_example.rs"
+
+[[example]]
+name = "streaming_queries_example"
+path = "streaming_queries_example.rs"
+
+[[example]]
+name = "delta_lake_exporter_example"
+path = "delta_lake_exporter_example.rs"

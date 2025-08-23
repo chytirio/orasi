@@ -4,8 +4,11 @@ use tonic::transport::Server;
 use tracing;
 
 use crate::{
-    config::BridgeAPIConfig, error::ApiError, metrics::ApiMetrics,
-    proto::*, services::grpc::{bridge::BridgeGrpcService, health::GrpcHealthService},
+    config::BridgeAPIConfig,
+    error::ApiError,
+    metrics::ApiMetrics,
+    proto::*,
+    services::grpc::{bridge::BridgeGrpcService, health::GrpcHealthService},
 };
 
 /// gRPC server for Bridge API

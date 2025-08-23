@@ -64,6 +64,18 @@ impl QueryParserConfig {
     }
 }
 
+impl Default for QueryParserConfig {
+    fn default() -> Self {
+        Self {
+            name: "query".to_string(),
+            version: "1.0.0".to_string(),
+            query_language: QueryLanguage::JSON,
+            strict_mode: false,
+            additional_config: HashMap::new(),
+        }
+    }
+}
+
 #[async_trait]
 impl ParserConfig for QueryParserConfig {
     fn name(&self) -> &str {
@@ -90,6 +102,7 @@ impl ParserConfig for QueryParserConfig {
 }
 
 /// Generic query parser implementation
+#[derive(Debug)]
 pub struct GenericQueryParser {
     config: QueryParserConfig,
     is_running: Arc<RwLock<bool>>,

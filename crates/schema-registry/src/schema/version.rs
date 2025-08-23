@@ -121,7 +121,7 @@ impl std::str::FromStr for SchemaVersion {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         // Validate the version string first
         validate_version_string(s)?;
-        
+
         // Simple version parsing - can be enhanced
         let parts: Vec<&str> = s.split('.').collect();
         if parts.len() != 3 {

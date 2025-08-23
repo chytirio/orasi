@@ -1,9 +1,6 @@
 //! Telemetry ingestion handlers
 
-use axum::{
-    extract::State,
-    response::Json,
-};
+use axum::{extract::State, response::Json};
 use std::collections::HashMap;
 use std::time::Instant;
 use uuid::Uuid;

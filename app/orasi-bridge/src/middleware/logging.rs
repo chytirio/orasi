@@ -8,8 +8,8 @@ use axum::{
 use std::time::Instant;
 use uuid::Uuid;
 
-use crate::{config::BridgeAPIConfig, rest::AppState};
 use super::utils::RequestContext;
+use crate::{config::BridgeAPIConfig, rest::AppState};
 
 /// Logging middleware
 pub async fn logging_middleware(

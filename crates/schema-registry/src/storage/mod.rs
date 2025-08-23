@@ -78,8 +78,8 @@ pub struct StorageStats {
 }
 
 // Re-export storage implementations
+pub use error::StorageError;
 pub use memory::MemoryStorage;
 pub use postgres::PostgresStorage;
 pub use redis::RedisStorage;
 pub use sqlite::SqliteStorage;
-pub use error::StorageError;

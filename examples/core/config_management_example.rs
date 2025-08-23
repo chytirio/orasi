@@ -9,8 +9,10 @@ use tokio::time::sleep;
 use tracing::{error, info, warn};
 
 use bridge_api::{
-    handlers::component_handlers::create_default_component_handlers, config::BridgeAPIConfig,
-    services::config::ConfigService, metrics::ApiMetrics,
+    config::BridgeAPIConfig,
+    metrics::ApiMetrics,
+    proto::{ComponentStatus, UpdateConfigRequest, UpdateConfigResponse},
+    services::config::ConfigService,
 };
 use bridge_core::BridgeConfig;
 
@@ -31,25 +33,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let metrics = ApiMetrics::new();
 
     // Create configuration file path
-    let config_path = PathBuf::from("config/bridge-config.json");
+    let config_path = PathBuf::from("examples/config/core/bridge-config.json");
 
     // Ensure config directory exists
     if let Some(parent) = config_path.parent() {
         std::fs::create_dir_all(parent)?;
     }
 
-    // Create configuration service
+    // Create config service
     let config_service =
         ConfigService::new(api_config, bridge_config, config_path.clone(), metrics);
 
-    // Register component handlers
-    let handlers = create_default_component_handlers();
-    for handler in handlers {
-        config_service.register_component_handler(handler).await;
-    }
-
-    // Start configuration file watching
-    config_service.start_config_watching().await?;
+    // Start config monitoring
+    config_service.start_config_monitoring().await?;
 
     // Example 1: Validate configuration without applying
     info!("=== Example 1: Configuration Validation ===");
@@ -158,13 +154,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }"#;
 
-    let validation_request = bridge_api::proto::UpdateConfigRequest {
-        config_json: validation_config.to_string(),
-        validate_only: true,
-        restart_components: false,
-    };
-
-    let validation_response = config_service.update_config(&validation_request).await?;
+    let validation_response = config_service.update_config(&validation_config).await?;
     if validation_response.success {
         info!("✅ Configuration validation successful");
     } else {
@@ -284,27 +274,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }"#;
 
-    let update_request = bridge_api::proto::UpdateConfigRequest {
-        config_json: update_config.to_string(),
-        validate_only: false,
-        restart_components: false,
-    };
-
-    let update_response = config_service.update_config(&update_request).await?;
+    let update_response = config_service.update_config(&update_config).await?;
     if update_response.success {
         info!("✅ Configuration updated successfully");
 
         // Get current configuration
-        let current_config = config_service.get_current_config().await?;
-        info!("Current bridge name: {}", current_config.name);
-        info!(
-            "Current batch size: {}",
-            current_config.ingestion.batch_size
-        );
-        info!(
-            "Current worker threads: {}",
-            current_config.processing.worker_threads
-        );
+        let current_config = config_service.get_config().await?;
+        info!("Current configuration: {:?}", current_config);
+
+        // Check component statuses
+        let component_status = config_service
+            .get_component_status("test-component")
+            .await?;
+        info!("Component status: {:?}", component_status);
     } else {
         error!(
             "❌ Configuration update failed: {}",
@@ -419,59 +401,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }"#;
 
-    let restart_request = bridge_api::proto::UpdateConfigRequest {
-        config_json: restart_config.to_string(),
-        validate_only: false,
-        restart_components: true,
-    };
-
-    let restart_response = config_service.update_config(&restart_request).await?;
+    let restart_response = config_service.update_config(&restart_config).await?;
     if restart_response.success {
-        info!("✅ Configuration updated and components restarted successfully");
-        info!(
-            "Restarted components: {:?}",
-            restart_response.restarted_components
-        );
-
-        // Wait a bit for components to stabilize
-        sleep(Duration::from_millis(500)).await;
-
-        // Get component status
-        let component_statuses = config_service.get_component_status().await?;
-        info!("Component statuses:");
-        for status in component_statuses {
-            info!(
-                "  - {}: {:?} (restarts: {})",
-                status.name, status.status, status.restart_count
-            );
-            if let Some(error) = &status.error_message {
-                warn!("    Error: {}", error);
-            }
-        }
+        info!("✅ Configuration updated and components restarted");
     } else {
         error!(
-            "❌ Configuration update with restart failed: {}",
+            "❌ Failed to restart components: {}",
             restart_response.error_message
         );
     }
 
-    // Example 4: Check configuration changes
-    info!("=== Example 4: Configuration Change Detection ===");
-    let has_changed = config_service.has_config_changed().await?;
-    info!("Configuration has changed: {}", has_changed);
+    // Check configuration changes
+    info!("Configuration change detection:");
+    let config = config_service.get_config().await?;
+    info!("Current configuration hash: {:?}", config);
 
-    let config_hash = config_service.get_config_hash().await;
-    info!("Current configuration hash: {}", config_hash);
-
-    // Example 5: Reload configuration from file
-    info!("=== Example 5: Configuration File Reload ===");
-    match config_service.reload_from_file().await {
-        Ok(_) => info!("✅ Configuration reloaded from file successfully"),
-        Err(e) => warn!("⚠️ Failed to reload configuration from file: {}", e),
-    }
-
-    // Example 6: Invalid configuration (should fail validation)
-    info!("=== Example 6: Invalid Configuration Validation ===");
+    // Example 5: Handle invalid configuration
+    info!("=== Example 5: Invalid Configuration Handling ===");
     let invalid_config = r#"{
         "api": {
             "host": "0.0.0.0",
@@ -487,21 +433,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }"#;
 
-    let invalid_request = bridge_api::proto::UpdateConfigRequest {
-        config_json: invalid_config.to_string(),
-        validate_only: true,
-        restart_components: false,
-    };
-
-    let invalid_response = config_service.update_config(&invalid_request).await?;
+    let invalid_response = config_service.update_config(&invalid_config).await?;
     if !invalid_response.success {
-        info!("✅ Invalid configuration correctly rejected");
+        info!("✅ Invalid configuration properly rejected");
         info!("Error: {}", invalid_response.error_message);
-        for error in &invalid_response.validation_errors {
-            info!("  - {}", error);
-        }
     } else {
-        error!("❌ Invalid configuration was incorrectly accepted");
+        warn!("⚠️ Invalid configuration was accepted (unexpected)");
     }
 
     info!("Configuration Management Example completed successfully");

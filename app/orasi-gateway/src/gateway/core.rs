@@ -2,15 +2,15 @@
 
 use crate::{
     config::GatewayConfig,
+    discovery::ServiceDiscovery,
     error::GatewayError,
-    gateway::state::GatewayState,
     gateway::health::HealthChecker,
+    gateway::rate_limiter::GatewayRateLimiter,
+    gateway::state::GatewayState,
     load_balancer::LoadBalancer,
     metrics::MetricsCollector,
     routing::proxy::Proxy,
-    gateway::rate_limiter::RateLimiter,
     routing::Router,
-    discovery::ServiceDiscovery,
     types::{GatewayInfo, GatewayMetrics, GatewayStatus, HealthStatus},
 };
 use std::sync::Arc;
@@ -38,7 +38,7 @@ pub struct OrasiGateway {
     proxy: Arc<Proxy>,
 
     /// Rate limiter
-    rate_limiter: Arc<RateLimiter>,
+    rate_limiter: Arc<GatewayRateLimiter>,
 
     /// Health checker
     health_checker: Arc<HealthChecker>,
@@ -74,7 +74,7 @@ impl OrasiGateway {
         let proxy = Arc::new(Proxy::new(&config, state.clone()).await?);
 
         // Initialize rate limiter
-        let rate_limiter = Arc::new(RateLimiter::new(&config).await?);
+        let rate_limiter = Arc::new(GatewayRateLimiter::new(&config).await?);
 
         // Initialize health checker
         let health_checker = Arc::new(HealthChecker::new(&config).await?);
@@ -286,5 +286,10 @@ impl OrasiGateway {
     pub async fn get_metrics(&self) -> GatewayMetrics {
         let state = self.state.read().await;
         state.get_metrics()
+    }
+
+    /// Get gateway state
+    pub async fn get_state(&self) -> Arc<RwLock<GatewayState>> {
+        self.state.clone()
     }
 }

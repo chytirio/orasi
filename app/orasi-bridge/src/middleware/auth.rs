@@ -10,8 +10,8 @@ use chrono;
 use tracing::{debug, warn};
 use uuid::Uuid;
 
-use crate::{config::BridgeAPIConfig, error::ApiError, rest::AppState};
 use super::utils::RequestContext;
+use crate::{config::BridgeAPIConfig, error::ApiError, rest::AppState};
 
 // Add auth crate imports
 use bridge_auth::config::OAuthConfigConverter;

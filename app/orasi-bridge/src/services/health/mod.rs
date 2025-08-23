@@ -175,16 +175,18 @@ impl HealthMonitoringIntegration {
     }
 
     /// Get health status for a specific component
-    pub async fn get_component_health(&self, component_name: &str) -> BridgeResult<ComponentHealthStatus> {
+    pub async fn get_component_health(
+        &self,
+        component_name: &str,
+    ) -> BridgeResult<ComponentHealthStatus> {
         let health = self.component_health.read().await;
-        
-        health.get(component_name)
-            .cloned()
-            .ok_or_else(|| {
-                bridge_core::BridgeError::validation(
-                    format!("Component '{}' not found", component_name)
-                )
-            })
+
+        health.get(component_name).cloned().ok_or_else(|| {
+            bridge_core::BridgeError::validation(format!(
+                "Component '{}' not found",
+                component_name
+            ))
+        })
     }
 
     /// Update component health status
@@ -199,7 +201,10 @@ impl HealthMonitoringIntegration {
     }
 
     /// Perform health check on a specific component
-    pub async fn check_component_health(&self, component_name: &str) -> BridgeResult<ComponentHealthStatus> {
+    pub async fn check_component_health(
+        &self,
+        component_name: &str,
+    ) -> BridgeResult<ComponentHealthStatus> {
         tracing::debug!("Checking health for component: {}", component_name);
 
         // Perform actual health check using the health checker
@@ -233,7 +238,8 @@ impl HealthMonitoringIntegration {
         };
 
         // Update the stored health status
-        self.update_component_health(component_name, status.clone()).await?;
+        self.update_component_health(component_name, status.clone())
+            .await?;
 
         Ok(status)
     }
@@ -261,8 +267,14 @@ impl HealthMonitoringIntegration {
         // }
 
         // Add system-level metrics
-        metrics.insert("system.uptime_seconds".to_string(), self.calculate_uptime() as f64);
-        metrics.insert("system.memory_usage_mb".to_string(), self.get_memory_usage());
+        metrics.insert(
+            "system.uptime_seconds".to_string(),
+            self.calculate_uptime() as f64,
+        );
+        metrics.insert(
+            "system.memory_usage_mb".to_string(),
+            self.get_memory_usage(),
+        );
         metrics.insert("system.cpu_usage_percent".to_string(), self.get_cpu_usage());
 
         Ok(metrics)

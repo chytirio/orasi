@@ -4,7 +4,9 @@ use std::time::Instant;
 use tonic::{Request, Response, Status};
 use tracing;
 
-use crate::proto::{health_check_response::ServingStatus, health_server, HealthCheckRequest, HealthCheckResponse};
+use crate::proto::{
+    health_check_response::ServingStatus, health_server, HealthCheckRequest, HealthCheckResponse,
+};
 
 /// gRPC health check service
 pub struct GrpcHealthService {

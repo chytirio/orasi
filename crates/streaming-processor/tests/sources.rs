@@ -192,8 +192,12 @@ async fn test_http_source_stats() {
 
 #[tokio::test]
 async fn test_file_source_creation() {
+    // Create a temporary test file
+    let temp_file = tempfile::NamedTempFile::new().unwrap();
+    let file_path = temp_file.path().to_string_lossy().to_string();
+    
     let config = FileSourceConfig::new(
-        "test.json".to_string(),
+        file_path,
         streaming_processor::sources::file_source::FileFormat::Json,
     );
     let source = FileSource::new(&config).await;
@@ -206,8 +210,12 @@ async fn test_file_source_creation() {
 
 #[tokio::test]
 async fn test_file_source_config_validation() {
+    // Create a temporary test file
+    let temp_file = tempfile::NamedTempFile::new().unwrap();
+    let file_path = temp_file.path().to_string_lossy().to_string();
+    
     let config = FileSourceConfig::new(
-        "test.json".to_string(),
+        file_path,
         streaming_processor::sources::file_source::FileFormat::Json,
     );
     let result = config.validate().await;
@@ -225,8 +233,12 @@ async fn test_file_source_config_validation() {
 
 #[tokio::test]
 async fn test_file_source_lifecycle() {
+    // Create a temporary test file
+    let temp_file = tempfile::NamedTempFile::new().unwrap();
+    let file_path = temp_file.path().to_string_lossy().to_string();
+    
     let config = FileSourceConfig::new(
-        "test.json".to_string(),
+        file_path,
         streaming_processor::sources::file_source::FileFormat::Json,
     );
     let mut source = FileSource::new(&config).await.unwrap();
@@ -249,8 +261,12 @@ async fn test_file_source_lifecycle() {
 
 #[tokio::test]
 async fn test_file_source_stats() {
+    // Create a temporary test file
+    let temp_file = tempfile::NamedTempFile::new().unwrap();
+    let file_path = temp_file.path().to_string_lossy().to_string();
+    
     let config = FileSourceConfig::new(
-        "test.json".to_string(),
+        file_path,
         streaming_processor::sources::file_source::FileFormat::Json,
     );
     let source = FileSource::new(&config).await.unwrap();

@@ -12,15 +12,17 @@ use bridge_core::{
     BridgeResult, TelemetryBatch,
 };
 use chrono::{DateTime, Utc};
+use notify::{Event, EventKind, RecursiveMode, Watcher};
 use serde::{Deserialize, Serialize};
 use serde_json;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 use tokio::fs::File;
-use tokio::io::AsyncReadExt;
+use tokio::io::{AsyncReadExt, AsyncSeekExt};
 use tokio::sync::RwLock;
-use tracing::{info, warn};
+use tokio::time::{sleep, Duration};
+use tracing::{error, info, warn};
 use uuid::Uuid;
 
 use super::{SourceConfig, SourceStats, StreamSource};
@@ -60,6 +62,26 @@ pub struct FileSourceConfig {
 
     /// Additional configuration
     pub additional_config: HashMap<String, String>,
+
+    /// Processing mode
+    pub processing_mode: FileProcessingMode,
+
+    /// Max file size in bytes
+    pub max_file_size: Option<u64>,
+
+    /// Enable file rotation detection
+    pub enable_rotation_detection: bool,
+}
+
+/// File processing mode
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum FileProcessingMode {
+    /// Read file once and stop
+    Once,
+    /// Read file continuously (for log files)
+    Continuous,
+    /// Watch directory for new files
+    Watch,
 }
 
 /// File format
@@ -88,6 +110,9 @@ impl FileSourceConfig {
             watch_directory: None,
             file_pattern: None,
             additional_config: HashMap::new(),
+            processing_mode: FileProcessingMode::Once,
+            max_file_size: None,
+            enable_rotation_detection: false,
         }
     }
 }
@@ -115,6 +140,17 @@ impl SourceConfig for FileSourceConfig {
             ));
         }
 
+        // Validate file exists for non-watch modes
+        if !self.enable_file_watching {
+            let path = Path::new(&self.file_path);
+            if !path.exists() {
+                return Err(bridge_core::BridgeError::configuration(format!(
+                    "File does not exist: {}",
+                    self.file_path
+                )));
+            }
+        }
+
         Ok(())
     }
 
@@ -129,19 +165,21 @@ pub struct FileSource {
     is_running: Arc<RwLock<bool>>,
     stats: Arc<RwLock<SourceStats>>,
     file_reader: Option<FileReader>,
+    file_watcher: Option<notify::RecommendedWatcher>,
+    last_position: Arc<RwLock<u64>>,
+    current_file_size: Arc<RwLock<u64>>,
 }
 
 /// File reader wrapper
-#[allow(dead_code)]
 struct FileReader {
     file: Option<File>,
     buffer: Vec<u8>,
     position: u64,
     is_eof: bool,
     format: FileFormat,
+    file_path: String,
 }
 
-#[allow(dead_code)]
 impl FileReader {
     /// Create a new file reader
     async fn new(file_path: &str, format: FileFormat) -> BridgeResult<Self> {
@@ -167,6 +205,7 @@ impl FileReader {
             position: 0,
             is_eof: false,
             format,
+            file_path: file_path.to_string(),
         })
     }
 
@@ -194,6 +233,33 @@ impl FileReader {
         self.position += bytes_read as u64;
 
         Ok(buffer)
+    }
+
+    /// Check if file has been rotated (size decreased)
+    async fn check_file_rotation(&mut self) -> BridgeResult<bool> {
+        let metadata = tokio::fs::metadata(&self.file_path).await.map_err(|e| {
+            bridge_core::BridgeError::configuration(format!("Failed to get file metadata: {}", e))
+        })?;
+
+        let current_size = metadata.len();
+        let was_rotated = current_size < self.position;
+
+        if was_rotated {
+            info!("File rotation detected for: {}", self.file_path);
+            self.position = 0;
+            self.is_eof = false;
+
+            // Reopen the file
+            let file = File::open(&self.file_path).await.map_err(|e| {
+                bridge_core::BridgeError::configuration(format!(
+                    "Failed to reopen file after rotation: {}",
+                    e
+                ))
+            })?;
+            self.file = Some(file);
+        }
+
+        Ok(was_rotated)
     }
 
     /// Parse data based on file format
@@ -952,7 +1018,6 @@ impl FileReader {
     }
 }
 
-#[allow(dead_code)]
 impl FileSource {
     /// Create new file source
     pub async fn new(config: &dyn SourceConfig) -> BridgeResult<Self> {
@@ -985,6 +1050,9 @@ impl FileSource {
             is_running: Arc::new(RwLock::new(false)),
             stats: Arc::new(RwLock::new(stats)),
             file_reader: None,
+            file_watcher: None,
+            last_position: Arc::new(RwLock::new(0)),
+            current_file_size: Arc::new(RwLock::new(0)),
         })
     }
 
@@ -1000,32 +1068,190 @@ impl FileSource {
         Ok(())
     }
 
+    /// Start file watching
+    async fn start_file_watching(&mut self) -> BridgeResult<()> {
+        if !self.config.enable_file_watching {
+            return Ok(());
+        }
+
+        info!("Starting file watching for: {}", self.config.file_path);
+
+        let (tx, mut rx) = tokio::sync::mpsc::channel(100);
+        let is_running = self.is_running.clone();
+        let stats = self.stats.clone();
+
+        // Create file watcher
+        let mut watcher = notify::recommended_watcher(move |res: Result<Event, _>| {
+            if let Ok(event) = res {
+                if let Err(e) = tx.blocking_send(event) {
+                    error!("Failed to send file event: {}", e);
+                }
+            }
+        })
+        .map_err(|e| {
+            bridge_core::BridgeError::internal(format!("Failed to create file watcher: {}", e))
+        })?;
+
+        // Watch the file or directory
+        let path = Path::new(&self.config.file_path);
+        if path.is_file() {
+            watcher
+                .watch(path, RecursiveMode::NonRecursive)
+                .map_err(|e| {
+                    bridge_core::BridgeError::internal(format!("Failed to watch file: {}", e))
+                })?;
+        } else if path.is_dir() {
+            watcher.watch(path, RecursiveMode::Recursive).map_err(|e| {
+                bridge_core::BridgeError::internal(format!("Failed to watch directory: {}", e))
+            })?;
+        }
+
+        self.file_watcher = Some(watcher);
+
+        // Start event processing
+        tokio::spawn(async move {
+            while let Some(event) = rx.recv().await {
+                if !*is_running.read().await {
+                    break;
+                }
+
+                match event.kind {
+                    EventKind::Create(_) | EventKind::Modify(_) => {
+                        info!("File event detected: {:?}", event);
+                        // In a real implementation, you would process the file here
+                    }
+                    _ => {}
+                }
+            }
+        });
+
+        info!("File watching started");
+        Ok(())
+    }
+
     /// Start reading from file
-    async fn start_reading(&self) -> BridgeResult<()> {
+    async fn start_reading(&mut self) -> BridgeResult<()> {
         info!("Starting file reading");
 
-        // This is a simplified implementation
-        // In a real implementation, this would spawn a background task
-        // and handle the file reading asynchronously
-
-        if let Some(_reader) = &self.file_reader {
-            // Simulate reading process
-            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-
-            // Update stats to indicate we've started reading
-            {
-                let mut stats = self.stats.write().await;
-                stats.is_connected = true;
+        match self.config.processing_mode {
+            FileProcessingMode::Once => {
+                self.read_file_once().await?;
+            }
+            FileProcessingMode::Continuous => {
+                self.read_file_continuous().await?;
+            }
+            FileProcessingMode::Watch => {
+                self.start_file_watching().await?;
             }
         }
 
         Ok(())
     }
 
+    /// Read file once
+    async fn read_file_once(&mut self) -> BridgeResult<()> {
+        if let Some(reader) = &mut self.file_reader {
+            let mut total_records = 0;
+
+            loop {
+                let data = reader.read_data(self.config.batch_size).await?;
+                if data.is_empty() {
+                    break;
+                }
+
+                // Process the data
+                let records = reader.parse_data(&data).await?;
+                let telemetry_batch = TelemetryBatch {
+                    id: Uuid::new_v4(),
+                    timestamp: Utc::now(),
+                    source: "file".to_string(),
+                    size: records.len(),
+                    records,
+                    metadata: {
+                        let mut metadata = HashMap::new();
+                        metadata.insert("file_path".to_string(), self.config.file_path.clone());
+                        metadata.insert(
+                            "file_format".to_string(),
+                            format!("{:?}", self.config.file_format),
+                        );
+                        metadata
+                    },
+                };
+
+                total_records += telemetry_batch.size;
+
+                // Update stats
+                {
+                    let mut stats = self.stats.write().await;
+                    stats.total_records += telemetry_batch.size as u64;
+                    stats.total_bytes += data.len() as u64;
+                    stats.last_record_time = Some(Utc::now());
+                }
+
+                info!("Processed {} records from file", telemetry_batch.size);
+            }
+
+            info!("Completed reading file: {} total records", total_records);
+        }
+
+        Ok(())
+    }
+
+    /// Read file continuously
+    async fn read_file_continuous(&mut self) -> BridgeResult<()> {
+        let is_running = self.is_running.clone();
+        let stats = self.stats.clone();
+        let config = self.config.clone();
+        let file_path = self.config.file_path.clone();
+
+        tokio::spawn(async move {
+            let mut last_position = 0u64;
+
+            while *is_running.read().await {
+                // Check if file has been modified
+                if let Ok(metadata) = tokio::fs::metadata(&file_path).await {
+                    let current_size = metadata.len();
+
+                    if current_size > last_position {
+                        // File has new content, read it
+                        if let Ok(mut file) = File::open(&file_path).await {
+                            if let Ok(_) = file.seek(std::io::SeekFrom::Start(last_position)).await
+                            {
+                                let mut buffer = vec![0u8; (current_size - last_position) as usize];
+                                if let Ok(bytes_read) = file.read(&mut buffer).await {
+                                    if bytes_read > 0 {
+                                        buffer.truncate(bytes_read);
+
+                                        // Process the new data
+                                        // In a real implementation, you would parse and process the data
+
+                                        // Update stats
+                                        {
+                                            let mut stats = stats.write().await;
+                                            stats.total_bytes += bytes_read as u64;
+                                            stats.last_record_time = Some(Utc::now());
+                                        }
+
+                                        last_position += bytes_read as u64;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Wait before checking again
+                sleep(Duration::from_millis(config.read_timeout_ms)).await;
+            }
+        });
+
+        Ok(())
+    }
+
     /// Process file data
-    async fn process_file_data(&self, data: Vec<u8>) -> BridgeResult<TelemetryBatch> {
+    async fn process_file_data(&self, data: &[u8]) -> BridgeResult<TelemetryBatch> {
         if let Some(reader) = &self.file_reader {
-            let records = reader.parse_data(&data).await?;
+            let records = reader.parse_data(data).await?;
 
             Ok(TelemetryBatch {
                 id: Uuid::new_v4(),
@@ -1059,8 +1285,10 @@ impl StreamSource for FileSource {
         // Validate configuration
         self.config.validate().await?;
 
-        // Initialize file reader
-        self.init_file_reader().await?;
+        // Initialize file reader if not in watch mode
+        if !self.config.enable_file_watching {
+            self.init_file_reader().await?;
+        }
 
         info!("File source initialized");
         Ok(())
@@ -1104,10 +1332,13 @@ impl StreamSource for FileSource {
     }
 
     fn is_running(&self) -> bool {
-        // This is a simplified check - in practice we'd need to handle the async nature
-        // For now, we'll return a default value since this is a sync method
-        // The async version should be used instead
-        false
+        // Check if the source is running
+        if let Some(_reader) = &self.file_reader {
+            // In a real implementation, you would check the reader's health
+            true
+        } else {
+            false
+        }
     }
 
     async fn get_stats(&self) -> BridgeResult<SourceStats> {

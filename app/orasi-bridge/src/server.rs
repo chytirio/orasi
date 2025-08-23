@@ -12,10 +12,10 @@ use tokio::sync::RwLock;
 use crate::{
     config::BridgeAPIConfig,
     error::{ApiError, ApiResult},
-    services::grpc::{create_grpc_server, GrpcServer},
     handlers::{health::init_server_start_time, query::init_query_cache},
     metrics::{init_metrics, ApiMetrics},
     rest::{create_rest_router, AppState},
+    services::grpc::{create_grpc_server, GrpcServer},
 };
 
 /// Bridge API Server

@@ -18,16 +18,18 @@ The Query Engine provides a powerful SQL interface for analyzing OpenTelemetry t
 ### SQL Query Processing
 - **Full SQL Support**: Standard SQL with OpenTelemetry extensions
 - **DataFusion Integration**: Apache Arrow-based query engine
-- **Query Optimization**: Automatic query planning and optimization
+- **Advanced Query Optimization**: Cost-based optimization with predicate pushdown, join reordering, and more
 - **Parallel Execution**: Multi-threaded query processing
 - **Memory Management**: Efficient memory usage and garbage collection
+- **Query Caching**: Intelligent result caching with TTL and LRU eviction
 
 ### OpenTelemetry Integration
-- **Telemetry Functions**: Specialized functions for telemetry data analysis
+- **Telemetry Functions**: Specialized functions for telemetry data analysis including error rates, percentiles, and trace analysis
 - **Schema Awareness**: Automatic schema detection and validation
 - **Signal Support**: Traces, metrics, and logs querying
-- **Semantic Conventions**: Built-in support for OpenTelemetry semantic conventions
-- **Time Series Analysis**: Time-based querying and aggregation
+- **Semantic Conventions**: Built-in support for OpenTelemetry semantic conventions with automatic attribute extraction
+- **Time Series Analysis**: Time-based querying and aggregation with moving averages and rate of change calculations
+- **Service Dependency Analysis**: Built-in functions for analyzing service relationships and dependencies
 
 ### Data Source Support
 - **Parquet Files**: Direct querying of Parquet data files
@@ -37,11 +39,13 @@ The Query Engine provides a powerful SQL interface for analyzing OpenTelemetry t
 - **Custom Connectors**: Extensible connector framework
 
 ### Performance Features
-- **Query Caching**: Intelligent query result caching
+- **Query Caching**: Intelligent query result caching with TTL and LRU eviction
+- **Query Optimization**: Cost-based optimization with multiple optimization strategies
 - **Indexing**: Automatic index creation and usage
 - **Partitioning**: Partition-aware query optimization
 - **Compression**: Data compression and decompression
 - **Vectorization**: SIMD-optimized data processing
+- **Performance Monitoring**: Comprehensive statistics and metrics collection
 
 ## Quick Start
 

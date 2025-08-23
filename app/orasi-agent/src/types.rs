@@ -1,6 +1,7 @@
 //! Types for Orasi Agent
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::collections::HashMap;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -58,8 +59,6 @@ pub struct AgentCapabilities {
     pub resource_limits: ResourceLimits,
 }
 
-
-
 /// Resource limits for the agent
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResourceLimits {
@@ -72,8 +71,6 @@ pub struct ResourceLimits {
     /// Maximum disk usage (bytes)
     pub max_disk_bytes: u64,
 }
-
-
 
 /// Heartbeat message
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -145,6 +142,21 @@ pub enum ClusterMessage {
 
     /// Health check response
     HealthCheckResponse(HealthStatus),
+
+    /// Member join notification
+    MemberJoin(ClusterMember),
+
+    /// Member leave notification
+    MemberLeave(String),
+
+    /// Leader election message
+    LeaderElection(LeaderElectionMessage),
+
+    /// Task distribution message
+    TaskDistribution(TaskDistributionMessage),
+
+    /// State synchronization message
+    StateSync(StateSyncMessage),
 }
 
 /// Health status
@@ -171,4 +183,47 @@ pub enum HealthState {
     Unhealthy,
 }
 
+/// Member status in cluster
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum MemberStatus {
+    Active,
+    Inactive,
+    Unhealthy,
+}
 
+/// Cluster member information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClusterMember {
+    pub member_id: String,
+    pub endpoint: String,
+    pub status: MemberStatus,
+    pub capabilities: AgentCapabilities,
+    pub last_heartbeat: u64,
+    pub metadata: HashMap<String, String>,
+}
+
+/// Leader election message
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LeaderElectionMessage {
+    pub election_id: String,
+    pub candidate_id: String,
+    pub term: u64,
+    pub timestamp: u64,
+}
+
+/// Task distribution message
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TaskDistributionMessage {
+    pub task: Task,
+    pub target_member: String,
+    pub priority: u8,
+    pub timestamp: u64,
+}
+
+/// State synchronization message
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StateSyncMessage {
+    pub sync_type: String,
+    pub data: Value,
+    pub timestamp: u64,
+}

@@ -17,6 +17,12 @@ pub enum AgentError {
     #[error("Task processing error: {0}")]
     TaskProcessing(String),
 
+    #[error("Task submission failed: {0}")]
+    TaskSubmissionFailed(String),
+
+    #[error("Processor not running")]
+    ProcessorNotRunning,
+
     #[error("Ingestion error: {0}")]
     Ingestion(String),
 
@@ -46,6 +52,24 @@ pub enum AgentError {
 
     #[error("Validation error: {0}")]
     Validation(String),
+
+    #[error("Invalid input: {0}")]
+    InvalidInput(String),
+
+    #[error("IO error: {0}")]
+    IoError(String),
+
+    #[error("Connection error: {0}")]
+    ConnectionError(String),
+
+    #[error("Registration error: {0}")]
+    RegistrationError(String),
+
+    #[error("Deregistration error: {0}")]
+    DeregistrationError(String),
+
+    #[error("Discovery error: {0}")]
+    DiscoveryError(String),
 
     #[error("Internal error: {0}")]
     Internal(String),

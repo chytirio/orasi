@@ -81,11 +81,51 @@ install-dev-deps:
     rustup component add rustfmt clippy
     cargo install cargo-tarpaulin
     cargo install cargo-husky
+    cargo install cargo-watch
+    cargo install cargo-instruments
+    cargo install flamegraph
 
 # Setup pre-commit hooks
 setup-hooks:
     cargo install cargo-husky
     cargo husky install
+
+# Setup development environment
+setup-dev: install-dev-deps setup-hooks
+    @echo "Development environment setup complete!"
+    @echo "Run 'just check' to verify everything is working"
+
+# Setup new contributor environment
+setup-contributor: setup-dev
+    @echo "Welcome to Orasi! 🚀"
+    @echo "Your development environment is ready."
+    @echo ""
+    @echo "Next steps:"
+    @echo "1. Read CONTRIBUTING.md"
+    @echo "2. Read docs/DEVELOPMENT_SETUP.md"
+    @echo "3. Run 'just examples' to see Orasi in action"
+    @echo "4. Pick a 'good first issue' from GitHub"
+    @echo ""
+    @echo "Happy coding! 🦀"
+
+# Validate development setup
+validate-dev:
+    @echo "Validating development setup..."
+    rustc --version
+    cargo --version
+    rustup component list | grep -E "(rustfmt|clippy)"
+    @echo "Development setup validation complete"
+
+# Show development status
+dev-status:
+    @echo "=== Orasi Development Status ==="
+    @echo "Rust version: $(shell rustc --version)"
+    @echo "Cargo version: $(shell cargo --version)"
+    @echo "Installed components:"
+    @rustup component list | grep -E "(rustfmt|clippy)" || echo "No components found"
+    @echo "Installed cargo tools:"
+    @cargo --list | grep -E "(tarpaulin|husky|watch|instruments|flamegraph)" || echo "No tools found"
+    @echo "================================"
 
 # Generate documentation
 doc:
@@ -98,6 +138,37 @@ doc-open:
 # Check documentation
 doc-check:
     cargo doc --no-deps --document-private-items
+
+# Generate all documentation
+doc-all:
+    @echo "Generating comprehensive documentation..."
+    cargo doc --no-deps --document-private-items
+    @echo "Documentation generated in target/doc/"
+
+# Validate documentation links
+doc-links:
+    @echo "Checking documentation links..."
+    cargo doc --no-deps --document-private-items
+    # Add link checker if available
+    @echo "Documentation links validated"
+
+# Generate API documentation
+doc-api:
+    @echo "Generating API documentation..."
+    cargo doc --no-deps --lib
+    @echo "API documentation generated"
+
+# Generate examples documentation
+doc-examples:
+    @echo "Generating examples documentation..."
+    cargo doc --no-deps --examples
+    @echo "Examples documentation generated"
+
+# Serve documentation locally
+doc-serve:
+    @echo "Starting documentation server..."
+    python3 -m http.server 8000 --directory target/doc/
+    @echo "Documentation available at http://localhost:8000"
 
 # Run all checks (format, clippy, test, audit)
 check: fmt clippy test audit

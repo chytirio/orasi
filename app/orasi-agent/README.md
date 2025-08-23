@@ -13,6 +13,8 @@ Orasi Agent is a lightweight, distributed agent that collects, processes, and fo
 - **Resource Management**: Low resource footprint and efficient memory usage
 - **Configuration Management**: Dynamic configuration updates
 - **Health Monitoring**: Built-in health monitoring and metrics
+- **Cluster Coordination**: Distributed coordination and service discovery
+- **HTTP API**: Comprehensive REST API for monitoring and management
 
 ## Key Features
 
@@ -47,6 +49,13 @@ Orasi Agent is a lightweight, distributed agent that collects, processes, and fo
 - **Network Optimization**: Bandwidth usage optimization
 - **Process Management**: Graceful shutdown and restart
 
+### Cluster Coordination
+- **Service Discovery**: Integration with etcd and Consul
+- **Leader Election**: Distributed leadership management
+- **Cluster Membership**: Dynamic agent registration and health monitoring
+- **Load Balancing**: Multiple endpoint load balancing
+- **State Synchronization**: Cluster state management
+
 ## Quick Start
 
 ### Running the Agent
@@ -71,12 +80,25 @@ cargo run --bin orasi-agent
 # Build Docker image
 docker build -t orasi-agent .
 
-# Run with Docker Compose
-docker-compose up -d agent
+# Run with Docker Compose (includes etcd, Prometheus, Grafana)
+docker-compose up -d
 
 # Run standalone container
 docker run -v /var/log:/var/log:ro orasi-agent
 ```
+
+### Environment Variables
+
+```bash
+export ORASI_AGENT_ID="agent-001"
+export ORASI_AGENT_ENDPOINT="0.0.0.0:8082"
+export ORASI_HEALTH_ENDPOINT="0.0.0.0:8083"
+export ORASI_METRICS_ENDPOINT="0.0.0.0:9092"
+export ORASI_CLUSTER_ENDPOINT="0.0.0.0:8084"
+export RUST_LOG="info"
+```
+
+## Configuration
 
 ### Basic Configuration
 
@@ -98,345 +120,214 @@ batch_size = 1000
 batch_timeout_ms = 5000
 max_memory_mb = 512
 
-[agent.transmission]
-endpoints = ["http://bridge-api:8080/v1/ingest"]
-retry_attempts = 3
-retry_delay_ms = 1000
-timeout_seconds = 30
+[cluster]
+service_discovery = "Etcd"
+service_discovery_endpoints = ["http://localhost:2379"]
+heartbeat_interval = 30
+session_timeout = 90
 
-[agent.monitoring]
-metrics_enabled = true
-metrics_port = 9090
-health_check_enabled = true
-health_check_port = 8081
-
-[agent.logging]
-level = "info"
-format = "json"
-file_path = "/var/log/orasi-agent.log"
-```
-
-## Data Collection Configuration
-
-### Log File Collection
-
-```toml
-[agent.sources.logs]
+[cluster.leader_election]
 enabled = true
-paths = [
-    "/var/log/application/*.log",
-    "/var/log/system/*.log"
-]
-patterns = ["*.log", "*.log.*"]
-exclude_patterns = ["*.log.gz", "*.log.old"]
+election_timeout = 10
 
-[agent.sources.logs.parsing]
-format = "json"  # json, csv, regex, custom
-timestamp_field = "timestamp"
-timestamp_format = "%Y-%m-%d %H:%M:%S"
+[capabilities]
+max_concurrent_tasks = 10
+supported_formats = ["json", "parquet", "avro", "csv"]
 
-[agent.sources.logs.fields]
-service_name = "my-service"
-environment = "production"
-```
-
-### System Metrics Collection
-
-```toml
-[agent.sources.system]
-enabled = true
-interval_seconds = 60
-
-[agent.sources.system.metrics]
-cpu = true
-memory = true
-disk = true
-network = true
-processes = true
-
-[agent.sources.system.filters]
-min_cpu_usage = 1.0
-min_memory_usage = 1.0
-```
-
-### Application Metrics Collection
-
-```toml
-[agent.sources.application]
-enabled = true
-endpoint = "http://localhost:8080/metrics"
-interval_seconds = 30
-
-[agent.sources.application.metrics]
-http_requests = true
-database_queries = true
-cache_hits = true
-error_rates = true
-
-[agent.sources.application.labels]
-service_name = "my-service"
-version = "1.0.0"
-```
-
-## Data Processing Configuration
-
-### Filtering Rules
-
-```toml
-[agent.processing.filters]
-enabled = true
-
-[agent.processing.filters.rules]
-# Filter out debug logs
-"log_level" = { operator = "!=", value = "debug" }
-
-# Filter high CPU usage
-"cpu_usage" = { operator = ">", value = 80.0 }
-
-# Filter specific services
-"service_name" = { operator = "in", value = ["web", "api", "db"] }
-```
-
-### Transformation Rules
-
-```toml
-[agent.processing.transformations]
-enabled = true
-
-[agent.processing.transformations.rules]
-# Add timestamp
-"timestamp" = { type = "timestamp", format = "unix" }
-
-# Rename fields
-"cpu_percent" = { type = "rename", to = "cpu_usage" }
-
-# Convert types
-"memory_bytes" = { type = "convert", to = "float" }
-
-# Add labels
-"environment" = { type = "constant", value = "production" }
-```
-
-### Aggregation Rules
-
-```toml
-[agent.processing.aggregations]
-enabled = true
-window_seconds = 60
-
-[agent.processing.aggregations.rules]
-# CPU usage average
-"cpu_usage" = { type = "average", window = 60 }
-
-# Request count sum
-"request_count" = { type = "sum", window = 60 }
-
-# Error rate percentage
-"error_rate" = { type = "percentage", window = 60 }
-```
-
-## Usage Examples
-
-### Basic Agent Usage
-
-```bash
-# Start agent with configuration
-./orasi-agent --config config/agent.toml
-
-# Start with environment variables
-ORASI_AGENT_NAME=my-agent \
-ORASI_BRIDGE_ENDPOINT=http://bridge-api:8080 \
-./orasi-agent
-
-# Start with log file monitoring
-./orasi-agent --log-paths /var/log/app/*.log
-```
-
-### Configuration Management
-
-```bash
-# Reload configuration
-curl -X POST http://localhost:8081/config/reload
-
-# Get current configuration
-curl http://localhost:8081/config
-
-# Update configuration
-curl -X PUT http://localhost:8081/config \
-  -H "Content-Type: application/json" \
-  -d '{"collection": {"interval_seconds": 60}}'
-```
-
-### Health Monitoring
-
-```bash
-# Check agent health
-curl http://localhost:8081/health
-
-# Get agent metrics
-curl http://localhost:9090/metrics
-
-# Get agent status
-curl http://localhost:8081/status
-```
-
-## Architecture
-
-The Orasi Agent follows a modular architecture with clear separation of concerns:
-
-```
-┌─────────────────┐
-│   Orasi Agent   │
-├─────────────────┤
-│  Data Collectors│
-│  Processors     │
-│  Buffers        │
-│  Transmitters   │
-├─────────────────┤
-│  Configuration  │
-│  Health Monitor │
-│  Metrics        │
-│  Logging        │
-└─────────────────┘
-```
-
-### Core Components
-
-1. **Data Collectors**: Collect data from various sources
-2. **Processors**: Process, filter, and transform data
-3. **Buffers**: Buffer data for efficient transmission
-4. **Transmitters**: Transmit data to bridge endpoints
-5. **Configuration**: Dynamic configuration management
-6. **Health Monitor**: Health monitoring and status reporting
-7. **Metrics**: Agent metrics collection and export
-8. **Logging**: Structured logging and error reporting
-
-## Configuration Reference
-
-### Agent Configuration
-
-```toml
-[agent]
-# Basic settings
-name = "my-agent"
-version = "0.1.0"
-environment = "production"
-data_dir = "/var/lib/orasi-agent"
-
-# Collection settings
-[agent.collection]
-enabled = true
-interval_seconds = 30
-max_concurrent_collectors = 4
-buffer_size = 10000
-
-# Processing settings
-[agent.processing]
-enabled = true
+[processing]
+max_concurrent_tasks = 10
 batch_size = 1000
 batch_timeout_ms = 5000
 max_memory_mb = 512
-enable_compression = true
 
-# Transmission settings
-[agent.transmission]
-endpoints = ["http://bridge-api:8080/v1/ingest"]
-retry_attempts = 3
-retry_delay_ms = 1000
-timeout_seconds = 30
-enable_compression = true
+[storage]
+data_directory = "/var/lib/orasi/agent"
+temp_directory = "/tmp/orasi/agent"
+max_disk_usage_gb = 10
 
-# Monitoring settings
-[agent.monitoring]
-metrics_enabled = true
-metrics_port = 9090
-health_check_enabled = true
-health_check_port = 8081
-log_level = "info"
+[health]
+check_interval = 30
+resource_thresholds = { cpu_percent = 80.0, memory_percent = 80.0, disk_percent = 80.0 }
+
+[metrics]
+collection_interval = 15
+prometheus_enabled = true
+custom_metrics_enabled = true
 ```
 
-### Source Configuration
+## HTTP API
 
-```toml
-# Log file sources
-[agent.sources.logs]
-enabled = true
-paths = ["/var/log/*.log"]
-patterns = ["*.log"]
-exclude_patterns = ["*.log.gz"]
+The agent exposes a comprehensive HTTP API for monitoring and management:
 
-[agent.sources.logs.parsing]
-format = "json"
-timestamp_field = "timestamp"
-timestamp_format = "%Y-%m-%d %H:%M:%S"
+### Health Endpoints
 
-# System metrics sources
-[agent.sources.system]
-enabled = true
-interval_seconds = 60
+- `GET /health` - Comprehensive health check
+- `GET /health/live` - Liveness probe
+- `GET /health/ready` - Readiness probe
 
-[agent.sources.system.metrics]
-cpu = true
-memory = true
-disk = true
-network = true
+### Metrics Endpoints
 
-# Application metrics sources
-[agent.sources.application]
-enabled = true
-endpoint = "http://localhost:8080/metrics"
-interval_seconds = 30
+- `GET /metrics` - JSON metrics
+- `GET /metrics/prometheus` - Prometheus metrics
 
-[agent.sources.application.metrics]
-http_requests = true
-database_queries = true
+### Agent Management
+
+- `GET /agent/info` - Agent information
+- `GET /agent/status` - Agent status
+- `GET /agent/tasks` - Task queue statistics
+- `POST /agent/tasks` - Submit new task
+
+### Cluster Management
+
+- `GET /cluster/state` - Cluster state
+- `GET /cluster/members` - Cluster members
+- `GET /cluster/leader` - Leader status
+
+### Example API Usage
+
+```bash
+# Health check
+curl http://localhost:8083/health
+
+# Get agent info
+curl http://localhost:8082/agent/info
+
+# Get metrics
+curl http://localhost:9092/metrics
+
+# Submit task
+curl -X POST http://localhost:8082/agent/tasks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "task_id": "task-001",
+    "task_type": "Ingestion",
+    "priority": "Normal",
+    "payload": {
+      "Ingestion": {
+        "source_id": "example-source",
+        "format": "json",
+        "location": "file:///tmp/data.json"
+      }
+    }
+  }'
 ```
 
-### Processing Configuration
+## Task Processing
 
-```toml
-# Filtering configuration
-[agent.processing.filters]
-enabled = true
+The agent supports various types of tasks:
 
-[agent.processing.filters.rules]
-"log_level" = { operator = "!=", value = "debug" }
-"cpu_usage" = { operator = ">", value = 80.0 }
+### Task Types
 
-# Transformation configuration
-[agent.processing.transformations]
-enabled = true
+- **Ingestion**: Data ingestion from various sources
+- **Indexing**: Building and maintaining indexes
+- **Processing**: Data transformation and analysis
+- **Query**: Query execution
+- **Maintenance**: System maintenance tasks
 
-[agent.processing.transformations.rules]
-"timestamp" = { type = "timestamp", format = "unix" }
-"cpu_percent" = { type = "rename", to = "cpu_usage" }
+### Task Priority Levels
 
-# Aggregation configuration
-[agent.processing.aggregations]
-enabled = true
-window_seconds = 60
+- **Low**: Background tasks
+- **Normal**: Standard processing tasks
+- **High**: Important tasks
+- **Critical**: Urgent tasks
 
-[agent.processing.aggregations.rules]
-"cpu_usage" = { type = "average", window = 60 }
-"request_count" = { type = "sum", window = 60 }
+### Task Lifecycle
+
+1. **Submitted**: Task is submitted to the queue
+2. **Pending**: Task is waiting in the priority queue
+3. **Running**: Task is being processed
+4. **Completed**: Task completed successfully
+5. **Failed**: Task failed (with retry logic)
+6. **Retrying**: Task is being retried after failure
+
+## Monitoring
+
+### Health Checks
+
+The agent provides comprehensive health monitoring:
+
+- **Resource Usage**: CPU, memory, disk usage
+- **Agent State**: Running, stopped, error states
+- **Connectivity**: Network connectivity checks
+- **Task Processing**: Queue health and processing status
+
+### Metrics
+
+The agent exposes detailed metrics:
+
+- **Task Metrics**: Processing rates, success/failure rates
+- **Resource Metrics**: CPU, memory, disk usage
+- **Performance Metrics**: Response times, throughput
+- **Error Metrics**: Error rates and types
+
+### Prometheus Integration
+
+The agent exports Prometheus metrics for integration with monitoring systems:
+
+```yaml
+# prometheus.yml
+scrape_configs:
+  - job_name: 'orasi-agent'
+    static_configs:
+      - targets: ['localhost:9092']
+    metrics_path: '/metrics/prometheus'
+    scrape_interval: 15s
 ```
+
+## Cluster Coordination
+
+### Service Discovery
+
+The agent supports multiple service discovery backends:
+
+- **etcd**: Distributed key-value store
+- **Consul**: Service mesh and discovery
+- **Static**: Static configuration
+
+### Leader Election
+
+The agent implements distributed leader election for coordination:
+
+- **Election Timeout**: Configurable election timeouts
+- **Leader Responsibilities**: Task distribution, state management
+- **Failover**: Automatic leader failover
+
+### Cluster Membership
+
+- **Dynamic Registration**: Automatic agent registration
+- **Health Monitoring**: Member health tracking
+- **Load Balancing**: Distributed task processing
 
 ## Development
 
-### Building
+### Building from Source
 
 ```bash
-# Build the agent
-cargo build
+# Clone the repository
+git clone https://github.com/chytirio/orasi.git
+cd orasi/app/orasi-agent
 
-# Build with optimizations
+# Build the agent
 cargo build --release
 
-# Build specific binary
-cargo build --bin orasi-agent
+# Run tests
+cargo test
 
-# Build with features
-cargo build --features system-metrics
+# Run example
+cargo run --example basic_agent_example
+```
+
+### Development Setup
+
+```bash
+# Install dependencies
+cargo install cargo-watch
+
+# Run with hot reload
+cargo watch -x run --bin orasi-agent
+
+# Run with specific log level
+RUST_LOG=debug cargo run --bin orasi-agent
 ```
 
 ### Testing
@@ -446,53 +337,40 @@ cargo build --features system-metrics
 cargo test
 
 # Run specific test
-cargo test test_collection
+cargo test test_agent_creation
 
 # Run integration tests
 cargo test --test integration
-
-# Run with logging
-RUST_LOG=debug cargo test
-```
-
-### Development Server
-
-```bash
-# Run development server
-cargo run --bin orasi-agent
-
-# Run with hot reload
-cargo watch -x run --bin orasi-agent
-
-# Run with custom config
-cargo run --bin orasi-agent -- --config config/dev.toml
 ```
 
 ## Deployment
 
-### Docker Deployment
+### Docker Compose
 
-```dockerfile
-FROM rust:1.75 as builder
-WORKDIR /app
-COPY . .
-RUN cargo build --release --bin orasi-agent
+The included `docker-compose.yml` provides a complete development environment:
 
-FROM debian:bookworm-slim
-RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
-COPY --from=builder /app/target/release/orasi-agent /usr/local/bin/
-EXPOSE 8081 9090
-CMD ["orasi-agent"]
+```bash
+# Start all services
+docker-compose up -d
+
+# View logs
+docker-compose logs -f orasi-agent-1
+
+# Stop services
+docker-compose down
 ```
 
-### Kubernetes Deployment
+### Kubernetes
+
+Example Kubernetes deployment:
 
 ```yaml
 apiVersion: apps/v1
-kind: DaemonSet
+kind: Deployment
 metadata:
   name: orasi-agent
 spec:
+  replicas: 3
   selector:
     matchLabels:
       app: orasi-agent
@@ -502,77 +380,71 @@ spec:
         app: orasi-agent
     spec:
       containers:
-      - name: agent
-        image: orasi/agent:latest
+      - name: orasi-agent
+        image: orasi-agent:latest
         ports:
-        - containerPort: 8081
-        - containerPort: 9090
+        - containerPort: 8082
+        - containerPort: 8083
+        - containerPort: 9092
         env:
+        - name: ORASI_AGENT_ID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
         - name: RUST_LOG
           value: "info"
-        volumeMounts:
-        - name: logs
-          mountPath: /var/log
-          readOnly: true
-        - name: config
-          mountPath: /etc/orasi-agent
-        resources:
-          requests:
-            memory: "128Mi"
-            cpu: "100m"
-          limits:
-            memory: "512Mi"
-            cpu: "500m"
-      volumes:
-      - name: logs
-        hostPath:
-          path: /var/log
-      - name: config
-        configMap:
-          name: orasi-agent-config
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: 8083
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: 8083
+          initialDelaySeconds: 5
+          periodSeconds: 5
 ```
 
-## Monitoring
+## Troubleshooting
 
-### Metrics
+### Common Issues
 
-The agent exposes Prometheus metrics at `/metrics`:
+1. **Agent won't start**: Check configuration and dependencies
+2. **Tasks not processing**: Verify task queue and processor status
+3. **Health checks failing**: Check resource usage and connectivity
+4. **Cluster issues**: Verify service discovery configuration
 
-- **Collection metrics**: Data collection rates and volumes
-- **Processing metrics**: Processing latency and throughput
-- **Transmission metrics**: Transmission success rates and latency
-- **Buffer metrics**: Buffer usage and overflow rates
-- **System metrics**: CPU, memory, and disk usage
-
-### Health Checks
-
-Health check endpoints:
-
-- `/health`: Overall agent health
-- `/ready`: Readiness for data collection
-- `/live`: Liveness check
-
-### Logging
-
-Structured logging with configurable levels:
+### Debugging
 
 ```bash
-# Set log level
-export RUST_LOG=info
+# Enable debug logging
+export RUST_LOG=debug
 
-# Enable JSON logging
-export RUST_LOG_JSON=true
+# Check agent status
+curl http://localhost:8082/agent/status
+
+# Check health
+curl http://localhost:8083/health
+
+# Check metrics
+curl http://localhost:9092/metrics
 ```
+
+### Logs
+
+The agent provides comprehensive logging:
+
+- **Application Logs**: Agent operation logs
+- **Task Logs**: Task processing logs
+- **Health Logs**: Health check results
+- **Cluster Logs**: Cluster coordination logs
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests for new functionality
-5. Ensure all tests pass
-6. Submit a pull request
+Please read [CONTRIBUTING.md](../../CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
 
 ## License
 
-This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the Apache License 2.0 - see the [LICENSE](../../LICENSE) file for details.

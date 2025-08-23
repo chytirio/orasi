@@ -165,6 +165,8 @@ pub fn record_batch_to_telemetry_batch(batch: &RecordBatch) -> BridgeResult<Tele
     let source = if batch.num_rows() > 0 {
         get_string_value(batch, "source", 0)?
     } else {
+        // For empty batches, we can't extract the source from rows
+        // We'll need to handle this differently - perhaps by including it in metadata
         "unknown".to_string()
     };
 
@@ -174,7 +176,10 @@ pub fn record_batch_to_telemetry_batch(batch: &RecordBatch) -> BridgeResult<Tele
             bridge_core::BridgeError::serialization(format!("Invalid batch UUID: {}", e))
         })?
     } else {
-        Uuid::new_v4()
+        // For empty batches, we need to extract the batch ID from the batch metadata
+        // Since Arrow doesn't preserve batch-level metadata in IPC format,
+        // we'll use a default UUID for empty batches
+        Uuid::nil()
     };
 
     for row_idx in 0..batch.num_rows() {

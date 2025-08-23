@@ -74,6 +74,7 @@ pub enum ServiceHealthStatus {
     Healthy,
     Degraded,
     Unhealthy,
+    Unknown,
 }
 
 /// Endpoint health status
@@ -95,6 +96,18 @@ pub struct RequestContext {
 
     /// User agent
     pub user_agent: Option<String>,
+
+    /// HTTP method
+    pub method: String,
+
+    /// Request path
+    pub path: String,
+
+    /// Query parameters
+    pub query_params: HashMap<String, String>,
+
+    /// Request body
+    pub body: Option<String>,
 
     /// Request headers
     pub headers: HashMap<String, String>,
@@ -130,6 +143,60 @@ pub struct RouteMatch {
 
     /// Route metadata
     pub metadata: HashMap<String, String>,
+}
+
+/// Route definition
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Route {
+    /// Route path
+    pub path: String,
+
+    /// HTTP method
+    pub method: String,
+
+    /// Service name
+    pub service_name: String,
+
+    /// Route priority
+    pub priority: u32,
+
+    /// Route rules
+    pub rules: Vec<RouteRuleCondition>,
+
+    /// Route metadata
+    pub metadata: HashMap<String, String>,
+}
+
+/// Route rule
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RouteRule {
+    /// Rule path
+    pub path: String,
+
+    /// Service name
+    pub service: String,
+
+    /// HTTP methods
+    pub methods: Vec<String>,
+
+    /// Rule priority
+    pub priority: u32,
+
+    /// Rule metadata
+    pub metadata: HashMap<String, String>,
+}
+
+/// Route rule condition
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum RouteRuleCondition {
+    /// Header condition
+    Header { name: String, value: String },
+
+    /// Query parameter condition
+    QueryParam { name: String, value: String },
+
+    /// Path parameter condition
+    PathParam { name: String, value: String },
 }
 
 /// Load balancer state

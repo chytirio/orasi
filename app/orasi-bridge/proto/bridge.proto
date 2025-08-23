@@ -17,7 +17,7 @@ service BridgeService {
   rpc GetMetrics(GetMetricsRequest) returns (GetMetricsResponse);
   
   // Stream telemetry data
-  // rpc StreamTelemetry(StreamTelemetryRequest) returns (stream StreamTelemetryResponse);
+  rpc StreamTelemetry(StreamTelemetryRequest) returns (stream StreamTelemetryResponse);
 }
 
 // Request for querying telemetry data

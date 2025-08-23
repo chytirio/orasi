@@ -15,10 +15,8 @@ pub use auth::auth_middleware;
 pub use health::health_check_middleware;
 pub use logging::{logging_middleware, metrics_middleware};
 pub use rate_limit::rate_limit_middleware;
-pub use security::{
-    cors_middleware, security_headers_middleware,
-};
+pub use security::{cors_middleware, security_headers_middleware};
 pub use utils::{
-    error_handling_middleware, request_id_middleware, timeout_middleware, size_limit_middleware,
-    compression_middleware, keep_alive_middleware, RequestContext,
+    compression_middleware, error_handling_middleware, keep_alive_middleware,
+    request_id_middleware, size_limit_middleware, timeout_middleware, RequestContext,
 };

@@ -72,6 +72,9 @@ pub struct ServiceDiscoveryConfig {
 
     /// Service health check interval
     pub health_check_interval: Duration,
+
+    /// Consul-specific configuration
+    pub consul: ConsulConfig,
 }
 
 impl Default for ServiceDiscoveryConfig {
@@ -81,6 +84,7 @@ impl Default for ServiceDiscoveryConfig {
             endpoints: vec!["http://localhost:2379".to_string()],
             refresh_interval: Duration::from_secs(30),
             health_check_interval: Duration::from_secs(10),
+            consul: ConsulConfig::default(),
         }
     }
 }
@@ -91,6 +95,29 @@ pub enum ServiceDiscoveryBackend {
     Etcd,
     Consul,
     Static,
+}
+
+/// Consul-specific configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConsulConfig {
+    /// Consul datacenter
+    pub datacenter: String,
+
+    /// Consul ACL token (optional)
+    pub token: Option<String>,
+
+    /// Service prefix for filtering
+    pub service_prefix: String,
+}
+
+impl Default for ConsulConfig {
+    fn default() -> Self {
+        Self {
+            datacenter: "dc1".to_string(),
+            token: None,
+            service_prefix: "orasi".to_string(),
+        }
+    }
 }
 
 /// Load balancing configuration

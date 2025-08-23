@@ -19,5 +19,8 @@ pub mod version;
 pub use core::Schema;
 pub use metadata::{SchemaMetadata, SchemaSearchCriteria};
 pub use types::{CompatibilityMode, SchemaFormat, SchemaType, SchemaVisibility};
-pub use validation::{SchemaValidator, SchemaValidatorTrait, ValidationError, ValidationResult, ValidationStatus, ValidationWarning, is_valid_json, is_valid_yaml};
-pub use version::{SchemaVersion, validate_version_string};
+pub use validation::{
+    is_valid_json, is_valid_yaml, SchemaValidator, SchemaValidatorTrait, ValidationError,
+    ValidationResult, ValidationStatus, ValidationWarning,
+};
+pub use version::{validate_version_string, SchemaVersion};

@@ -108,6 +108,8 @@ impl BridgeIntegrationService {
             max_retries: self.config.max_retries,
             retry_delay_ms: 1000,
             rate_limit_requests_per_second: Some(10),
+            response_format: streaming_processor::sources::http_source::HttpResponseFormat::Json,
+            expected_content_type: None,
         };
 
         // Create filter processor based on query filters

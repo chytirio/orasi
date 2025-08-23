@@ -7,13 +7,16 @@ use uuid::Uuid;
 
 use bridge_core::{
     traits::{QueryResultStatus, TelemetryQueryResult},
-    types::{MetricData, MetricValue, TelemetryData, TelemetryQuery, TelemetryRecord, TelemetryType},
+    types::{
+        MetricData, MetricValue, TelemetryData, TelemetryQuery, TelemetryRecord, TelemetryType,
+    },
     BridgeResult,
 };
 
 use crate::{config::BridgeAPIConfig, metrics::ApiMetrics};
 
 /// Query engine integration service
+#[derive(Clone)]
 pub struct QueryEngineIntegration {
     config: BridgeAPIConfig,
     metrics: ApiMetrics,

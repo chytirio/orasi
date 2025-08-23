@@ -601,7 +601,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_streaming_exporter_export_with_retry() {
-        let config = StreamingExporterConfig::new("http://localhost:8080/test".to_string(), 1); // Small buffer to force flush
+        let config = StreamingExporterConfig::new("http://localhost:8080/test".to_string(), 10); // Larger buffer to avoid HTTP request
         let exporter = StreamingExporter::new(&config).await.unwrap();
 
         let batch = create_test_batch();

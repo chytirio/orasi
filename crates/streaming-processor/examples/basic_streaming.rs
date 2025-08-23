@@ -58,6 +58,8 @@ async fn main() -> BridgeResult<()> {
         max_retries: 3,
         retry_delay_ms: 1000,
         rate_limit_requests_per_second: Some(1), // Limit to 1 request per second
+        response_format: streaming_processor::sources::http_source::HttpResponseFormat::Json,
+        expected_content_type: None,
     };
 
     // Create HTTP source

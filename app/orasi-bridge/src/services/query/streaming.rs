@@ -2,7 +2,10 @@
 
 use bridge_core::{
     traits::{QueryResultStatus, TelemetryQueryResult},
-    types::{MetricData, MetricType, MetricValue, TelemetryBatch, TelemetryData, TelemetryQuery, TelemetryRecord, TelemetryType},
+    types::{
+        MetricData, MetricType, MetricValue, TelemetryBatch, TelemetryData, TelemetryQuery,
+        TelemetryRecord, TelemetryType,
+    },
     BridgeResult,
 };
 use chrono::Utc;
@@ -10,9 +13,7 @@ use std::collections::HashMap;
 use uuid::Uuid;
 
 use streaming_processor::{
-    processors::{
-        filter_processor::{FilterMode, FilterOperator, FilterProcessorConfig, FilterRule},
-    },
+    processors::filter_processor::{FilterMode, FilterOperator, FilterProcessorConfig, FilterRule},
     StreamingProcessorConfig,
 };
 
@@ -126,9 +127,7 @@ pub async fn convert_stream_to_query_result(
 }
 
 /// Create filter configuration based on query filters
-pub async fn create_filter_config(
-    query: &TelemetryQuery,
-) -> BridgeResult<FilterProcessorConfig> {
+pub async fn create_filter_config(query: &TelemetryQuery) -> BridgeResult<FilterProcessorConfig> {
     let mut filter_rules = Vec::new();
 
     // Convert query filters to filter rules
@@ -143,9 +142,7 @@ pub async fn create_filter_config(
             bridge_core::types::FilterOperator::GreaterThanOrEqual => {
                 FilterOperator::GreaterThanOrEqual
             }
-            bridge_core::types::FilterOperator::LessThanOrEqual => {
-                FilterOperator::LessThanOrEqual
-            }
+            bridge_core::types::FilterOperator::LessThanOrEqual => FilterOperator::LessThanOrEqual,
             bridge_core::types::FilterOperator::In => FilterOperator::In,
             bridge_core::types::FilterOperator::NotIn => FilterOperator::NotIn,
             bridge_core::types::FilterOperator::StartsWith => FilterOperator::Contains, // Map to Contains for now

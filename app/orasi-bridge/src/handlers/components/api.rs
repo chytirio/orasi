@@ -13,7 +13,7 @@ use crate::{
     types::*,
 };
 
-use super::{health, discovery};
+use super::{discovery, health};
 
 /// Component status handler
 pub async fn component_status_handler(

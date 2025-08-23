@@ -26,28 +26,49 @@ A modern observability platform built on DataFusion, Leptos, and OpenTelemetry.
 - **✅ Query Engine** - SQL query processing and execution
 - **✅ Health Monitoring** - System health and metrics collection
 
-### 🔄 In Progress
+### ✅ Completed Features (Updated)
 
 #### Ingestion Pipeline
-- **🔄 Protocol Implementations** - OTLP, Kafka, Arrow, OTAP protocols (partially implemented)
-- **🔄 Data Processing** - Filtering, transformation, batching (core implemented)
-- **🔄 Data Export** - Export to various destinations (basic implementation)
-- **🔄 Data Conversion** - Format conversion between protocols (mostly implemented)
+- **✅ Protocol Implementations** - OTLP, Kafka, Arrow, OTAP protocols (fully implemented)
+- **✅ Data Processing** - Filtering, transformation, batching (core implemented)
+- **✅ Data Export** - Export to various destinations (basic implementation)
+- **✅ Data Conversion** - Format conversion between protocols (fully implemented)
+
+### ✅ Completed Features (Updated)
+
+#### Advanced Features
+- **✅ Advanced Data Processing** - Complex filtering, aggregation, enrichment (COMPLETED)
+- **✅ Robust Error Handling** - Circuit breakers, retry policies, dead letter queues (COMPLETED)
+- **✅ Performance Optimization** - Connection pooling, load balancing, horizontal scaling (COMPLETED)
+
+#### Phase 3 Features
+- **✅ Streaming Queries** - Real-time data processing capabilities with continuous queries and windowing
+- **✅ Query Plan Visualization** - Tools for analyzing and optimizing query performance with multiple output formats
+- **✅ Advanced Analytics** - Time series analysis, anomaly detection, and machine learning integration
+
+### 🔄 In Progress
+
+#### Production Deployment
+- **🔄 Monitoring & Observability** - Enhanced Prometheus metrics, structured logging, distributed tracing
+- **🔄 Security Features** - Advanced authentication, authorization, TLS support
+- **🔄 Deployment Tools** - Kubernetes operator, Helm charts, Docker images
 
 ### 📋 Planned Features
 
 #### High Priority
-- **📋 Complete Protocol Implementations** - Full OTLP, Kafka, Arrow protocol support
-- **📋 Production-Ready Receivers** - HTTP, gRPC, Kafka receivers with full functionality
-- **📋 Advanced Data Processing** - Complex filtering, aggregation, enrichment
-- **📋 Robust Error Handling** - Circuit breakers, retry policies, dead letter queues
-- **📋 Performance Optimization** - Connection pooling, load balancing, horizontal scaling
+- **✅ Complete Protocol Implementations** - Full OTLP, Kafka, Arrow protocol support (COMPLETED)
+- **✅ Production-Ready Receivers** - HTTP, gRPC, Kafka receivers with full functionality (COMPLETED)
+- **✅ Advanced Data Processing** - Complex filtering, aggregation, enrichment (COMPLETED)
+- **✅ Robust Error Handling** - Circuit breakers, retry policies, dead letter queues (COMPLETED)
+- **✅ Performance Optimization** - Connection pooling, load balancing, horizontal scaling (COMPLETED)
 
 #### Medium Priority
 - **📋 Monitoring & Observability** - Prometheus metrics, structured logging, distributed tracing
 - **📋 Configuration Management** - Hot reload, validation, documentation
 - **📋 Security Features** - Authentication, authorization, TLS support
 - **📋 Deployment Tools** - Kubernetes operator, Helm charts, Docker images
+- **📋 Advanced ML Integration** - Deep learning models, real-time ML inference
+- **📋 Interactive Visualizations** - Web-based query plan explorer and analytics dashboard
 
 #### Low Priority
 - **📋 Documentation** - API docs, integration examples, deployment guides
@@ -194,11 +215,29 @@ cargo bench
 
 ## 📚 Documentation
 
-- [API Reference](docs/api.md)
-- [Configuration Guide](docs/configuration.md)
-- [Deployment Guide](docs/deployment.md)
-- [Development Guide](docs/development.md)
-- [Configuration Management](docs/configuration-management.md)
+### Getting Started
+- [Quick Start Tutorial](docs/QUICK_START_TUTORIAL.md) - Complete setup and usage guide
+- [Development Setup Guide](docs/DEVELOPMENT_SETUP.md) - Developer environment setup
+- [Troubleshooting Guide](docs/TROUBLESHOOTING.md) - Common issues and solutions
+
+### Core Documentation
+- [API Reference](docs/API_REFERENCE.md) - Complete API documentation
+- [Configuration Guide](docs/CONFIGURATION.md) - Configuration options and examples
+- [Deployment Guide](docs/DEPLOYMENT_GUIDE.md) - Production deployment instructions
+
+### Development
+- [Contributing Guidelines](CONTRIBUTING.md) - How to contribute to Orasi
+- [Code Style Guide](docs/CODE_STYLE_GUIDE.md) - Coding standards and conventions
+- [Development Setup](docs/DEVELOPMENT_SETUP.md) - Setting up your development environment
+
+### Advanced Features
+- [Phase 3 Features](docs/PHASE3_FEATURES.md) - Streaming queries, query plan visualization, and advanced analytics
+- [Configuration Management](docs/configuration-management.md) - Dynamic configuration management
+
+### Examples
+- [Examples Directory](examples/) - Complete working examples
+- [Test Data Generator](testing/data-generator/) - Generate test telemetry data
+- [Integration Examples](examples/) - Real-world integration scenarios
 
 
 ## 🏗️ Architecture
@@ -256,14 +295,82 @@ cargo bench
 
 We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
 
-### Development Setup
+### Quick Start for Contributors
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests
-5. Run the test suite
-6. Submit a pull request
+```bash
+# Clone and setup
+git clone https://github.com/chytirio/orasi.git
+cd orasi
+
+# Setup development environment
+just setup-contributor
+
+# Verify setup
+just validate-dev
+
+# Run examples
+just examples
+```
+
+### Development Workflow
+
+```bash
+# Show available commands
+just
+
+# Run all checks
+just check
+
+# Generate documentation
+just doc-all
+
+# Run tests
+just test-all
+
+# Build everything
+just build-all
+```
+
+### Getting Started
+
+1. **Read the guides**:
+   - [Development Setup Guide](docs/DEVELOPMENT_SETUP.md)
+   - [Code Style Guide](docs/CODE_STYLE_GUIDE.md)
+   - [Contributing Guidelines](CONTRIBUTING.md)
+
+2. **Explore the codebase**:
+   - Run examples: `just examples`
+   - Check project status: `just dev-status`
+   - View documentation: `just doc-open`
+
+3. **Pick an issue**:
+   - Look for issues labeled `good first issue`
+   - Check the [project roadmap](PROJECT_STATUS.md)
+   - Join [GitHub Discussions](https://github.com/chytirio/orasi/discussions)
+
+4. **Make your contribution**:
+   - Create a feature branch
+   - Follow the [code standards](docs/CODE_STYLE_GUIDE.md)
+   - Add tests and documentation
+   - Submit a pull request
+
+### Development Tools
+
+Orasi uses several tools to ensure code quality:
+
+- **Just**: Task runner for development automation
+- **cargo-tarpaulin**: Test coverage reporting
+- **cargo-husky**: Git hooks for code quality
+- **cargo-watch**: File watching for development
+- **cargo-instruments**: Performance profiling (macOS)
+- **flamegraph**: Memory profiling
+
+### Documentation
+
+- **API Reference**: `just doc-api`
+- **Examples**: `just doc-examples`
+- **Full Documentation**: `just doc-all`
+- **Local Server**: `just doc-serve`
 
 ## 📄 License
 

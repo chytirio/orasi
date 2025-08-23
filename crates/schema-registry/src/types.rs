@@ -36,7 +36,3 @@ pub struct ComponentSchema {
     /// Component tags
     pub tags: Vec<String>,
 }
-
-
-
-

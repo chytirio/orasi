@@ -7,6 +7,7 @@ words:
   - chrono
   - clippy
   - datafusion
+  - datatypes
   - deltalake
   - healthcheck
   - hudi
@@ -21,18 +22,22 @@ words:
   - Leptos
   - minioadmin
   - monokai
+  - nanos
   - nocapture
   - orasi
   - OTAP
   - prost
+  - rdkafka
   - reqwest
   - rlib
   - rustc
   - rustup
+  - sasl
   - serde
   - sqlx
   - stylesheet
   - thiserror
   - trino
+  - UFIX
 ignoreWords: []
 import: []

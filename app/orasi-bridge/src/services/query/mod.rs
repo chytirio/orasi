@@ -7,15 +7,15 @@
 //! - Query conversion utilities
 //! - Streaming query functionality
 
-pub mod engine;
-pub mod service;
-pub mod execution;
 pub mod conversion;
+pub mod engine;
+pub mod execution;
+pub mod service;
 pub mod streaming;
 
 // Re-export main functionality for convenience
-pub use engine::*;
-pub use service::*;
-pub use execution::*;
 pub use conversion::*;
+pub use engine::*;
+pub use execution::*;
+pub use service::*;
 pub use streaming::*;

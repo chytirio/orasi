@@ -19,6 +19,7 @@
   - [x] Utility generators (IdGenerator, TimeGenerator, DistributionGenerator, CorrelationGenerator)
   - [x] GeneratorOrchestrator for coordinating all generators
   - [x] Scenario-specific generation (development, failure, scale, evolution)
+- [x] **Protocol Integration** - Integration with OTLP, Kafka, Arrow, and OTAP protocols
 
 ### 🔄 In Progress
 - [ ] Scenario execution framework
@@ -709,9 +710,17 @@
 - [x] Sample configuration file
 - [x] Configuration validation
 
+### Milestone 4: Protocol Integration ✅
+- [x] OTLP gRPC protocol support
+- [x] OTLP Arrow protocol support
+- [x] OTAP protocol support
+- [x] Kafka protocol support
+- [x] Protocol factory and message handlers
+- [x] Integration testing
+
 ---
 
-**Last Updated**: 2024-01-XX
-**Next Review**: 2024-02-XX
+**Last Updated**: 2025-01-27
+**Next Review**: 2025-02-27
 
 **Note**: This TODO file should be updated regularly as items are completed and new requirements are identified. Priority levels may be adjusted based on project needs and feedback.

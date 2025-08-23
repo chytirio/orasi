@@ -1,0 +1,103 @@
+version: '3.8'
+
+services:
+  # etcd for service discovery
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.0
+    container_name: orasi-etcd
+    environment:
+      ETCD_NAME: etcd0
+      ETCD_LISTEN_CLIENT_URLS: http://0.0.0.0:2379
+      ETCD_ADVERTISE_CLIENT_URLS: http://etcd:2379
+      ETCD_LISTEN_PEER_URLS: http://0.0.0.0:2380
+      ETCD_INITIAL_ADVERTISE_PEER_URLS: http://etcd:2380
+      ETCD_INITIAL_CLUSTER: etcd0=http://etcd:2380
+      ETCD_INITIAL_CLUSTER_TOKEN: orasi-cluster
+      ETCD_INITIAL_CLUSTER_STATE: new
+    ports:
+      - "2379:2379"
+      - "2380:2380"
+    volumes:
+      - etcd_data:/etcd-data
+    command: etcd
+
+  # Prometheus for metrics collection
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    container_name: orasi-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+
+  # Grafana for visualization
+  grafana:
+    image: grafana/grafana:10.0.0
+    container_name: orasi-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources
+
+  # Orasi Agent 1
+  orasi-agent-1:
+    build: .
+    container_name: orasi-agent-1
+    ports:
+      - "8082:8082"
+      - "8083:8083"
+      - "9092:9092"
+      - "8084:8084"
+    environment:
+      - RUST_LOG=info
+      - ORASI_AGENT_ID=agent-001
+      - ORASI_AGENT_ENDPOINT=0.0.0.0:8082
+      - ORASI_HEALTH_ENDPOINT=0.0.0.0:8083
+      - ORASI_METRICS_ENDPOINT=0.0.0.0:9092
+      - ORASI_CLUSTER_ENDPOINT=0.0.0.0:8084
+    volumes:
+      - agent_1_data:/var/lib/orasi/agent
+    depends_on:
+      - etcd
+    restart: unless-stopped
+
+  # Orasi Agent 2
+  orasi-agent-2:
+    build: .
+    container_name: orasi-agent-2
+    ports:
+      - "8085:8082"
+      - "8086:8083"
+      - "9093:9092"
+      - "8087:8084"
+    environment:
+      - RUST_LOG=info
+      - ORASI_AGENT_ID=agent-002
+      - ORASI_AGENT_ENDPOINT=0.0.0.0:8082
+      - ORASI_HEALTH_ENDPOINT=0.0.0.0:8083
+      - ORASI_METRICS_ENDPOINT=0.0.0.0:9092
+      - ORASI_CLUSTER_ENDPOINT=0.0.0.0:8084
+    volumes:
+      - agent_2_data:/var/lib/orasi/agent
+    depends_on:
+      - etcd
+    restart: unless-stopped
+
+volumes:
+  etcd_data:
+  prometheus_data:
+  grafana_data:
+  agent_1_data:
+  agent_2_data:

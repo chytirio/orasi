@@ -7,12 +7,14 @@
 //! This module provides processor implementations for processing and transforming
 //! telemetry data during ingestion.
 
+pub mod aggregate_processor;
 pub mod batch_processor;
 pub mod enrichment_processor;
 pub mod filter_processor;
 pub mod transform_processor;
 
 // Re-export processor implementations
+pub use aggregate_processor::{AggregateProcessor, AggregateProcessorConfig};
 pub use batch_processor::BatchProcessor;
 pub use enrichment_processor::{EnrichmentProcessor, EnrichmentProcessorConfig};
 pub use filter_processor::FilterProcessor;

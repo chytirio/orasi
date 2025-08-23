@@ -4,7 +4,10 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::schema::{Schema, SchemaMetadata, validation::{ValidationError, ValidationWarning}};
+use crate::schema::{
+    validation::{ValidationError, ValidationWarning},
+    Schema, SchemaMetadata,
+};
 
 /// Health check response
 #[derive(Debug, Serialize)]

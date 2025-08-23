@@ -260,6 +260,11 @@ POST /v1/query/stream          # Streaming query execution
 GET  /v1/schemas               # List available schemas
 ```
 
+#### Streaming Telemetry
+```
+POST /v1/telemetry/stream      # Stream telemetry data in batches
+```
+
 #### Schema Management
 ```
 GET    /v1/schemas             # List schemas
@@ -297,6 +302,17 @@ service SchemaService {
   rpc ListSchemas(ListSchemasRequest) returns (ListSchemasResponse);
   rpc UpdateSchema(UpdateSchemaRequest) returns (UpdateSchemaResponse);
   rpc DeleteSchema(DeleteSchemaRequest) returns (DeleteSchemaResponse);
+}
+```
+
+#### BridgeService (gRPC)
+```protobuf
+service BridgeService {
+  rpc QueryTelemetry(QueryTelemetryRequest) returns (QueryTelemetryResponse);
+  rpc StreamTelemetry(StreamTelemetryRequest) returns (stream StreamTelemetryResponse);
+  rpc GetStatus(GetStatusRequest) returns (GetStatusResponse);
+  rpc UpdateConfig(UpdateConfigRequest) returns (UpdateConfigResponse);
+  rpc GetMetrics(GetMetricsRequest) returns (GetMetricsResponse);
 }
 ```
 
@@ -475,6 +491,110 @@ export RUST_LOG=info
 # Enable JSON logging
 export RUST_LOG_JSON=true
 ```
+
+## Streaming Telemetry
+
+The Orasi Bridge provides a powerful streaming telemetry API that allows you to efficiently retrieve large volumes of telemetry data in real-time batches.
+
+### Features
+
+- **Batch Processing**: Data is streamed in configurable batch sizes
+- **Real-time Streaming**: Low-latency data delivery with gRPC streaming
+- **Pagination Support**: Automatic pagination for large datasets
+- **Error Handling**: Robust error handling with graceful degradation
+- **Timeout Protection**: Configurable timeouts to prevent infinite streaming
+- **Resource Limits**: Built-in limits to prevent resource exhaustion
+
+### gRPC Streaming Example
+
+```rust
+use tonic::{Request, Response};
+use bridge_api::proto::bridge::grpc::{
+    bridge_service_client::BridgeServiceClient,
+    StreamTelemetryRequest, TimeRange, Filter,
+};
+use tokio_stream::StreamExt;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Connect to the bridge service
+    let mut client = BridgeServiceClient::connect("http://[::1]:50051").await?;
+
+    // Create a streaming telemetry request
+    let request = StreamTelemetryRequest {
+        query_type: "traces".to_string(),
+        time_range: Some(TimeRange {
+            start_time: chrono::Utc::now().timestamp() - 3600, // 1 hour ago
+            end_time: chrono::Utc::now().timestamp(),
+        }),
+        filters: vec![
+            Filter {
+                field: "service.name".to_string(),
+                operator: "eq".to_string(),
+                value: "example-service".to_string(),
+            },
+        ],
+        batch_size: 100,
+    };
+
+    // Make the streaming request
+    let request = Request::new(request);
+    let mut stream = client.stream_telemetry(request).await?.into_inner();
+
+    // Process the streaming response
+    let mut total_records = 0;
+    while let Some(result) = stream.next().await {
+        match result {
+            Ok(response) => {
+                total_records += response.records.len();
+                println!("Received batch: {} records (total: {})", 
+                    response.records.len(), total_records);
+
+                if response.is_last_batch {
+                    break;
+                }
+            }
+            Err(e) => {
+                eprintln!("Error receiving stream: {}", e);
+                break;
+            }
+        }
+    }
+
+    println!("Streaming completed. Total records: {}", total_records);
+    Ok(())
+}
+```
+
+### Request Parameters
+
+- **query_type**: Type of telemetry data to stream (`traces`, `metrics`, `logs`)
+- **time_range**: Optional time range filter (start_time, end_time)
+- **filters**: Array of field filters for data filtering
+- **batch_size**: Number of records per batch (1-1000, default: 100)
+
+### Response Format
+
+Each batch response contains:
+- **records**: Array of telemetry records in this batch
+- **is_last_batch**: Boolean indicating if this is the final batch
+- **total_processed**: Total number of records processed so far
+
+### Error Handling
+
+The streaming API includes comprehensive error handling:
+
+- **Validation Errors**: Invalid request parameters
+- **Timeout Errors**: Stream timeout after 5 minutes
+- **Resource Errors**: Maximum batch limit exceeded (1000 batches)
+- **Connection Errors**: Client disconnection handling
+
+### Performance Considerations
+
+- **Batch Size**: Optimal batch size depends on your use case (100-500 records)
+- **Timeout**: Default 5-minute timeout, adjustable via configuration
+- **Memory Usage**: Each batch is processed independently to minimize memory usage
+- **Network**: gRPC streaming provides efficient network utilization
 
 ## Contributing
 

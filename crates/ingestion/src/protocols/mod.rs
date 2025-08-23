@@ -13,6 +13,9 @@ pub mod otap;
 pub mod otlp_arrow;
 pub mod otlp_grpc;
 
+#[cfg(test)]
+mod integration_test;
+
 // Re-export protocol implementations
 pub use kafka::KafkaProtocol;
 pub use otap::OtapProtocol;

@@ -1,0 +1,74 @@
+# Schema Registry Configuration Example (YAML)
+# This file shows all available configuration options
+
+version: "1.0.0"
+
+storage:
+  # Storage backend type: Memory, Sqlite, Postgres, Redis
+  backend: Memory
+  connection_string: "memory://"
+  max_connections: 10
+  connection_timeout: 30
+  
+  postgres:
+    url: "postgresql://localhost:5432/schema_registry"
+    database: "schema_registry"
+    username: "postgres"
+    password: ""
+    host: "localhost"
+    port: 5432
+    ssl_mode: "disable"
+    pool_size: 10
+  
+  sqlite:
+    database_path: "schema_registry.db"
+    enable_wal: true
+    connection_timeout: 30
+    journal_mode: "WAL"
+  
+  redis:
+    url: "redis://localhost:6379"
+    host: "localhost"
+    port: 6379
+    password: ""
+    database: 0
+    pool_size: 10
+    connection_timeout: 30
+    read_timeout: 10
+    write_timeout: 10
+    key_prefix: "schema_registry:"
+
+api:
+  host: "127.0.0.1"
+  port: 8080
+  base_path: "/api/v1"
+  max_request_size: 10485760  # 10MB
+  request_timeout: 30
+  enable_cors: true
+  cors_origins: ["*"]
+  enable_cache: true
+  cache_ttl_seconds: 30
+  cache_max_entries: 1024
+
+validation:
+  enable_validation: true
+  strict_mode: false
+  max_schema_size: 1048576  # 1MB
+  allowed_formats: [Json, Yaml]
+
+security:
+  enable_auth: false
+  auth_type: None  # None, ApiKey, Jwt, OAuth2
+  api_key_header: "X-API-Key"
+  allowed_api_keys: ["test-api-key"]
+  rate_limiting: false
+  rate_limit_per_minute: 1000
+
+monitoring:
+  enable_metrics: true
+  metrics_endpoint: "/metrics"
+  enable_health_checks: true
+  health_check_endpoint: "/health"
+  enable_structured_logging: true
+  log_level: "info"
+  log_format: Json

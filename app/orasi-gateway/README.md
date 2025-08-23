@@ -67,6 +67,9 @@ cargo build --release
 
 # Run in development mode
 cargo run --bin orasi-gateway
+
+# Run the example
+cargo run --example basic_gateway_example
 ```
 
 ### Docker Deployment
@@ -76,361 +79,374 @@ cargo run --bin orasi-gateway
 docker build -t orasi-gateway .
 
 # Run with Docker Compose
-docker-compose up -d gateway
+docker-compose up -d
 
 # Run standalone container
-docker run -p 80:80 -p 443:443 orasi-gateway
+docker run -p 8080:8080 -p 8081:8081 orasi-gateway
 ```
 
-### Basic Configuration
-
-```toml
-# gateway.toml
-[gateway]
-host = "0.0.0.0"
-port = 80
-ssl_port = 443
-workers = 4
-
-[gateway.ssl]
-enabled = true
-cert_file = "/etc/ssl/certs/gateway.crt"
-key_file = "/etc/ssl/private/gateway.key"
-
-[gateway.routing]
-default_service = "bridge-api"
-enable_health_checks = true
-health_check_interval = 30
-
-[gateway.load_balancing]
-algorithm = "round_robin"
-enable_sticky_sessions = false
-session_timeout = 3600
-
-[gateway.rate_limiting]
-enabled = true
-requests_per_minute = 1000
-burst_size = 100
-
-[gateway.circuit_breaker]
-enabled = true
-failure_threshold = 5
-recovery_timeout = 60
-half_open_max_requests = 3
-
-[gateway.caching]
-enabled = true
-cache_size_mb = 512
-ttl_seconds = 300
-
-[gateway.auth]
-enabled = true
-jwt_secret = "your-secret-key"
-api_key_header = "X-API-Key"
-
-[gateway.monitoring]
-metrics_enabled = true
-metrics_port = 9090
-tracing_enabled = true
-```
-
-## API Routing
-
-### Service Discovery
-
-The gateway automatically discovers and routes to backend services:
-
-```toml
-[gateway.services]
-bridge-api = "http://bridge-api:8080"
-query-engine = "http://query-engine:8081"
-schema-registry = "http://schema-registry:8082"
-streaming-processor = "http://streaming-processor:8083"
-```
-
-### Route Configuration
-
-```toml
-[gateway.routes]
-# API routes
-"/v1/ingest/*" = { service = "bridge-api", rate_limit = 1000 }
-"/v1/query/*" = { service = "query-engine", rate_limit = 500 }
-"/v1/schemas/*" = { service = "schema-registry", rate_limit = 200 }
-"/v1/stream/*" = { service = "streaming-processor", rate_limit = 100 }
-
-# Health and monitoring routes
-"/health" = { service = "bridge-api", cache = false }
-"/metrics" = { service = "bridge-api", cache = false }
-"/ready" = { service = "bridge-api", cache = false }
-```
-
-### Load Balancing Configuration
-
-```toml
-[gateway.load_balancing]
-algorithm = "least_connections"
-health_check_path = "/health"
-health_check_interval = 30
-health_check_timeout = 5
-
-[gateway.load_balancing.services.bridge-api]
-instances = [
-    "http://bridge-api-1:8080",
-    "http://bridge-api-2:8080",
-    "http://bridge-api-3:8080"
-]
-weights = [1, 1, 1]
-```
-
-## Usage Examples
-
-### Basic API Request
+### Environment Variables
 
 ```bash
-# Request through gateway
-curl -X POST http://gateway:80/v1/ingest/otlp \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer your-jwt-token" \
-  -d '{
-    "resource": {
-      "attributes": {
-        "service.name": "my-service"
-      }
-    },
-    "spans": [
-      {
-        "name": "http_request",
-        "start_time": "2024-01-01T00:00:00Z",
-        "end_time": "2024-01-01T00:00:01Z"
-      }
-    ]
-  }'
+# Gateway configuration
+export GATEWAY_ID="orasi-gateway-1"
+export GATEWAY_ENDPOINT="0.0.0.0:8080"
+export HEALTH_ENDPOINT="0.0.0.0:8081"
+export METRICS_ENDPOINT="0.0.0.0:9090"
+export ADMIN_ENDPOINT="0.0.0.0:8082"
+
+# Logging
+export RUST_LOG="info"
+
+# Configuration file
+export GATEWAY_CONFIG="config/gateway.toml"
 ```
 
-### gRPC Request
+## Configuration
 
-```rust
-use tonic::{transport::Channel, Request};
-use orasi_gateway::grpc::{
-    gateway_service_client::GatewayServiceClient,
-    IngestRequest,
-};
-
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Connect to gateway
-    let channel = Channel::from_static("http://gateway:80")
-        .connect()
-        .await?;
-    
-    let mut client = GatewayServiceClient::new(channel);
-    
-    // Request will be routed to appropriate backend service
-    let request = Request::new(IngestRequest {
-        data: "telemetry data".to_string(),
-    });
-    
-    let response = client.ingest(request).await?;
-    println!("Response: {:?}", response);
-    
-    Ok(())
-}
-```
-
-### Rate Limiting Example
-
-```bash
-# Request with rate limiting
-for i in {1..10}; do
-  curl -X GET http://gateway:80/v1/schemas \
-    -H "X-API-Key: your-api-key"
-  echo "Request $i"
-  sleep 0.1
-done
-```
-
-## Architecture
-
-The Orasi Gateway follows a layered architecture with clear separation of concerns:
-
-```
-┌─────────────────┐
-│   Orasi Gateway │
-├─────────────────┤
-│  Request Router │
-│  Load Balancer  │
-│  Rate Limiter   │
-│  Auth Middleware│
-│  Cache Layer    │
-│  Circuit Breaker│
-├─────────────────┤
-│  Service Discovery│
-│  Health Monitor │
-│  Metrics        │
-│  Tracing        │
-└─────────────────┘
-```
-
-### Core Components
-
-1. **Request Router**: Routes requests to appropriate backend services
-2. **Load Balancer**: Distributes traffic across service instances
-3. **Rate Limiter**: Enforces rate limiting policies
-4. **Auth Middleware**: Handles authentication and authorization
-5. **Cache Layer**: Caches responses for improved performance
-6. **Circuit Breaker**: Protects against cascading failures
-7. **Service Discovery**: Discovers and monitors backend services
-8. **Health Monitor**: Monitors backend service health
-9. **Metrics**: Collects and exposes metrics
-10. **Tracing**: Distributed tracing support
-
-## Configuration Reference
-
-### Gateway Configuration
+The gateway supports comprehensive configuration through TOML files:
 
 ```toml
-[gateway]
-# Basic settings
-host = "0.0.0.0"
-port = 80
-ssl_port = 443
-workers = 4
+# Gateway identification
+gateway_id = "orasi-gateway-1"
 
-# SSL/TLS configuration
-[gateway.ssl]
-enabled = true
-cert_file = "/etc/ssl/certs/gateway.crt"
-key_file = "/etc/ssl/private/gateway.key"
-ca_file = "/etc/ssl/certs/ca.crt"
+# Gateway endpoints
+gateway_endpoint = "0.0.0.0:8080"
+health_endpoint = "0.0.0.0:8081"
+metrics_endpoint = "0.0.0.0:9090"
+admin_endpoint = "0.0.0.0:8082"
 
-# Routing configuration
-[gateway.routing]
-default_service = "bridge-api"
-enable_health_checks = true
-health_check_interval = 30
-health_check_timeout = 5
+# Service discovery configuration
+[service_discovery]
+backend = "Etcd"
+endpoints = ["http://localhost:2379"]
+refresh_interval = 30
+health_check_interval = 10
 
 # Load balancing configuration
-[gateway.load_balancing]
-algorithm = "round_robin"  # round_robin, least_connections, weighted
-enable_sticky_sessions = false
-session_timeout = 3600
+[load_balancing]
+algorithm = "RoundRobin"
+health_check_enabled = true
+health_check_interval = 30
+health_check_timeout = 5
+sticky_sessions_enabled = false
+sticky_session_timeout = 300
+
+# Routing configuration
+[routing]
+timeout_seconds = 30
+max_retries = 3
+retry_delay_ms = 1000
+circuit_breaker_enabled = true
+circuit_breaker_threshold = 5
+circuit_breaker_timeout = 60
+
+# Default routes
+[[routing.routes]]
+path = "/api/v1/*"
+method = "*"
+service_name = "bridge-api"
+priority = 100
+rules = []
+
+[[routing.routes]]
+path = "/agent/*"
+method = "*"
+service_name = "orasi-agent"
+priority = 90
+rules = []
 
 # Rate limiting configuration
-[gateway.rate_limiting]
+[rate_limiting]
+global_rps = 1000
+per_client_rps = 100
+per_endpoint_rps = 500
+burst_size = 200
+window_size_seconds = 60
 enabled = true
-requests_per_minute = 1000
-burst_size = 100
-per_client = true
-per_endpoint = true
-
-# Circuit breaker configuration
-[gateway.circuit_breaker]
-enabled = true
-failure_threshold = 5
-recovery_timeout = 60
-half_open_max_requests = 3
-
-# Caching configuration
-[gateway.caching]
-enabled = true
-cache_size_mb = 512
-ttl_seconds = 300
-max_entries = 10000
-
-# Authentication configuration
-[gateway.auth]
-enabled = true
-jwt_secret = "your-secret-key"
-api_key_header = "X-API-Key"
-token_expiry_seconds = 3600
-
-# Monitoring configuration
-[gateway.monitoring]
-metrics_enabled = true
-metrics_port = 9090
-tracing_enabled = true
-log_level = "info"
 ```
 
-### Service Configuration
+## HTTP API
 
+The gateway exposes a comprehensive HTTP API for management and monitoring:
+
+### Health Endpoints
+
+```bash
+# Overall health check
+GET /health
+
+# Liveness probe
+GET /health/live
+
+# Readiness probe
+GET /health/ready
+```
+
+### Metrics Endpoints
+
+```bash
+# JSON metrics
+GET /metrics
+
+# Prometheus metrics
+GET /metrics/prometheus
+```
+
+### Gateway Management
+
+```bash
+# Gateway information
+GET /gateway/info
+
+# Gateway status
+GET /gateway/status
+
+# List all routes
+GET /gateway/routes
+
+# Add new route
+POST /gateway/routes
+Content-Type: application/json
+
+{
+  "path": "/api/v2/*",
+  "method": "*",
+  "service_name": "bridge-api-v2",
+  "priority": 95,
+  "rules": []
+}
+
+# Remove route
+DELETE /gateway/routes/api/v2/*?method=GET
+```
+
+### Load Balancer Management
+
+```bash
+# List all endpoints
+GET /loadbalancer/endpoints
+
+# Get service endpoints
+GET /loadbalancer/endpoints/bridge-api
+
+# Load balancer health
+GET /loadbalancer/health
+```
+
+### Rate Limiter Management
+
+```bash
+# Get rate limit statistics
+GET /ratelimiter/stats
+
+# Reset rate limit counters
+POST /ratelimiter/reset
+```
+
+### Example API Usage
+
+```bash
+# Check gateway health
+curl http://localhost:8081/health
+
+# Get gateway metrics
+curl http://localhost:9090/metrics/prometheus
+
+# List all routes
+curl http://localhost:8082/gateway/routes
+
+# Add a new route
+curl -X POST http://localhost:8082/gateway/routes \
+  -H "Content-Type: application/json" \
+  -d '{
+    "path": "/api/v1/users/*",
+    "method": "*",
+    "service_name": "user-service",
+    "priority": 80,
+    "rules": []
+  }'
+
+# Get rate limit statistics
+curl http://localhost:8082/ratelimiter/stats
+```
+
+## Load Balancing
+
+The gateway supports multiple load balancing algorithms:
+
+### Round Robin
 ```toml
-[gateway.services]
-bridge-api = "http://bridge-api:8080"
-query-engine = "http://query-engine:8081"
-schema-registry = "http://schema-registry:8082"
-streaming-processor = "http://streaming-processor:8083"
+[load_balancing]
+algorithm = "RoundRobin"
+```
 
-[gateway.services.bridge-api]
-instances = [
-    "http://bridge-api-1:8080",
-    "http://bridge-api-2:8080",
-    "http://bridge-api-3:8080"
+### Least Connections
+```toml
+[load_balancing]
+algorithm = "LeastConnections"
+```
+
+### Weighted Round Robin
+```toml
+[load_balancing]
+algorithm = "WeightedRoundRobin"
+```
+
+### Random Selection
+```toml
+[load_balancing]
+algorithm = "Random"
+```
+
+### IP Hash
+```toml
+[load_balancing]
+algorithm = "IpHash"
+```
+
+## Rate Limiting
+
+The gateway implements comprehensive rate limiting:
+
+### Global Rate Limiting
+```toml
+[rate_limiting]
+global_rps = 1000
+```
+
+### Per-client Rate Limiting
+```toml
+[rate_limiting]
+per_client_rps = 100
+```
+
+### Per-endpoint Rate Limiting
+```toml
+[rate_limiting]
+per_endpoint_rps = 500
+```
+
+### Rate Limit Headers
+The gateway adds rate limit headers to responses:
+- `X-RateLimit-Limit`: Request limit per window
+- `X-RateLimit-Remaining`: Remaining requests in current window
+- `X-RateLimit-Reset`: Time when the rate limit resets
+- `Retry-After`: Time to wait before retrying (when rate limited)
+
+## Routing
+
+The gateway supports flexible routing with multiple matching criteria:
+
+### Path-based Routing
+```toml
+[[routing.routes]]
+path = "/api/v1/*"
+method = "*"
+service_name = "bridge-api"
+```
+
+### Method-based Routing
+```toml
+[[routing.routes]]
+path = "/api/v1/users"
+method = "GET"
+service_name = "user-service"
+```
+
+### Header-based Routing
+```toml
+[[routing.routes]]
+path = "/api/v1/data"
+method = "POST"
+service_name = "data-service"
+rules = [
+  { type = "header", name = "X-Version", value = "v2" }
 ]
-weights = [1, 1, 1]
-health_check_path = "/health"
 ```
 
-### Route Configuration
-
+### Query Parameter Routing
 ```toml
-[gateway.routes]
-# API routes with specific configurations
-"/v1/ingest/*" = { 
-    service = "bridge-api", 
-    rate_limit = 1000,
-    cache = false,
-    timeout = 30
-}
+[[routing.routes]]
+path = "/api/v1/search"
+method = "GET"
+service_name = "search-service"
+rules = [
+  { type = "query_param", name = "engine", value = "elasticsearch" }
+]
+```
 
-"/v1/query/*" = { 
-    service = "query-engine", 
-    rate_limit = 500,
-    cache = true,
-    timeout = 60
-}
+### Route Priority
+Routes are matched by priority (higher numbers = higher priority):
+```toml
+[[routing.routes]]
+path = "/api/v1/health"
+method = "GET"
+service_name = "health-service"
+priority = 200  # High priority
+```
 
-"/v1/schemas/*" = { 
-    service = "schema-registry", 
-    rate_limit = 200,
-    cache = true,
-    timeout = 10
-}
+## Monitoring
 
-# Health and monitoring routes
-"/health" = { 
-    service = "bridge-api", 
-    cache = false,
-    auth = false
-}
+### Prometheus Metrics
 
-"/metrics" = { 
-    service = "bridge-api", 
-    cache = false,
-    auth = false
-}
+The gateway exports comprehensive Prometheus metrics:
+
+```bash
+# Gateway metrics
+orasi_gateway_up 1
+orasi_gateway_requests_total{method="GET",path="/api/v1/health",status="200"} 150
+orasi_gateway_request_duration_seconds{method="GET",path="/api/v1/health"} 0.05
+orasi_gateway_rate_limited_requests_total{client="client-1"} 5
+```
+
+### Health Checks
+
+The gateway provides multiple health check endpoints:
+
+```bash
+# Overall health
+curl http://localhost:8081/health
+
+# Liveness probe (for Kubernetes)
+curl http://localhost:8081/health/live
+
+# Readiness probe (for Kubernetes)
+curl http://localhost:8081/health/ready
+```
+
+### Logging
+
+The gateway uses structured logging with configurable levels:
+
+```bash
+# Set log level
+export RUST_LOG="info"
+
+# Enable debug logging
+export RUST_LOG="debug"
 ```
 
 ## Development
 
-### Building
+### Building from Source
 
 ```bash
+# Clone the repository
+git clone https://github.com/chytirio/orasi.git
+cd orasi
+
 # Build the gateway
-cargo build
+cargo build --release --bin orasi-gateway
 
-# Build with optimizations
-cargo build --release
+# Run tests
+cargo test --bin orasi-gateway
 
-# Build specific binary
-cargo build --bin orasi-gateway
-
-# Build with features
-cargo build --features ssl
+# Run the example
+cargo run --example basic_gateway_example
 ```
 
-### Testing
+### Running Tests
 
 ```bash
 # Run all tests
@@ -439,44 +455,67 @@ cargo test
 # Run specific test
 cargo test test_routing
 
-# Run integration tests
-cargo test --test integration
-
 # Run with logging
 RUST_LOG=debug cargo test
 ```
 
-### Development Server
+### Code Structure
 
-```bash
-# Run development server
-cargo run --bin orasi-gateway
-
-# Run with hot reload
-cargo watch -x run --bin orasi-gateway
-
-# Run with custom config
-cargo run --bin orasi-gateway -- --config config/dev.toml
+```
+src/
+├── main.rs              # Binary entry point
+├── lib.rs               # Library entry point
+├── config.rs            # Configuration management
+├── error.rs             # Error types
+├── types.rs             # Type definitions
+├── gateway/             # Core gateway implementation
+│   ├── core.rs          # Main gateway orchestrator
+│   ├── health.rs        # Health checking
+│   ├── rate_limiter.rs  # Rate limiting
+│   └── state.rs         # State management
+├── routing/             # Routing system
+│   ├── core.rs          # Router implementation
+│   ├── matcher.rs       # Route matching
+│   └── proxy.rs         # HTTP proxy
+├── load_balancer.rs     # Load balancing
+├── discovery.rs         # Service discovery
+├── metrics.rs           # Metrics collection
+└── http.rs              # HTTP server
 ```
 
 ## Deployment
 
-### Docker Deployment
+### Docker
 
-```dockerfile
-FROM rust:1.75 as builder
-WORKDIR /app
-COPY . .
-RUN cargo build --release --bin orasi-gateway
+```bash
+# Build image
+docker build -t orasi-gateway .
 
-FROM debian:bookworm-slim
-RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
-COPY --from=builder /app/target/release/orasi-gateway /usr/local/bin/
-EXPOSE 80 443 9090
-CMD ["orasi-gateway"]
+# Run container
+docker run -d \
+  --name orasi-gateway \
+  -p 8080:8080 \
+  -p 8081:8081 \
+  -p 9090:9090 \
+  -p 8082:8082 \
+  -v $(pwd)/config:/app/config \
+  orasi-gateway
 ```
 
-### Kubernetes Deployment
+### Docker Compose
+
+```bash
+# Start all services
+docker-compose up -d
+
+# View logs
+docker-compose logs -f orasi-gateway
+
+# Stop services
+docker-compose down
+```
+
+### Kubernetes
 
 ```yaml
 apiVersion: apps/v1
@@ -494,74 +533,73 @@ spec:
         app: orasi-gateway
     spec:
       containers:
-      - name: gateway
-        image: orasi/gateway:latest
+      - name: orasi-gateway
+        image: orasi-gateway:latest
         ports:
-        - containerPort: 80
-        - containerPort: 443
+        - containerPort: 8080
+        - containerPort: 8081
         - containerPort: 9090
+        - containerPort: 8082
         env:
         - name: RUST_LOG
           value: "info"
-        resources:
-          requests:
-            memory: "256Mi"
-            cpu: "250m"
-          limits:
-            memory: "1Gi"
-            cpu: "1000m"
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: orasi-gateway
-spec:
-  selector:
-    app: orasi-gateway
-  ports:
-  - name: http
-    port: 80
-    targetPort: 80
-  - name: https
-    port: 443
-    targetPort: 443
-  - name: metrics
-    port: 9090
-    targetPort: 9090
-  type: LoadBalancer
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: 8081
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 5
 ```
 
-## Monitoring
+## Troubleshooting
 
-### Metrics
+### Common Issues
 
-The gateway exposes Prometheus metrics at `/metrics`:
+1. **Gateway won't start**
+   - Check configuration file syntax
+   - Verify all required environment variables
+   - Check port availability
 
-- **Request metrics**: Request count, duration, error rates
-- **Load balancing metrics**: Service health, connection counts
-- **Rate limiting metrics**: Rate limit hits and throttling
-- **Circuit breaker metrics**: Failure counts and state changes
-- **Cache metrics**: Hit rates and cache size
-- **System metrics**: CPU, memory, and network usage
+2. **Routes not working**
+   - Verify route configuration
+   - Check backend service availability
+   - Review gateway logs
+
+3. **Rate limiting too aggressive**
+   - Adjust rate limit configuration
+   - Check client identification
+   - Review rate limit statistics
+
+4. **High latency**
+   - Check backend service health
+   - Review load balancer configuration
+   - Monitor resource usage
+
+### Debug Mode
+
+```bash
+# Enable debug logging
+export RUST_LOG="debug"
+
+# Run with debug output
+cargo run --bin orasi-gateway
+```
 
 ### Health Checks
 
-Health check endpoints:
-
-- `/health`: Overall gateway health
-- `/ready`: Readiness for traffic
-- `/live`: Liveness check
-
-### Logging
-
-Structured logging with configurable levels:
-
 ```bash
-# Set log level
-export RUST_LOG=info
+# Check gateway health
+curl http://localhost:8081/health
 
-# Enable JSON logging
-export RUST_LOG_JSON=true
+# Check specific component health
+curl http://localhost:8082/loadbalancer/health
+curl http://localhost:8082/ratelimiter/stats
 ```
 
 ## Contributing
@@ -569,10 +607,10 @@ export RUST_LOG_JSON=true
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Add tests for new functionality
-5. Ensure all tests pass
+4. Add tests
+5. Run the test suite
 6. Submit a pull request
 
 ## License
 
-This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the Apache License 2.0 - see the [LICENSE](../../LICENSE) file for details.

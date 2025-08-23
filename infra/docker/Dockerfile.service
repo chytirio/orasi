@@ -37,9 +37,6 @@ COPY infra/ ./infra/
 COPY testing/ ./testing/
 COPY examples/ ./examples/
 
-# Update Cargo.lock to be compatible with current Cargo version
-RUN cargo update
-
 # Build the specific binary
 RUN if [ "${BUILD_TYPE}" = "release" ]; then \
         cargo build --bin ${BINARY_NAME} --release; \
@@ -47,8 +44,8 @@ RUN if [ "${BUILD_TYPE}" = "release" ]; then \
         cargo build --bin ${BINARY_NAME}; \
     fi
 
-# Runtime stage
-FROM debian:bookworm-slim
+# Runtime stage - Use Ubuntu 24.04 for latest GLIBC compatibility
+FROM ubuntu:24.04
 
 # Redeclare ARG variables for this stage
 ARG BINARY_NAME

@@ -105,6 +105,47 @@ enum Commands {
         #[arg(long, default_value = "http://localhost:8081")]
         endpoint: String,
     },
+
+    /// Configuration management
+    Config {
+        #[command(subcommand)]
+        command: ConfigCommands,
+    },
+}
+
+#[derive(Subcommand)]
+enum ConfigCommands {
+    /// Generate example configuration file
+    Generate {
+        /// Output file path
+        #[arg(short, long, default_value = "schema-registry.toml")]
+        output: PathBuf,
+
+        /// Configuration format
+        #[arg(long, default_value = "toml")]
+        format: String,
+    },
+
+    /// Show configuration documentation
+    Docs {
+        /// Output format (text, markdown)
+        #[arg(long, default_value = "text")]
+        format: String,
+    },
+
+    /// Validate configuration file
+    Validate {
+        /// Configuration file path
+        #[arg(short, long)]
+        config: PathBuf,
+    },
+
+    /// Show current configuration
+    Show {
+        /// Configuration file path
+        #[arg(short, long)]
+        config: Option<PathBuf>,
+    },
 }
 
 #[tokio::main]
@@ -127,12 +168,49 @@ async fn main() -> Result<()> {
             storage,
             database_url,
         } => {
-            // Load configuration
-            let mut config = SchemaRegistryConfig::from_file(&config)?;
+            // Load configuration with fallback to defaults
+            let mut config = if config.exists() {
+                match SchemaRegistryConfig::from_file(&config) {
+                    Ok(cfg) => {
+                        info!("Configuration loaded from: {}", config.display());
+                        cfg
+                    }
+                    Err(e) => {
+                        error!(
+                            "Failed to load configuration from {}: {}",
+                            config.display(),
+                            e
+                        );
+                        std::process::exit(1);
+                    }
+                }
+            } else {
+                warn!(
+                    "Configuration file not found: {}. Using defaults.",
+                    config.display()
+                );
+                match SchemaRegistryConfig::load_with_defaults() {
+                    Ok(cfg) => {
+                        info!("Using default configuration");
+                        cfg
+                    }
+                    Err(e) => {
+                        error!("Failed to load default configuration: {}", e);
+                        std::process::exit(1);
+                    }
+                }
+            };
 
             // Override configuration with CLI arguments
             config.api.host = host.clone();
             config.api.port = port;
+
+            // Validate the final configuration
+            if let Err(e) = config.validate() {
+                error!("Configuration validation failed:");
+                eprintln!("{}", e);
+                std::process::exit(1);
+            }
 
             // Override storage configuration if provided
             if let Some(storage) = storage {
@@ -224,7 +302,8 @@ async fn main() -> Result<()> {
                 .await?;
 
             if response.status().is_success() {
-                let result: schema_registry::api::responses::RegisterSchemaResponse = response.json().await?;
+                let result: schema_registry::api::responses::RegisterSchemaResponse =
+                    response.json().await?;
                 println!(
                     "Schema registered successfully with fingerprint: {}",
                     result.fingerprint
@@ -246,7 +325,8 @@ async fn main() -> Result<()> {
                 .await?;
 
             if response.status().is_success() {
-                let result: schema_registry::api::responses::GetSchemaResponse = response.json().await?;
+                let result: schema_registry::api::responses::GetSchemaResponse =
+                    response.json().await?;
                 println!("Schema: {}", serde_json::to_string_pretty(&result.schema)?);
             } else {
                 error!("Failed to get schema: {}", response.status());
@@ -265,7 +345,8 @@ async fn main() -> Result<()> {
                 .await?;
 
             if response.status().is_success() {
-                let result: schema_registry::api::responses::ListSchemasResponse = response.json().await?;
+                let result: schema_registry::api::responses::ListSchemasResponse =
+                    response.json().await?;
                 println!(
                     "Schemas: {}",
                     serde_json::to_string_pretty(&result.schemas)?
@@ -297,7 +378,8 @@ async fn main() -> Result<()> {
                 .await?;
 
             if response.status().is_success() {
-                let result: schema_registry::api::responses::ValidateDataResponse = response.json().await?;
+                let result: schema_registry::api::responses::ValidateDataResponse =
+                    response.json().await?;
                 if result.valid {
                     println!("✅ Schema validation passed");
                     println!("Status: {}", result.status);
@@ -346,11 +428,115 @@ async fn main() -> Result<()> {
                 .await?;
 
             if response.status().is_success() {
-                let result: schema_registry::api::responses::DeleteSchemaResponse = response.json().await?;
+                let result: schema_registry::api::responses::DeleteSchemaResponse =
+                    response.json().await?;
                 println!("✅ Schema deleted successfully: {}", result.message);
             } else {
                 error!("Failed to delete schema: {}", response.status());
                 std::process::exit(1);
+            }
+        }
+
+        Commands::Config { command } => {
+            match command {
+                ConfigCommands::Generate { output, format } => {
+                    let content = match format.as_str() {
+                        "toml" => SchemaRegistryConfig::generate_example(),
+                        "yaml" | "yml" => {
+                            // Convert TOML example to YAML
+                            let config = SchemaRegistryConfig::default();
+                            serde_yaml::to_string(&config)?
+                        }
+                        "json" => {
+                            // Convert TOML example to JSON
+                            let config = SchemaRegistryConfig::default();
+                            serde_json::to_string_pretty(&config)?
+                        }
+                        _ => {
+                            error!("Unsupported format: {}", format);
+                            std::process::exit(1);
+                        }
+                    };
+
+                    // Write to file
+                    std::fs::write(&output, content)?;
+                    println!("✅ Configuration file generated: {}", output.display());
+                }
+
+                ConfigCommands::Docs { format } => {
+                    let docs = SchemaRegistryConfig::get_documentation();
+                    match format.as_str() {
+                        "text" => println!("{}", docs),
+                        "markdown" => {
+                            // Convert to markdown format
+                            let markdown = docs.replace("# ", "## ").replace("## ", "### ");
+                            println!("{}", markdown);
+                        }
+                        _ => {
+                            error!("Unsupported format: {}", format);
+                            std::process::exit(1);
+                        }
+                    }
+                }
+
+                ConfigCommands::Validate {
+                    config: config_path,
+                } => {
+                    println!(
+                        "🔍 Validating configuration file: {}",
+                        config_path.display()
+                    );
+
+                    // First, try to load the configuration
+                    let config = match SchemaRegistryConfig::from_file(&config_path) {
+                        Ok(config) => {
+                            println!("✅ Configuration file loaded successfully");
+                            config
+                        }
+                        Err(e) => {
+                            error!("❌ Failed to load configuration file: {}", e);
+                            std::process::exit(1);
+                        }
+                    };
+
+                    // Then validate the configuration
+                    match config.validate() {
+                        Ok(()) => {
+                            println!("✅ Configuration validation passed!");
+                            println!("\n📋 Configuration Summary:");
+                            println!("  API: {}:{}", config.api.host, config.api.port);
+                            println!("  Storage Backend: {:?}", config.storage.backend);
+                            println!("  Security Auth: {}", config.security.enable_auth);
+                            println!("  Rate Limiting: {}", config.security.rate_limiting);
+                            println!("  Validation: {}", config.validation.enable_validation);
+                            println!("  Metrics: {}", config.monitoring.enable_metrics);
+                            println!("  Log Level: {}", config.monitoring.log_level);
+                        }
+                        Err(e) => {
+                            error!("❌ Configuration validation failed:");
+                            eprintln!("{}", e);
+                            std::process::exit(1);
+                        }
+                    }
+                }
+
+                ConfigCommands::Show { config } => {
+                    let config = if let Some(path) = config {
+                        SchemaRegistryConfig::from_file(&path)?
+                    } else {
+                        SchemaRegistryConfig::load_with_defaults()?
+                    };
+
+                    println!("📋 Current Configuration:");
+                    println!("Version: {}", config.version);
+                    println!("API: {}:{}", config.api.host, config.api.port);
+                    println!("Storage Backend: {:?}", config.storage.backend);
+                    println!("Security Auth: {}", config.security.enable_auth);
+                    println!("Rate Limiting: {}", config.security.rate_limiting);
+                    println!("Validation: {}", config.validation.enable_validation);
+                    println!("Metrics: {}", config.monitoring.enable_metrics);
+                    println!("Log Level: {}", config.monitoring.log_level);
+                }
             }
         }
     }

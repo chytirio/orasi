@@ -23,7 +23,7 @@ use bridge_core::types::TelemetryBatch;
 pub use error::{ValidationError, ValidationWarning};
 pub use result::{ValidationResult, ValidationStatus};
 pub use rules::{ValidationRule, ValidationRuleType};
-pub use validator::{SchemaValidator, is_valid_json, is_valid_yaml};
+pub use validator::{is_valid_json, is_valid_yaml, SchemaValidator};
 
 /// Schema validator trait
 #[async_trait]

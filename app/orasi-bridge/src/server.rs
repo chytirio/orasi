@@ -108,7 +108,8 @@ impl BridgeAPIServer {
             .map_err(|e| ApiError::Internal(format!("Failed to initialize bridge core: {}", e)))?;
 
         // Create HTTP server
-        let http_router = create_rest_router(self.config.clone(), self.metrics.clone());
+        let state = AppState{ config: self.config.clone(), metrics: self.metrics.clone() };
+        let http_router = create_rest_router(state);
         self.http_server = Some(HttpServer {
             router: http_router,
             address: self.config.http_address(),
@@ -127,6 +128,7 @@ impl BridgeAPIServer {
     /// Start the server with graceful shutdown
     pub async fn start(&mut self) -> ApiResult<()> {
         tracing::info!("Starting Bridge API server");
+        let state = AppState{ config: self.config.clone(), metrics: self.metrics.clone() };
 
         // Update status
         {
@@ -151,7 +153,6 @@ impl BridgeAPIServer {
             let http_shutdown_rx = shutdown_tx.subscribe();
 
             tracing::info!("Starting HTTP server on {}", address);
-            let state = AppState{ config: self.config.clone(), metrics: self.metrics.clone() };
             let app = http_server.router.clone().with_state(state);
 
             tokio::spawn(async move {

@@ -24,7 +24,7 @@ pub struct AppState {
 }
 
 /// Create the REST API router
-pub fn create_rest_router(config: BridgeAPIConfig, metrics: ApiMetrics) -> Router<AppState> {
+pub fn create_rest_router(state: AppState) -> Router<AppState> {
     // Create the main router with shared state
     let app = Router::new()
         // Root endpoint
@@ -39,50 +39,50 @@ pub fn create_rest_router(config: BridgeAPIConfig, metrics: ApiMetrics) -> Route
         // OTLP endpoints
         .nest("/v1", create_otlp_router())
         // Add middleware
-        // .layer(middleware::from_fn_with_state(
-        //     state.clone(),
-        //     request_id_middleware,
-        // ))
-        // .layer(middleware::from_fn_with_state(
-        //     state.clone(),
-        //     logging_middleware,
-        // ))
-        // .layer(middleware::from_fn_with_state(
-        //     state.clone(),
-        //     metrics_middleware,
-        // ))
-        // .layer(middleware::from_fn_with_state(
-        //     state.clone(),
-        //     auth_middleware,
-        // ))
-        // .layer(middleware::from_fn_with_state(
-        //     state.clone(),
-        //     rate_limit_middleware,
-        // ))
-        // .layer(middleware::from_fn_with_state(
-        //     state.clone(),
-        //     timeout_middleware,
-        // ))
-        // .layer(middleware::from_fn_with_state(
-        //     state.clone(),
-        //     size_limit_middleware,
-        // ))
-        // .layer(middleware::from_fn_with_state(
-        //     state.clone(),
-        //     security_headers_middleware,
-        // ))
-        // .layer(middleware::from_fn_with_state(
-        //     state.clone(),
-        //     health_check_middleware,
-        // ))
-        // .layer(middleware::from_fn_with_state(
-        //     state.clone(),
-        //     error_handling_middleware,
-        // ))
-        // .layer(cors_middleware(&state.config))
-        // .layer(compression_middleware(&state.config))
-        // .layer(keep_alive_middleware(&state.config))
-        // .layer(TraceLayer::new_for_http())
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            request_id_middleware,
+        ))
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            logging_middleware,
+        ))
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            metrics_middleware,
+        ))
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            auth_middleware,
+        ))
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            rate_limit_middleware,
+        ))
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            timeout_middleware,
+        ))
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            size_limit_middleware,
+        ))
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            security_headers_middleware,
+        ))
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            health_check_middleware,
+        ))
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            error_handling_middleware,
+        ))
+        .layer(cors_middleware(&state.config))
+        .layer(compression_middleware(&state.config))
+        .layer(keep_alive_middleware(&state.config))
+        .layer(TraceLayer::new_for_http())
         // Fallback handler for 404
         .fallback(not_found_handler);
 
@@ -152,15 +152,10 @@ pub fn create_metrics_router() -> Router<AppState> {
 }
 
 /// Create a development router (with additional debugging endpoints)
-pub fn create_dev_router(config: BridgeAPIConfig, metrics: ApiMetrics) -> Router<AppState> {
-    let state = AppState { config, metrics };
-
+pub fn create_dev_router(state: AppState) -> Router<AppState> {
     let app = Router::new()
         // Include all regular routes
-        .merge(create_rest_router(
-            state.config.clone(),
-            state.metrics.clone(),
-        ))
+        .merge(create_rest_router(state.clone()))
         // Additional development endpoints
         .route("/dev/status", get(status_handler))
         .route("/dev/config", get(config_handler))
@@ -214,51 +209,51 @@ async fn dev_logging_middleware(
 
 /// Create router with custom configuration
 pub fn create_custom_router<F>(
-    config: BridgeAPIConfig,
-    metrics: ApiMetrics,
+    state: AppState,
     custom_routes: F,
 ) -> Router<AppState>
 where
     F: FnOnce(Router<AppState>) -> Router<AppState>,
 {
-    let base_router = create_rest_router(config, metrics);
+    let base_router = create_rest_router(state);
     custom_routes(base_router)
 }
 
 /// Create router with authentication disabled
-pub fn create_unauthenticated_router(
-    config: BridgeAPIConfig,
-    metrics: ApiMetrics,
-) -> Router<AppState> {
-    let mut config = config;
+pub fn create_unauthenticated_router(state: AppState) -> Router<AppState> {
+    let mut config = state.config.clone();
     config.auth.enabled = false;
 
-    create_rest_router(config, metrics)
+    create_rest_router(AppState {
+        config,
+        metrics: state.metrics,
+    })
 }
 
 /// Create router with CORS disabled
-pub fn create_no_cors_router(config: BridgeAPIConfig, metrics: ApiMetrics) -> Router<AppState> {
-    let mut config = config;
+pub fn create_no_cors_router(state: AppState) -> Router<AppState> {
+    let mut config = state.config.clone();
     config.cors.enabled = false;
 
-    create_rest_router(config, metrics)
+    create_rest_router(AppState {
+        config,
+        metrics: state.metrics,
+    })
 }
 
 /// Create router with rate limiting disabled
-pub fn create_no_rate_limit_router(
-    config: BridgeAPIConfig,
-    metrics: ApiMetrics,
-) -> Router<AppState> {
-    let mut config = config;
+pub fn create_no_rate_limit_router(state: AppState) -> Router<AppState> {
+    let mut config = state.config.clone();
     config.rate_limit.enabled = false;
 
-    create_rest_router(config, metrics)
+    create_rest_router(AppState {
+        config,
+        metrics: state.metrics,
+    })
 }
 
 /// Create minimal router (health checks and metrics only)
-pub fn create_minimal_router(config: BridgeAPIConfig, metrics: ApiMetrics) -> Router<AppState> {
-    let state = AppState { config, metrics };
-
+pub fn create_minimal_router(state: AppState) -> Router<AppState> {
     Router::new()
         .route("/health/live", get(health_live_handler))
         .route("/health/ready", get(health_ready_handler))
@@ -268,8 +263,7 @@ pub fn create_minimal_router(config: BridgeAPIConfig, metrics: ApiMetrics) -> Ro
 }
 
 /// Create telemetry-only router
-pub fn create_telemetry_router(config: BridgeAPIConfig, metrics: ApiMetrics) -> Router<AppState> {
-    let state = AppState { config, metrics };
+pub fn create_telemetry_router(state: AppState) -> Router<AppState> {
 
     Router::new()
         .route("/v1/traces", post(otlp_traces_handler))
@@ -286,9 +280,7 @@ pub fn create_telemetry_router(config: BridgeAPIConfig, metrics: ApiMetrics) -> 
 }
 
 /// Create query-only router
-pub fn create_query_router(config: BridgeAPIConfig, metrics: ApiMetrics) -> Router<AppState> {
-    let state = AppState { config, metrics };
-
+pub fn create_query_router(state: AppState) -> Router<AppState> {
     Router::new()
         .route("/api/v1/query/metrics", post(query_handler))
         .route("/api/v1/query/traces", post(query_handler))
@@ -302,9 +294,7 @@ pub fn create_query_router(config: BridgeAPIConfig, metrics: ApiMetrics) -> Rout
 }
 
 /// Create management-only router
-pub fn create_management_router(config: BridgeAPIConfig, metrics: ApiMetrics) -> Router<AppState> {
-    let state = AppState { config, metrics };
-
+pub fn create_management_router(state: AppState) -> Router<AppState> {
     Router::new()
         .route("/api/v1/status", get(status_handler))
         .route("/api/v1/config", get(config_handler))

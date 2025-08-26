@@ -33,7 +33,7 @@ pub struct IngestionMetrics {
     pub avg_processing_time_ms: f64,
     /// Total processing time in milliseconds
     pub total_processing_time_ms: u64,
-    /// Number of failed ingestions
+    /// Number of failed ingestion tasks
     pub failed_count: u64,
     /// Last processing timestamp
     pub last_processed_at: Option<u64>,
@@ -88,6 +88,7 @@ impl AgentState {
                 TaskType::Ingestion,
                 TaskType::Indexing,
                 TaskType::Processing,
+                TaskType::Query, // Add query task type
             ],
             max_concurrent_tasks: config.capabilities.max_concurrent_tasks,
             supported_formats: config.capabilities.supported_formats.clone(),

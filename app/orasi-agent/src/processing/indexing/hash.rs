@@ -14,6 +14,12 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{error, info, warn};
 
+// AWS SDK imports for S3 support
+use aws_config::BehaviorVersion;
+use aws_sdk_s3::config::Credentials;
+use aws_sdk_s3::Client as S3Client;
+use aws_sdk_s3::primitives::ByteStream;
+
 /// Hash index builder
 pub struct HashIndexBuilder {
     config: AgentConfig,
@@ -123,23 +129,80 @@ impl HashIndexBuilder {
         &self,
         s3_location: &str,
     ) -> Result<Vec<HashMap<String, Value>>, AgentError> {
-        // TODO: Implement S3 data reading
         info!("Reading from S3: {}", s3_location);
 
-        // Mock implementation for now
-        let mut data = Vec::new();
-        for i in 0..1000 {
-            let mut record = HashMap::new();
-            record.insert("id".to_string(), Value::Number(serde_json::Number::from(i)));
-            record.insert("name".to_string(), Value::String(format!("record_{}", i)));
-            record.insert(
-                "value".to_string(),
-                Value::Number(serde_json::Number::from(i * 10)),
-            );
-            data.push(record);
+        // Parse S3 location (s3://bucket/key)
+        let (bucket, key) = self.parse_s3_location(s3_location)?;
+
+        // Initialize AWS config and S3 client
+        let aws_config = aws_config::defaults(BehaviorVersion::latest())
+            .load()
+            .await;
+
+        let s3_client = S3Client::new(&aws_config);
+
+        // Get object from S3
+        let response = s3_client
+            .get_object()
+            .bucket(bucket)
+            .key(key)
+            .send()
+            .await
+            .map_err(|e| {
+                AgentError::Storage(format!("Failed to get object from S3: {}", e))
+            })?;
+
+        // Read object body
+        let object_data = response.body.collect().await.map_err(|e| {
+            AgentError::Storage(format!("Failed to read S3 object body: {}", e))
+        })?;
+
+        let content = String::from_utf8(object_data.to_vec()).map_err(|e| {
+            AgentError::Storage(format!("Failed to convert S3 object to string: {}", e))
+        })?;
+
+        // Parse content based on file extension
+        if s3_location.ends_with(".jsonl") {
+            self.parse_jsonl(&content)
+        } else if s3_location.ends_with(".csv") {
+            self.parse_csv(&content)
+        } else {
+            // Assume JSON array
+            serde_json::from_str(&content)
+                .map_err(|e| AgentError::Serialization(format!("Failed to parse JSON from S3: {}", e)))
+        }
+    }
+
+    /// Parse S3 location to extract bucket and key
+    fn parse_s3_location(&self, s3_location: &str) -> Result<(String, String), AgentError> {
+        if !s3_location.starts_with("s3://") {
+            return Err(AgentError::InvalidInput(format!(
+                "Invalid S3 location format: {}",
+                s3_location
+            )));
         }
 
-        Ok(data)
+        let path = &s3_location[5..]; // Remove "s3://" prefix
+        let parts: Vec<&str> = path.splitn(2, '/').collect();
+
+        if parts.len() != 2 {
+            return Err(AgentError::InvalidInput(format!(
+                "Invalid S3 location format: {}",
+                s3_location
+            )));
+        }
+
+        let bucket = parts[0].to_string();
+        let key = parts[1].to_string();
+
+        if bucket.is_empty() || key.is_empty() {
+            return Err(AgentError::InvalidInput(format!(
+                "Invalid S3 location format: {}",
+                s3_location
+            )));
+        }
+
+        Ok((bucket, key))
     }
 
     /// Read data from local file
@@ -334,10 +397,34 @@ impl HashIndexBuilder {
 
     /// Write to S3
     async fn write_to_s3(&self, data: &str, s3_location: &str) -> Result<u64, AgentError> {
-        // TODO: Implement S3 writing
         info!("Writing to S3: {}", s3_location);
 
-        // Mock implementation
+        // Parse S3 location (s3://bucket/key)
+        let (bucket, key) = self.parse_s3_location(s3_location)?;
+
+        // Initialize AWS config and S3 client
+        let aws_config = aws_config::defaults(BehaviorVersion::latest())
+            .load()
+            .await;
+
+        let s3_client = S3Client::new(&aws_config);
+
+        // Create byte stream from data
+        let body = ByteStream::from(data.as_bytes().to_vec());
+
+        // Upload object to S3
+        s3_client
+            .put_object()
+            .bucket(bucket)
+            .key(key)
+            .body(body)
+            .content_type("application/json")
+            .send()
+            .await
+            .map_err(|e| {
+                AgentError::Storage(format!("Failed to upload object to S3: {}", e))
+            })?;
+
         Ok(data.len() as u64)
     }
 

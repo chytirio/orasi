@@ -316,6 +316,9 @@ impl StreamingProcessor {
                 config::ProcessorType::Window => {
                     tracing::warn!("Window processor not yet implemented");
                 }
+                config::ProcessorType::Enrich => {
+                    tracing::warn!("Enrich processor not yet implemented");
+                }
                 config::ProcessorType::Custom(custom_type) => {
                     tracing::warn!(
                         "Custom processor type '{}' not yet implemented",

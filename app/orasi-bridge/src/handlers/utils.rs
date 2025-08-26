@@ -1,11 +1,10 @@
 //! Utility functions for handlers
 
-use axum::response::Json;
+use axum::{extract::State, response::Json};
 use serde_json;
 
 use crate::{
-    error::{ApiError, ApiResult},
-    types::*,
+    error::{ApiError, ApiResult}, rest::AppState, types::*
 };
 
 /// Calculate configuration hash for change detection
@@ -43,7 +42,9 @@ pub async fn metrics_handler() -> ApiResult<String> {
 }
 
 /// Root handler
-pub async fn root_handler() -> ApiResult<Json<serde_json::Value>> {
+pub async fn root_handler(
+    State(state): State<AppState>
+) -> ApiResult<Json<serde_json::Value>> {
     let response = serde_json::json!({
         "name": crate::BRIDGE_API_NAME,
         "version": crate::BRIDGE_API_VERSION,

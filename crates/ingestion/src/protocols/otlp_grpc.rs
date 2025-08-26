@@ -17,15 +17,15 @@ use bridge_core::{
     BridgeResult, TelemetryBatch,
 };
 use chrono::{DateTime, Utc};
-use opentelemetry_proto::tonic::collector::{
+use bridge_core::receivers::otlp::otlp::opentelemetry::proto::collector::{
     logs::v1::logs_service_server::LogsService,
     logs::v1::{ExportLogsServiceRequest, ExportLogsServiceResponse},
     metrics::v1::metrics_service_server::MetricsService,
     metrics::v1::{ExportMetricsServiceRequest, ExportMetricsServiceResponse},
 };
-use opentelemetry_proto::tonic::common::v1::any_value::Value as AnyValueValue;
-use opentelemetry_proto::tonic::metrics::v1::metric::Data as OtlpMetricData;
-use opentelemetry_proto::tonic::metrics::v1::number_data_point::Value as NumberDataPointValue;
+use bridge_core::receivers::otlp::otlp::opentelemetry::proto::common::v1::any_value::Value as AnyValueValue;
+use bridge_core::receivers::otlp::otlp::opentelemetry::proto::metrics::v1::metric::Data as OtlpMetricData;
+use bridge_core::receivers::otlp::otlp::opentelemetry::proto::metrics::v1::number_data_point::Value as NumberDataPointValue;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -241,12 +241,12 @@ impl OtlpGrpcProtocol {
             // Create the tonic server with OTLP services (metrics and logs)
             let server = Server::builder()
                 .add_service(
-                    opentelemetry_proto::tonic::collector::metrics::v1::metrics_service_server::MetricsServiceServer::new(
+                    bridge_core::receivers::otlp::otlp::opentelemetry::proto::collector::metrics::v1::metrics_service_server::MetricsServiceServer::new(
                         server_wrapper.metrics_service.clone()
                     )
                 )
                 .add_service(
-                    opentelemetry_proto::tonic::collector::logs::v1::logs_service_server::LogsServiceServer::new(
+                    bridge_core::receivers::otlp::otlp::opentelemetry::proto::collector::logs::v1::logs_service_server::LogsServiceServer::new(
                         server_wrapper.logs_service.clone()
                     )
                 );
@@ -473,7 +473,7 @@ impl OtlpGrpcProtocol {
     /// Extract string value from OTLP AnyValue
     fn extract_any_value(
         &self,
-        any_value: &opentelemetry_proto::tonic::common::v1::AnyValue,
+        any_value: &bridge_core::receivers::otlp::otlp::opentelemetry::proto::common::v1::AnyValue,
     ) -> String {
         match &any_value.value {
             Some(AnyValueValue::StringValue(s)) => s.clone(),
@@ -498,7 +498,7 @@ impl OtlpGrpcProtocol {
                             "{}: {}",
                             kv.key,
                             self.extract_any_value(&kv.value.as_ref().unwrap_or(
-                                &opentelemetry_proto::tonic::common::v1::AnyValue::default()
+                                &bridge_core::receivers::otlp::otlp::opentelemetry::proto::common::v1::AnyValue::default()
                             ))
                         )
                     })
@@ -512,7 +512,7 @@ impl OtlpGrpcProtocol {
     /// Convert OTLP metric to TelemetryRecord
     fn convert_otlp_metric_to_record(
         &self,
-        metric: opentelemetry_proto::tonic::metrics::v1::Metric,
+        metric: bridge_core::receivers::otlp::otlp::opentelemetry::proto::metrics::v1::Metric,
         resource_info: Option<ResourceInfo>,
         service_info: Option<ServiceInfo>,
         scope_attributes: &HashMap<String, String>,
@@ -812,7 +812,7 @@ impl OtlpGrpcProtocol {
     /// Convert OTLP log to TelemetryRecord
     fn convert_otlp_log_to_record(
         &self,
-        log_record: opentelemetry_proto::tonic::logs::v1::LogRecord,
+        log_record: bridge_core::receivers::otlp::otlp::opentelemetry::proto::logs::v1::LogRecord,
         resource_info: Option<ResourceInfo>,
         service_info: Option<ServiceInfo>,
         scope_attributes: &HashMap<String, String>,
@@ -1145,8 +1145,8 @@ impl LogsService for OtlpLogsService {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use opentelemetry_proto::tonic::collector::logs::v1::ExportLogsServiceRequest;
-    use opentelemetry_proto::tonic::collector::metrics::v1::ExportMetricsServiceRequest;
+    use bridge_core::receivers::otlp::otlp::opentelemetry::proto::collector::logs::v1::ExportLogsServiceRequest;
+    use bridge_core::receivers::otlp::otlp::opentelemetry::proto::collector::metrics::v1::ExportMetricsServiceRequest;
 
     #[tokio::test]
     async fn test_otlp_grpc_config_creation() {

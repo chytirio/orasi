@@ -25,10 +25,10 @@ opentelemetry = { workspace = true }
 opentelemetry-http = { workspace = true }
 opentelemetry-otlp = { workspace = true }
 opentelemetry-semantic-conventions = { workspace = true }
-opentelemetry-proto = { workspace = true, features = ["gen-tonic", "trace", "metrics", "logs"] }
 
 # Async runtime and networking
 tonic = { workspace = true }
+tonic-prost = { workspace = true }
 prost = { workspace = true }
 hyper = { workspace = true }
 axum = { workspace = true }
@@ -92,6 +92,10 @@ futures = "0.3"
 
 # Authentication
 bridge-auth = { path = "../bridge-auth" }
+
+[build-dependencies]
+tonic-build = { workspace = true }
+tonic-prost-build = { workspace = true }
 
 
 

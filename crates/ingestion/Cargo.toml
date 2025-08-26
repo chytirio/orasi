@@ -27,7 +27,6 @@ opentelemetry = { workspace = true }
 opentelemetry-http = { workspace = true }
 opentelemetry-otlp = { workspace = true }
 opentelemetry-semantic-conventions = { workspace = true }
-opentelemetry-proto = { workspace = true, features = ["gen-tonic-messages", "gen-tonic", "trace", "metrics", "logs"] }
 opentelemetry-jaeger = "0.20"
 opentelemetry-zipkin = "0.20"
 

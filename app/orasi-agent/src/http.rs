@@ -149,11 +149,114 @@ impl HttpServer {
     }
 
     /// Prometheus metrics endpoint
-    async fn prometheus_metrics(State(_server): State<Arc<Self>>) -> impl IntoResponse {
-        // TODO: Implement Prometheus metrics export
-        let metrics = "# HELP orasi_agent_up Agent is running\n";
-        let metrics = format!("{}# TYPE orasi_agent_up gauge\n", metrics);
-        let metrics = format!("{}orasi_agent_up 1\n", metrics);
+    async fn prometheus_metrics(State(server): State<Arc<Self>>) -> impl IntoResponse {
+        let agent = server.agent.read().await;
+        
+        // Collect current metrics
+        let metrics_collector = agent.get_metrics_collector();
+        let current_metrics = match metrics_collector.read().await.collect_metrics().await {
+            Ok(metrics) => metrics,
+            Err(_) => return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to collect metrics").into_response(),
+        };
+        
+        // Build Prometheus metrics format
+        let mut prometheus_metrics = String::new();
+        
+        // Agent status
+        prometheus_metrics.push_str("# HELP orasi_agent_up Agent is running\n");
+        prometheus_metrics.push_str("# TYPE orasi_agent_up gauge\n");
+        prometheus_metrics.push_str("orasi_agent_up 1\n\n");
+        
+        // Task metrics
+        prometheus_metrics.push_str("# HELP orasi_agent_tasks_total Total tasks processed\n");
+        prometheus_metrics.push_str("# TYPE orasi_agent_tasks_total counter\n");
+        prometheus_metrics.push_str(&format!("orasi_agent_tasks_total {}\n", current_metrics.tasks.total_processed));
+        
+        prometheus_metrics.push_str("# HELP orasi_agent_tasks_successful Tasks processed successfully\n");
+        prometheus_metrics.push_str("# TYPE orasi_agent_tasks_successful counter\n");
+        prometheus_metrics.push_str(&format!("orasi_agent_tasks_successful {}\n", current_metrics.tasks.successful));
+        
+        prometheus_metrics.push_str("# HELP orasi_agent_tasks_failed Tasks that failed\n");
+        prometheus_metrics.push_str("# TYPE orasi_agent_tasks_failed counter\n");
+        prometheus_metrics.push_str(&format!("orasi_agent_tasks_failed {}\n", current_metrics.tasks.failed));
+        
+        prometheus_metrics.push_str("# HELP orasi_agent_tasks_pending Tasks currently pending\n");
+        prometheus_metrics.push_str("# TYPE orasi_agent_tasks_pending gauge\n");
+        prometheus_metrics.push_str(&format!("orasi_agent_tasks_pending {}\n", current_metrics.tasks.pending));
+        
+        prometheus_metrics.push_str("# HELP orasi_agent_tasks_active Tasks currently active\n");
+        prometheus_metrics.push_str("# TYPE orasi_agent_tasks_active gauge\n");
+        prometheus_metrics.push_str(&format!("orasi_agent_tasks_active {}\n", current_metrics.tasks.active));
+        
+        prometheus_metrics.push_str("# HELP orasi_agent_tasks_processing_time_ms Average task processing time\n");
+        prometheus_metrics.push_str("# TYPE orasi_agent_tasks_processing_time_ms gauge\n");
+        prometheus_metrics.push_str(&format!("orasi_agent_tasks_processing_time_ms {}\n", current_metrics.tasks.avg_processing_time_ms));
+        
+        // Resource metrics
+        prometheus_metrics.push_str("\n# HELP orasi_agent_cpu_percent CPU usage percentage\n");
+        prometheus_metrics.push_str("# TYPE orasi_agent_cpu_percent gauge\n");
+        prometheus_metrics.push_str(&format!("orasi_agent_cpu_percent {}\n", current_metrics.resources.cpu_percent));
+        
+        prometheus_metrics.push_str("# HELP orasi_agent_memory_bytes Memory usage in bytes\n");
+        prometheus_metrics.push_str("# TYPE orasi_agent_memory_bytes gauge\n");
+        prometheus_metrics.push_str(&format!("orasi_agent_memory_bytes {}\n", current_metrics.resources.memory_bytes));
+        
+        prometheus_metrics.push_str("# HELP orasi_agent_memory_percent Memory usage percentage\n");
+        prometheus_metrics.push_str("# TYPE orasi_agent_memory_percent gauge\n");
+        prometheus_metrics.push_str(&format!("orasi_agent_memory_percent {}\n", current_metrics.resources.memory_percent));
+        
+        prometheus_metrics.push_str("# HELP orasi_agent_disk_bytes Disk usage in bytes\n");
+        prometheus_metrics.push_str("# TYPE orasi_agent_disk_bytes gauge\n");
+        prometheus_metrics.push_str(&format!("orasi_agent_disk_bytes {}\n", current_metrics.resources.disk_bytes));
+        
+        prometheus_metrics.push_str("# HELP orasi_agent_disk_percent Disk usage percentage\n");
+        prometheus_metrics.push_str("# TYPE orasi_agent_disk_percent gauge\n");
+        prometheus_metrics.push_str(&format!("orasi_agent_disk_percent {}\n", current_metrics.resources.disk_percent));
+        
+        prometheus_metrics.push_str("# HELP orasi_agent_network_rx_bytes Network received bytes\n");
+        prometheus_metrics.push_str("# TYPE orasi_agent_network_rx_bytes counter\n");
+        prometheus_metrics.push_str(&format!("orasi_agent_network_rx_bytes {}\n", current_metrics.resources.network_rx_bytes));
+        
+        prometheus_metrics.push_str("# HELP orasi_agent_network_tx_bytes Network transmitted bytes\n");
+        prometheus_metrics.push_str("# TYPE orasi_agent_network_tx_bytes counter\n");
+        prometheus_metrics.push_str(&format!("orasi_agent_network_tx_bytes {}\n", current_metrics.resources.network_tx_bytes));
+        
+        // Performance metrics
+        prometheus_metrics.push_str("\n# HELP orasi_agent_requests_per_second Requests per second\n");
+        prometheus_metrics.push_str("# TYPE orasi_agent_requests_per_second gauge\n");
+        prometheus_metrics.push_str(&format!("orasi_agent_requests_per_second {}\n", current_metrics.performance.requests_per_second));
+        
+        prometheus_metrics.push_str("# HELP orasi_agent_response_time_ms Average response time\n");
+        prometheus_metrics.push_str("# TYPE orasi_agent_response_time_ms gauge\n");
+        prometheus_metrics.push_str(&format!("orasi_agent_response_time_ms {}\n", current_metrics.performance.avg_response_time_ms));
+        
+        prometheus_metrics.push_str("# HELP orasi_agent_response_time_p95_ms 95th percentile response time\n");
+        prometheus_metrics.push_str("# TYPE orasi_agent_response_time_p95_ms gauge\n");
+        prometheus_metrics.push_str(&format!("orasi_agent_response_time_p95_ms {}\n", current_metrics.performance.p95_response_time_ms));
+        
+        prometheus_metrics.push_str("# HELP orasi_agent_response_time_p99_ms 99th percentile response time\n");
+        prometheus_metrics.push_str("# TYPE orasi_agent_response_time_p99_ms gauge\n");
+        prometheus_metrics.push_str(&format!("orasi_agent_response_time_p99_ms {}\n", current_metrics.performance.p99_response_time_ms));
+        
+        prometheus_metrics.push_str("# HELP orasi_agent_throughput_bytes_per_sec Throughput in bytes per second\n");
+        prometheus_metrics.push_str("# TYPE orasi_agent_throughput_bytes_per_sec gauge\n");
+        prometheus_metrics.push_str(&format!("orasi_agent_throughput_bytes_per_sec {}\n", current_metrics.performance.throughput_bytes_per_sec));
+        
+        // Error metrics
+        prometheus_metrics.push_str("\n# HELP orasi_agent_errors_total Total errors\n");
+        prometheus_metrics.push_str("# TYPE orasi_agent_errors_total counter\n");
+        prometheus_metrics.push_str(&format!("orasi_agent_errors_total {}\n", current_metrics.errors.total_errors));
+        
+        prometheus_metrics.push_str("# HELP orasi_agent_error_rate Error rate\n");
+        prometheus_metrics.push_str("# TYPE orasi_agent_error_rate gauge\n");
+        prometheus_metrics.push_str(&format!("orasi_agent_error_rate {}\n", current_metrics.errors.error_rate));
+        
+        // Error types
+        for (error_type, count) in &current_metrics.errors.by_type {
+            prometheus_metrics.push_str(&format!("# HELP orasi_agent_errors_by_type_total Errors by type\n"));
+            prometheus_metrics.push_str(&format!("# TYPE orasi_agent_errors_by_type_total counter\n"));
+            prometheus_metrics.push_str(&format!("orasi_agent_errors_by_type_total{{type=\"{}\"}} {}\n", error_type, count));
+        }
 
         let mut headers = HeaderMap::new();
         headers.insert(
@@ -161,7 +264,7 @@ impl HttpServer {
             "text/plain; version=0.0.4; charset=utf-8".parse().unwrap(),
         );
 
-        (StatusCode::OK, headers, metrics)
+        (StatusCode::OK, headers, prometheus_metrics).into_response()
     }
 
     /// Agent information endpoint

@@ -74,6 +74,9 @@ pub enum AgentError {
     #[error("Internal error: {0}")]
     Internal(String),
 
+    #[error("Notification failed: {0}")]
+    NotificationFailed(String),
+
     #[error("Shutdown error: {0}")]
     Shutdown(String),
 

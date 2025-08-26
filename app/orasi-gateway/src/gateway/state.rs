@@ -12,6 +12,7 @@ pub struct GatewayState {
     gateway_info: GatewayInfo,
     services: HashMap<String, crate::types::ServiceInfo>,
     metrics: GatewayMetrics,
+    health_status: Option<HealthStatus>,
 }
 
 impl GatewayState {
@@ -38,6 +39,7 @@ impl GatewayState {
                 rate_limit_violations: 0,
                 circuit_breaker_trips: 0,
             },
+            health_status: None,
         }
     }
 
@@ -74,6 +76,21 @@ impl GatewayState {
     /// Get metrics
     pub fn get_metrics(&self) -> GatewayMetrics {
         self.metrics.clone()
+    }
+
+    /// Update health status
+    pub fn update_health_status(&mut self, health_status: HealthStatus) {
+        self.health_status = Some(health_status);
+    }
+
+    /// Get health status
+    pub fn get_health_status(&self) -> Option<HealthStatus> {
+        self.health_status.clone()
+    }
+
+    /// Clear health status
+    pub fn clear_health_status(&mut self) {
+        self.health_status = None;
     }
 }
 

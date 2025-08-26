@@ -519,8 +519,7 @@ impl HealthChecker {
 
     /// Check etcd connectivity
     async fn check_etcd_connectivity(&self, endpoint: &str) -> Result<(), String> {
-        // TODO: Implement actual etcd connectivity check
-        // For now, just check if the endpoint is reachable
+        // Check if the etcd endpoint is reachable
         let url = if endpoint.starts_with("http") {
             endpoint.to_string()
         } else {

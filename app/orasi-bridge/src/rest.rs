@@ -25,8 +25,6 @@ pub struct AppState {
 
 /// Create the REST API router
 pub fn create_rest_router(config: BridgeAPIConfig, metrics: ApiMetrics) -> Router<AppState> {
-    let state = AppState { config, metrics };
-
     // Create the main router with shared state
     let app = Router::new()
         // Root endpoint
@@ -41,52 +39,50 @@ pub fn create_rest_router(config: BridgeAPIConfig, metrics: ApiMetrics) -> Route
         // OTLP endpoints
         .nest("/v1", create_otlp_router())
         // Add middleware
-        .layer(middleware::from_fn_with_state(
-            state.clone(),
-            request_id_middleware,
-        ))
-        .layer(middleware::from_fn_with_state(
-            state.clone(),
-            logging_middleware,
-        ))
-        .layer(middleware::from_fn_with_state(
-            state.clone(),
-            metrics_middleware,
-        ))
-        .layer(middleware::from_fn_with_state(
-            state.clone(),
-            auth_middleware,
-        ))
-        .layer(middleware::from_fn_with_state(
-            state.clone(),
-            rate_limit_middleware,
-        ))
-        .layer(middleware::from_fn_with_state(
-            state.clone(),
-            timeout_middleware,
-        ))
-        .layer(middleware::from_fn_with_state(
-            state.clone(),
-            size_limit_middleware,
-        ))
-        .layer(middleware::from_fn_with_state(
-            state.clone(),
-            security_headers_middleware,
-        ))
-        .layer(middleware::from_fn_with_state(
-            state.clone(),
-            health_check_middleware,
-        ))
-        .layer(middleware::from_fn_with_state(
-            state.clone(),
-            error_handling_middleware,
-        ))
-        .layer(cors_middleware(&state.config))
-        .layer(compression_middleware(&state.config))
-        .layer(keep_alive_middleware(&state.config))
-        .layer(TraceLayer::new_for_http())
-        // Add shared state
-        .with_state(state)
+        // .layer(middleware::from_fn_with_state(
+        //     state.clone(),
+        //     request_id_middleware,
+        // ))
+        // .layer(middleware::from_fn_with_state(
+        //     state.clone(),
+        //     logging_middleware,
+        // ))
+        // .layer(middleware::from_fn_with_state(
+        //     state.clone(),
+        //     metrics_middleware,
+        // ))
+        // .layer(middleware::from_fn_with_state(
+        //     state.clone(),
+        //     auth_middleware,
+        // ))
+        // .layer(middleware::from_fn_with_state(
+        //     state.clone(),
+        //     rate_limit_middleware,
+        // ))
+        // .layer(middleware::from_fn_with_state(
+        //     state.clone(),
+        //     timeout_middleware,
+        // ))
+        // .layer(middleware::from_fn_with_state(
+        //     state.clone(),
+        //     size_limit_middleware,
+        // ))
+        // .layer(middleware::from_fn_with_state(
+        //     state.clone(),
+        //     security_headers_middleware,
+        // ))
+        // .layer(middleware::from_fn_with_state(
+        //     state.clone(),
+        //     health_check_middleware,
+        // ))
+        // .layer(middleware::from_fn_with_state(
+        //     state.clone(),
+        //     error_handling_middleware,
+        // ))
+        // .layer(cors_middleware(&state.config))
+        // .layer(compression_middleware(&state.config))
+        // .layer(keep_alive_middleware(&state.config))
+        // .layer(TraceLayer::new_for_http())
         // Fallback handler for 404
         .fallback(not_found_handler);
 
@@ -112,9 +108,9 @@ fn create_api_v1_router() -> Router<AppState> {
         .route("/analytics/workflow", post(analytics_handler))
         .route("/analytics/agent", post(analytics_handler))
         .route("/analytics/multi-repo", post(analytics_handler))
-        .route("/analytics/insights", get(analytics_handler))
-        .route("/analytics/trends", get(analytics_handler))
-        .route("/analytics/alerts", post(analytics_handler))
+        .route("/analytics/insights", get(analytics_insights_handler))
+        .route("/analytics/trends", get(analytics_trends_handler))
+        .route("/analytics/alerts", post(analytics_alerts_handler))
         // Configuration endpoints
         .route("/config", get(get_config_handler))
         .route("/config", put(update_config_handler))

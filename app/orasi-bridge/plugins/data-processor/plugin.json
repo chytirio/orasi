@@ -1,0 +1,22 @@
+{
+  "name": "data-processor",
+  "version": "2.1.0",
+  "description": "Advanced data processing plugin with transformation capabilities",
+  "capabilities": [
+    "data_processing",
+    "transformation",
+    "filtering",
+    "aggregation",
+    "validation"
+  ],
+  "author": "Orasi Team",
+  "license": "Apache-2.0",
+  "main": "processor.js",
+  "dependencies": ["lodash", "moment"],
+  "config": {
+    "enabled": true,
+    "timeout": 60,
+    "max_batch_size": 5000,
+    "enable_caching": true
+  }
+}

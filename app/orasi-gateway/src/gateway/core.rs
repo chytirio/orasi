@@ -259,7 +259,8 @@ impl OrasiGateway {
 
     /// Update health status
     async fn update_health_status(&self, status: HealthStatus) -> Result<(), GatewayError> {
-        // TODO: Update gateway health status
+        let mut state = self.state.write().await;
+        state.update_health_status(status);
         Ok(())
     }
 
@@ -286,6 +287,12 @@ impl OrasiGateway {
     pub async fn get_metrics(&self) -> GatewayMetrics {
         let state = self.state.read().await;
         state.get_metrics()
+    }
+
+    /// Get gateway health status
+    pub async fn get_health_status(&self) -> Option<HealthStatus> {
+        let state = self.state.read().await;
+        state.get_health_status()
     }
 
     /// Get gateway state

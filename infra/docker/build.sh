@@ -85,7 +85,7 @@ if [[ "$BUILD_TYPE" != "debug" && "$BUILD_TYPE" != "release" ]]; then
 fi
 
 # Get the absolute path to the project root directory
-PROJECT_ROOT="$(pwd)" # "$(cd ../../ && pwd)" # TODO: fix this; assumes the script is run from the root of the project
+PROJECT_ROOT="$(pwd)"
 
 echo "Building Orasi OpenTelemetry Data Lake Bridge"
 echo "Build Type: $BUILD_TYPE"

@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
   "app/orasi-agent",
+  "app/orasi-bridge",
   "app/orasi-cli",
   "app/orasi-gateway",
   "crates/bridge-core",
@@ -11,7 +12,6 @@ members = [
   "crates/streaming-processor",
   "crates/schema-registry",
   "crates/multi-tenancy",
-      "app/orasi-bridge",
   "connectors/deltalake",
   "connectors/hudi",
   "connectors/iceberg",
@@ -40,21 +40,24 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 
 # OpenTelemetry dependencies
-opentelemetry = "0.26"
-opentelemetry-http = "0.26"
-opentelemetry-otlp = "0.26"
-opentelemetry-semantic-conventions = "0.26"
-opentelemetry-proto = "0.26"
+opentelemetry = "0.30"
+opentelemetry-http = "0.30"
+opentelemetry-otlp = "0.30"
+opentelemetry-semantic-conventions = "0.30"
+opentelemetry-proto = "0.30"
 
 # Async runtime and networking
-tonic = "0.12"
-tonic-build = "0.12"
-tonic-health = "0.12"
-prost = "0.13"
-hyper = { version = "1.1", features = ["full"] }
-axum = { version = "0.7.9", features = ["tokio"] }
-tower = "0.5"
-tower-http = { version = "0.5", features = ["cors", "trace", "compression-gzip", "limit"] }
+tonic = "0.14.1"
+tonic-build = "0.14.1"
+tonic-health = "0.14.1"
+tonic-prost = "0.14.1"
+tonic-prost-build = "0.14.1"
+prost = "0.14.1"
+hyper = { version = "1.5.2", features = ["full"] }
+hyper-util = { version = "0.1", features = ["full"] }
+axum = { version = "0.8.4", features = ["default"] }
+tower = "0.5.2"
+tower-http = { version = "0.6.6", features = ["cors", "trace", "compression-gzip", "limit"] }
 
 # Data processing and serialization
 arrow = "56.0"
@@ -111,7 +114,6 @@ mockall = "0.12"
 # Development tools
 rustfmt = "1.6"
 clippy = "0.1"
-
 
 
 [profile.release]

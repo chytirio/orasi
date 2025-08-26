@@ -1,0 +1,19 @@
+{
+  "name": "example-plugin",
+  "version": "1.0.0",
+  "description": "Example plugin for testing plugin discovery functionality",
+  "capabilities": [
+    "query",
+    "analytics",
+    "custom_processing"
+  ],
+  "author": "Orasi Team",
+  "license": "Apache-2.0",
+  "main": "plugin.py",
+  "dependencies": [],
+  "config": {
+    "enabled": true,
+    "timeout": 30,
+    "max_results": 1000
+  }
+}

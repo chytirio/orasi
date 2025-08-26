@@ -52,7 +52,7 @@ async-trait = "0.1"
 sqlparser = "0.39"
 
 # DataFusion and Arrow ecosystem
-datafusion = { version = "49.0", default-features = false, features = ["parquet"] }
+datafusion = { version = "49.0", default-features = false, features = ["parquet", "avro"] }
 arrow = { version = "55.2" }
 arrow-array = { version = "55.2" }
 arrow-schema = { version = "55.2" }
@@ -60,6 +60,10 @@ arrow-cast = { version = "55.2" }
 arrow-ipc = { version = "55.2" }
 arrow-json = { version = "55.2" }
 parquet = { version = "55.2" }
+
+# Object store and cloud storage
+object_store = { version = "0.12", features = ["aws", "azure", "gcp", "http"] }
+datafusion-datasource = "49.0"
 
 # AWS S3 dependencies
 aws-sdk-s3 = "1.0"
@@ -70,6 +74,7 @@ aws-types = "1.0"
 dashmap = "5.5"
 crossbeam-channel = "0.5"
 parking_lot = "0.12"
+fastrand = "2.0"
 
 [dev-dependencies]
 tokio-test = "0.4"

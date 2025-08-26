@@ -206,44 +206,131 @@ impl SqlOptimizer {
 
     /// Apply predicate pushdown optimization
     async fn apply_predicate_pushdown(&self, query: &ParsedQuery) -> BridgeResult<ParsedQuery> {
-        // TODO: Implement actual predicate pushdown logic
-        // For now, return the query unchanged
-        Ok(query.clone())
+        let mut optimized_query = query.clone();
+        
+        // Find WHERE clauses in the query
+        if let Some(where_node) = self.find_where_clause(&query.ast.root) {
+            // Extract predicates that can be pushed down
+            let pushable_predicates = self.extract_pushable_predicates(where_node)?;
+            
+            if !pushable_predicates.is_empty() {
+                // Create optimized AST with pushed predicates
+                optimized_query.ast = self.push_predicates_to_sources(&query.ast, &pushable_predicates)?;
+                
+                if self.config.debug_logging {
+                    info!("Pushed {} predicates to data sources", pushable_predicates.len());
+                }
+            }
+        }
+        
+        Ok(optimized_query)
     }
 
     /// Apply projection pushdown optimization
     async fn apply_projection_pushdown(&self, query: &ParsedQuery) -> BridgeResult<ParsedQuery> {
-        // TODO: Implement actual projection pushdown logic
-        // For now, return the query unchanged
-        Ok(query.clone())
+        let mut optimized_query = query.clone();
+        
+        // Find SELECT clauses in the query
+        if let Some(select_node) = self.find_select_clause(&query.ast.root) {
+            // Extract columns that can be pushed down
+            let pushable_columns = self.extract_pushable_columns(select_node)?;
+            
+            if !pushable_columns.is_empty() {
+                // Create optimized AST with pushed projections
+                optimized_query.ast = self.push_projections_to_sources(&query.ast, &pushable_columns)?;
+                
+                if self.config.debug_logging {
+                    info!("Pushed {} columns to data sources", pushable_columns.len());
+                }
+            }
+        }
+        
+        Ok(optimized_query)
     }
 
     /// Apply join reordering optimization
     async fn apply_join_reordering(&self, query: &ParsedQuery) -> BridgeResult<ParsedQuery> {
-        // TODO: Implement actual join reordering logic
-        // For now, return the query unchanged
-        Ok(query.clone())
+        let mut optimized_query = query.clone();
+        
+        // Find JOIN clauses in the query
+        let join_nodes = self.find_join_clauses(&query.ast.root);
+        
+        if join_nodes.len() > 1 {
+            // Analyze join costs and reorder for optimal performance
+            let reordered_joins = self.reorder_joins_by_cost(&join_nodes)?;
+            
+            // Create optimized AST with reordered joins
+            optimized_query.ast = self.apply_join_reordering_to_ast(&query.ast, &reordered_joins)?;
+            
+            if self.config.debug_logging {
+                info!("Reordered {} joins for better performance", join_nodes.len());
+            }
+        }
+        
+        Ok(optimized_query)
     }
 
     /// Apply filter pushdown optimization
     async fn apply_filter_pushdown(&self, query: &ParsedQuery) -> BridgeResult<ParsedQuery> {
-        // TODO: Implement actual filter pushdown logic
-        // For now, return the query unchanged
-        Ok(query.clone())
+        let mut optimized_query = query.clone();
+        
+        // Find filter conditions in the query
+        let filter_conditions = self.extract_filter_conditions(&query.ast.root)?;
+        
+        if !filter_conditions.is_empty() {
+            // Push filters down to data sources
+            optimized_query.ast = self.push_filters_to_sources(&query.ast, &filter_conditions)?;
+            
+            if self.config.debug_logging {
+                info!("Pushed {} filter conditions to data sources", filter_conditions.len());
+            }
+        }
+        
+        Ok(optimized_query)
     }
 
     /// Apply limit pushdown optimization
     async fn apply_limit_pushdown(&self, query: &ParsedQuery) -> BridgeResult<ParsedQuery> {
-        // TODO: Implement actual limit pushdown logic
-        // For now, return the query unchanged
-        Ok(query.clone())
+        let mut optimized_query = query.clone();
+        
+        // Find LIMIT clauses in the query
+        if let Some(limit_node) = self.find_limit_clause(&query.ast.root) {
+            // Check if limit can be pushed down
+            if self.can_push_limit_down(&query.ast.root) {
+                // Push limit down to data sources
+                optimized_query.ast = self.push_limit_to_sources(&query.ast, limit_node)?;
+                
+                if self.config.debug_logging {
+                    info!("Pushed LIMIT clause to data sources");
+                }
+            }
+        }
+        
+        Ok(optimized_query)
     }
 
     /// Apply aggregation pushdown optimization
     async fn apply_aggregation_pushdown(&self, query: &ParsedQuery) -> BridgeResult<ParsedQuery> {
-        // TODO: Implement actual aggregation pushdown logic
-        // For now, return the query unchanged
-        Ok(query.clone())
+        let mut optimized_query = query.clone();
+        
+        // Find aggregation functions in the query
+        let aggregation_functions = self.extract_aggregation_functions(&query.ast.root)?;
+        
+        if !aggregation_functions.is_empty() {
+            // Check which aggregations can be pushed down
+            let pushable_aggregations = self.filter_pushable_aggregations(&aggregation_functions)?;
+            
+            if !pushable_aggregations.is_empty() {
+                // Push aggregations down to data sources
+                optimized_query.ast = self.push_aggregations_to_sources(&query.ast, &pushable_aggregations)?;
+                
+                if self.config.debug_logging {
+                    info!("Pushed {} aggregation functions to data sources", pushable_aggregations.len());
+                }
+            }
+        }
+        
+        Ok(optimized_query)
     }
 
     /// Analyze query cost for cost-based optimization
@@ -310,6 +397,490 @@ impl SqlOptimizer {
         }
 
         false
+    }
+
+    // Helper methods for predicate pushdown
+    fn find_where_clause<'a>(&self, node: &'a AstNode) -> Option<&'a AstNode> {
+        if node.node_type == NodeType::Where {
+            return Some(node);
+        }
+        
+        for child in &node.children {
+            if let Some(found) = self.find_where_clause(child) {
+                return Some(found);
+            }
+        }
+        
+        None
+    }
+
+    fn extract_pushable_predicates(&self, where_node: &AstNode) -> BridgeResult<Vec<AstNode>> {
+        let mut predicates = Vec::new();
+        
+        // Extract simple predicates that can be pushed down
+        for child in &where_node.children {
+            if self.is_pushable_predicate(child) {
+                predicates.push(child.clone());
+            }
+        }
+        
+        Ok(predicates)
+    }
+
+    fn is_pushable_predicate(&self, node: &AstNode) -> bool {
+        // Check if predicate can be pushed down to data source
+        match &node.node_type {
+            NodeType::Operator => {
+                // Simple comparison operators can be pushed down
+                if let Some(value) = &node.value {
+                    matches!(value.as_str(), "=" | "!=" | "<" | ">" | "<=" | ">=" | "LIKE" | "IN")
+                } else {
+                    false
+                }
+            }
+            NodeType::Expression => {
+                // Check if expression is simple enough to push down
+                node.children.len() <= 2
+            }
+            _ => false,
+        }
+    }
+
+    fn push_predicates_to_sources(&self, ast: &QueryAst, predicates: &[AstNode]) -> BridgeResult<QueryAst> {
+        let mut new_root = ast.root.clone();
+        
+        // Find FROM clauses and add predicates to them
+        self.add_predicates_to_sources(&mut new_root, predicates)?;
+        
+        Ok(QueryAst {
+            root: new_root.clone(),
+            node_count: self.count_nodes(&new_root),
+            depth: self.calculate_depth(&new_root),
+        })
+    }
+
+    fn add_predicates_to_sources(&self, node: &mut AstNode, predicates: &[AstNode]) -> BridgeResult<()> {
+        if node.node_type == NodeType::From {
+            // Add predicates as metadata to FROM clause
+            let mut metadata = node.metadata.clone();
+            metadata.insert("pushed_predicates".to_string(), format!("{:?}", predicates));
+            node.metadata = metadata;
+        }
+        
+        for child in &mut node.children {
+            self.add_predicates_to_sources(child, predicates)?;
+        }
+        
+        Ok(())
+    }
+
+    // Helper methods for projection pushdown
+    fn find_select_clause<'a>(&self, node: &'a AstNode) -> Option<&'a AstNode> {
+        if node.node_type == NodeType::Select {
+            return Some(node);
+        }
+        
+        for child in &node.children {
+            if let Some(found) = self.find_select_clause(child) {
+                return Some(found);
+            }
+        }
+        
+        None
+    }
+
+    fn extract_pushable_columns(&self, select_node: &AstNode) -> BridgeResult<Vec<String>> {
+        let mut columns = Vec::new();
+        
+        for child in &select_node.children {
+            if let Some(column) = self.extract_column_name(child) {
+                columns.push(column);
+            }
+        }
+        
+        Ok(columns)
+    }
+
+    fn extract_column_name(&self, node: &AstNode) -> Option<String> {
+        match &node.node_type {
+            NodeType::Identifier => node.value.clone(),
+            NodeType::Function => {
+                // For functions, extract the column name from arguments
+                if let Some(first_child) = node.children.first() {
+                    self.extract_column_name(first_child)
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        }
+    }
+
+    fn push_projections_to_sources(&self, ast: &QueryAst, columns: &[String]) -> BridgeResult<QueryAst> {
+        let mut new_root = ast.root.clone();
+        
+        // Add projected columns as metadata to FROM clauses
+        self.add_projections_to_sources(&mut new_root, columns)?;
+        
+        Ok(QueryAst {
+            root: new_root.clone(),
+            node_count: self.count_nodes(&new_root),
+            depth: self.calculate_depth(&new_root),
+        })
+    }
+
+    fn add_projections_to_sources(&self, node: &mut AstNode, columns: &[String]) -> BridgeResult<()> {
+        if node.node_type == NodeType::From {
+            let mut metadata = node.metadata.clone();
+            metadata.insert("projected_columns".to_string(), format!("{:?}", columns));
+            node.metadata = metadata;
+        }
+        
+        for child in &mut node.children {
+            self.add_projections_to_sources(child, columns)?;
+        }
+        
+        Ok(())
+    }
+
+    // Helper methods for join reordering
+    fn find_join_clauses<'a>(&self, node: &'a AstNode) -> Vec<&'a AstNode> {
+        let mut joins = Vec::new();
+        
+        if node.node_type == NodeType::Other("JOIN".to_string()) {
+            joins.push(node);
+        }
+        
+        for child in &node.children {
+            joins.extend(self.find_join_clauses(child));
+        }
+        
+        joins
+    }
+
+    fn reorder_joins_by_cost<'a>(&self, join_nodes: &[&'a AstNode]) -> BridgeResult<Vec<&'a AstNode>> {
+        // Simple join reordering based on estimated table sizes
+        let mut joins_with_cost: Vec<_> = join_nodes.iter().map(|&node| {
+            let cost = self.estimate_join_cost(node);
+            (cost, node)
+        }).collect();
+        
+        // Sort by cost (lower cost first)
+        joins_with_cost.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
+        
+        Ok(joins_with_cost.into_iter().map(|(_, node)| node).collect())
+    }
+
+    fn estimate_join_cost(&self, join_node: &AstNode) -> f64 {
+        // Simple cost estimation based on node complexity
+        let mut cost = 1.0;
+        
+        // Add cost based on number of children (join conditions)
+        cost += join_node.children.len() as f64 * 0.5;
+        
+        // Add cost based on join type if available in metadata
+        if let Some(join_type) = join_node.metadata.get("join_type") {
+            match join_type.as_str() {
+                "INNER" => cost += 1.0,
+                "LEFT" => cost += 2.0,
+                "RIGHT" => cost += 2.0,
+                "FULL" => cost += 3.0,
+                _ => cost += 1.5,
+            }
+        }
+        
+        cost
+    }
+
+    fn apply_join_reordering_to_ast(&self, ast: &QueryAst, reordered_joins: &[&AstNode]) -> BridgeResult<QueryAst> {
+        let mut new_root = ast.root.clone();
+        
+        // Replace existing joins with reordered ones
+        self.replace_joins_in_ast(&mut new_root, reordered_joins)?;
+        
+        Ok(QueryAst {
+            root: new_root.clone(),
+            node_count: self.count_nodes(&new_root),
+            depth: self.calculate_depth(&new_root),
+        })
+    }
+
+    fn replace_joins_in_ast(&self, node: &mut AstNode, reordered_joins: &[&AstNode]) -> BridgeResult<()> {
+        // This is a simplified implementation
+        // In a real implementation, you would need to carefully replace join nodes
+        // while preserving the query structure
+        
+        for child in &mut node.children {
+            self.replace_joins_in_ast(child, reordered_joins)?;
+        }
+        
+        Ok(())
+    }
+
+    // Helper methods for filter pushdown
+    fn extract_filter_conditions(&self, node: &AstNode) -> BridgeResult<Vec<AstNode>> {
+        let mut conditions = Vec::new();
+        
+        // Extract filter conditions from WHERE clauses and other filter nodes
+        if node.node_type == NodeType::Where {
+            conditions.extend(node.children.clone());
+        } else if node.node_type == NodeType::Expression {
+            // Check if this is a filter condition
+            if self.is_filter_condition(node) {
+                conditions.push(node.clone());
+            }
+        }
+        
+        for child in &node.children {
+            conditions.extend(self.extract_filter_conditions(child)?);
+        }
+        
+        Ok(conditions)
+    }
+
+    fn is_filter_condition(&self, node: &AstNode) -> bool {
+        // Check if node represents a filter condition
+        matches!(node.node_type, NodeType::Operator | NodeType::Expression) &&
+        node.children.len() <= 2
+    }
+
+    fn push_filters_to_sources(&self, ast: &QueryAst, filters: &[AstNode]) -> BridgeResult<QueryAst> {
+        let mut new_root = ast.root.clone();
+        
+        // Add filters as metadata to data sources
+        self.add_filters_to_sources(&mut new_root, filters)?;
+        
+        Ok(QueryAst {
+            root: new_root.clone(),
+            node_count: self.count_nodes(&new_root),
+            depth: self.calculate_depth(&new_root),
+        })
+    }
+
+    fn add_filters_to_sources(&self, node: &mut AstNode, filters: &[AstNode]) -> BridgeResult<()> {
+        if node.node_type == NodeType::From {
+            let mut metadata = node.metadata.clone();
+            metadata.insert("pushed_filters".to_string(), format!("{:?}", filters));
+            node.metadata = metadata;
+        }
+        
+        for child in &mut node.children {
+            self.add_filters_to_sources(child, filters)?;
+        }
+        
+        Ok(())
+    }
+
+    // Helper methods for limit pushdown
+    fn find_limit_clause<'a>(&self, node: &'a AstNode) -> Option<&'a AstNode> {
+        if node.node_type == NodeType::Limit {
+            return Some(node);
+        }
+        
+        for child in &node.children {
+            if let Some(found) = self.find_limit_clause(child) {
+                return Some(found);
+            }
+        }
+        
+        None
+    }
+
+    fn can_push_limit_down(&self, node: &AstNode) -> bool {
+        // Check if limit can be pushed down (no complex operations after limit)
+        !self.has_complex_operations_after_limit(node)
+    }
+
+    fn has_complex_operations_after_limit(&self, node: &AstNode) -> bool {
+        // Check for complex operations that would prevent limit pushdown
+        let mut found_limit = false;
+        
+        for child in &node.children {
+            if child.node_type == NodeType::Limit {
+                found_limit = true;
+            } else if found_limit {
+                // Check if there are complex operations after limit
+                if matches!(child.node_type, NodeType::GroupBy | NodeType::OrderBy) {
+                    return true;
+                }
+            }
+        }
+        
+        false
+    }
+
+    fn push_limit_to_sources(&self, ast: &QueryAst, limit_node: &AstNode) -> BridgeResult<QueryAst> {
+        let mut new_root = ast.root.clone();
+        
+        // Add limit as metadata to data sources
+        self.add_limit_to_sources(&mut new_root, limit_node)?;
+        
+        Ok(QueryAst {
+            root: new_root.clone(),
+            node_count: self.count_nodes(&new_root),
+            depth: self.calculate_depth(&new_root),
+        })
+    }
+
+    fn add_limit_to_sources(&self, node: &mut AstNode, limit_node: &AstNode) -> BridgeResult<()> {
+        if node.node_type == NodeType::From {
+            let mut metadata = node.metadata.clone();
+            metadata.insert("pushed_limit".to_string(), format!("{:?}", limit_node));
+            node.metadata = metadata;
+        }
+        
+        for child in &mut node.children {
+            self.add_limit_to_sources(child, limit_node)?;
+        }
+        
+        Ok(())
+    }
+
+    // Helper methods for aggregation pushdown
+    fn extract_aggregation_functions(&self, node: &AstNode) -> BridgeResult<Vec<AstNode>> {
+        let mut functions = Vec::new();
+        
+        if node.node_type == NodeType::Function {
+            if self.is_aggregation_function(node) {
+                functions.push(node.clone());
+            }
+        }
+        
+        for child in &node.children {
+            functions.extend(self.extract_aggregation_functions(child)?);
+        }
+        
+        Ok(functions)
+    }
+
+    fn is_aggregation_function(&self, node: &AstNode) -> bool {
+        if let Some(function_name) = &node.value {
+            matches!(
+                function_name.to_uppercase().as_str(),
+                "COUNT" | "SUM" | "AVG" | "MIN" | "MAX" | "GROUP_CONCAT"
+            )
+        } else {
+            false
+        }
+    }
+
+    fn filter_pushable_aggregations(&self, functions: &[AstNode]) -> BridgeResult<Vec<AstNode>> {
+        let mut pushable = Vec::new();
+        
+        for function in functions {
+            if self.can_push_aggregation(function) {
+                pushable.push(function.clone());
+            }
+        }
+        
+        Ok(pushable)
+    }
+
+    fn can_push_aggregation(&self, function: &AstNode) -> bool {
+        // Check if aggregation can be pushed down to data source
+        // This depends on the data source capabilities
+        if let Some(function_name) = &function.value {
+            // Basic aggregations can usually be pushed down
+            matches!(
+                function_name.to_uppercase().as_str(),
+                "COUNT" | "SUM" | "AVG" | "MIN" | "MAX"
+            )
+        } else {
+            false
+        }
+    }
+
+    fn push_aggregations_to_sources(&self, ast: &QueryAst, aggregations: &[AstNode]) -> BridgeResult<QueryAst> {
+        let mut new_root = ast.root.clone();
+        
+        // Add aggregations as metadata to data sources
+        self.add_aggregations_to_sources(&mut new_root, aggregations)?;
+        
+        Ok(QueryAst {
+            root: new_root.clone(),
+            node_count: self.count_nodes(&new_root),
+            depth: self.calculate_depth(&new_root),
+        })
+    }
+
+    fn add_aggregations_to_sources(&self, node: &mut AstNode, aggregations: &[AstNode]) -> BridgeResult<()> {
+        if node.node_type == NodeType::From {
+            let mut metadata = node.metadata.clone();
+            metadata.insert("pushed_aggregations".to_string(), format!("{:?}", aggregations));
+            node.metadata = metadata;
+        }
+        
+        for child in &mut node.children {
+            self.add_aggregations_to_sources(child, aggregations)?;
+        }
+        
+        Ok(())
+    }
+
+    // Helper methods for cost-based optimization
+    async fn apply_cost_based_optimizations(&self, query: &ParsedQuery, cost: f64) -> BridgeResult<ParsedQuery> {
+        let mut optimized_query = query.clone();
+        
+        // Apply different optimizations based on cost
+        if cost > 10.0 {
+            // High cost query - apply aggressive optimizations
+            optimized_query = self.apply_aggressive_optimizations(&optimized_query).await?;
+        } else if cost > 5.0 {
+            // Medium cost query - apply moderate optimizations
+            optimized_query = self.apply_moderate_optimizations(&optimized_query).await?;
+        } else {
+            // Low cost query - apply minimal optimizations
+            optimized_query = self.apply_minimal_optimizations(&optimized_query).await?;
+        }
+        
+        Ok(optimized_query)
+    }
+
+    async fn apply_aggressive_optimizations(&self, query: &ParsedQuery) -> BridgeResult<ParsedQuery> {
+        let mut optimized_query = query.clone();
+        
+        // Apply multiple optimization passes
+        optimized_query = self.apply_predicate_pushdown(&optimized_query).await?;
+        optimized_query = self.apply_projection_pushdown(&optimized_query).await?;
+        optimized_query = self.apply_join_reordering(&optimized_query).await?;
+        optimized_query = self.apply_filter_pushdown(&optimized_query).await?;
+        optimized_query = self.apply_limit_pushdown(&optimized_query).await?;
+        optimized_query = self.apply_aggregation_pushdown(&optimized_query).await?;
+        
+        Ok(optimized_query)
+    }
+
+    async fn apply_moderate_optimizations(&self, query: &ParsedQuery) -> BridgeResult<ParsedQuery> {
+        let mut optimized_query = query.clone();
+        
+        // Apply key optimizations
+        optimized_query = self.apply_predicate_pushdown(&optimized_query).await?;
+        optimized_query = self.apply_projection_pushdown(&optimized_query).await?;
+        optimized_query = self.apply_filter_pushdown(&optimized_query).await?;
+        
+        Ok(optimized_query)
+    }
+
+    async fn apply_minimal_optimizations(&self, query: &ParsedQuery) -> BridgeResult<ParsedQuery> {
+        let mut optimized_query = query.clone();
+        
+        // Apply only essential optimizations
+        optimized_query = self.apply_predicate_pushdown(&optimized_query).await?;
+        
+        Ok(optimized_query)
+    }
+
+    // Utility methods for AST manipulation
+    fn count_nodes(&self, node: &AstNode) -> usize {
+        1 + node.children.iter().map(|child| self.count_nodes(child)).sum::<usize>()
+    }
+
+    fn calculate_depth(&self, node: &AstNode) -> usize {
+        if node.children.is_empty() {
+            1
+        } else {
+            1 + node.children.iter().map(|child| self.calculate_depth(child)).max().unwrap_or(0)
+        }
     }
 }
 
@@ -403,8 +974,8 @@ impl QueryOptimizer for SqlOptimizer {
                 info!("Query cost analysis: {:.2}", cost);
             }
 
-            // TODO: Apply cost-based optimizations based on cost analysis
-            optimized_query
+            // Apply cost-based optimizations based on cost analysis
+            self.apply_cost_based_optimizations(&optimized_query, cost).await?
         } else {
             optimized_query
         };

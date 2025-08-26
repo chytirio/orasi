@@ -33,6 +33,7 @@ pub struct GatewayRateLimiter {
         >,
     >,
     request_counts: Arc<RwLock<HashMap<String, RequestCount>>>,
+    stats: Arc<RwLock<RateLimitTracking>>,
 }
 
 /// Request count tracking
@@ -40,6 +41,28 @@ pub struct GatewayRateLimiter {
 struct RequestCount {
     count: u32,
     window_start: Instant,
+}
+
+/// Rate limit tracking for statistics
+#[derive(Debug, Clone)]
+struct RateLimitTracking {
+    total_requests: u64,
+    rate_limited_requests: u64,
+    global_rate_limited: u64,
+    client_rate_limited: u64,
+    endpoint_rate_limited: u64,
+}
+
+impl Default for RateLimitTracking {
+    fn default() -> Self {
+        Self {
+            total_requests: 0,
+            rate_limited_requests: 0,
+            global_rate_limited: 0,
+            client_rate_limited: 0,
+            endpoint_rate_limited: 0,
+        }
+    }
 }
 
 /// Rate limit statistics
@@ -64,6 +87,7 @@ impl GatewayRateLimiter {
         let client_limiters = Arc::new(RwLock::new(HashMap::new()));
         let endpoint_limiters = Arc::new(RwLock::new(HashMap::new()));
         let request_counts = Arc::new(RwLock::new(HashMap::new()));
+        let stats = Arc::new(RwLock::new(RateLimitTracking::default()));
 
         Ok(Self {
             config: config.clone(),
@@ -71,6 +95,7 @@ impl GatewayRateLimiter {
             client_limiters,
             endpoint_limiters,
             request_counts,
+            stats,
         })
     }
 
@@ -85,21 +110,42 @@ impl GatewayRateLimiter {
             client_id, endpoint
         );
 
+        // Increment total request count
+        {
+            let mut stats = self.stats.write().await;
+            stats.total_requests += 1;
+        }
+
         // Check global rate limit
         if !self.check_global_limit().await? {
             warn!("Global rate limit exceeded");
+            {
+                let mut stats = self.stats.write().await;
+                stats.rate_limited_requests += 1;
+                stats.global_rate_limited += 1;
+            }
             return Ok(false);
         }
 
         // Check client-specific rate limit
         if !self.check_client_limit(client_id).await? {
             warn!("Client rate limit exceeded for: {}", client_id);
+            {
+                let mut stats = self.stats.write().await;
+                stats.rate_limited_requests += 1;
+                stats.client_rate_limited += 1;
+            }
             return Ok(false);
         }
 
         // Check endpoint-specific rate limit
         if !self.check_endpoint_limit(endpoint).await? {
             warn!("Endpoint rate limit exceeded for: {}", endpoint);
+            {
+                let mut stats = self.stats.write().await;
+                stats.rate_limited_requests += 1;
+                stats.endpoint_rate_limited += 1;
+            }
             return Ok(false);
         }
 
@@ -183,15 +229,14 @@ impl GatewayRateLimiter {
 
     /// Get rate limit statistics
     pub async fn get_stats(&self) -> RateLimitStats {
-        let request_counts = self.request_counts.read().await;
-        let total_requests: u64 = request_counts.values().map(|rc| rc.count as u64).sum();
-
+        let stats = self.stats.read().await;
+        
         RateLimitStats {
-            total_requests,
-            rate_limited_requests: 0, // TODO: Track this
-            global_rate_limited: 0,   // TODO: Track this
-            client_rate_limited: 0,   // TODO: Track this
-            endpoint_rate_limited: 0, // TODO: Track this
+            total_requests: stats.total_requests,
+            rate_limited_requests: stats.rate_limited_requests,
+            global_rate_limited: stats.global_rate_limited,
+            client_rate_limited: stats.client_rate_limited,
+            endpoint_rate_limited: stats.endpoint_rate_limited,
         }
     }
 
@@ -245,7 +290,11 @@ impl GatewayRateLimiter {
     pub async fn reset_counters(&self) -> Result<(), GatewayError> {
         let mut request_counts = self.request_counts.write().await;
         request_counts.clear();
-        info!("Rate limit counters reset");
+        
+        let mut stats = self.stats.write().await;
+        *stats = RateLimitTracking::default();
+        
+        info!("Rate limit counters and statistics reset");
         Ok(())
     }
 }

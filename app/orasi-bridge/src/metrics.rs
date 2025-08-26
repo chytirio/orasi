@@ -7,6 +7,45 @@
 use metrics::{counter, gauge, histogram};
 use std::time::{Duration, Instant};
 
+/// Metric name constants for API metrics
+pub mod metric_names {
+    // API Request/Response Metrics
+    pub const API_REQUESTS_TOTAL: &str = "api_requests_total";
+    pub const API_RESPONSE_TIME_SECONDS: &str = "api_response_time_seconds";
+    pub const API_ACTIVE_CONNECTIONS: &str = "api_active_connections";
+    pub const API_ERRORS_TOTAL: &str = "api_errors_total";
+    pub const API_PROCESSING_TIME_SECONDS: &str = "api_processing_time_seconds";
+    pub const API_PROCESSING_TOTAL: &str = "api_processing_total";
+
+    // Telemetry Metrics
+    pub const TELEMETRY_INGESTION_TOTAL: &str = "telemetry_ingestion_total";
+    pub const TELEMETRY_BATCH_SIZE: &str = "telemetry_batch_size";
+    pub const TELEMETRY_PROCESSING_TIME_SECONDS: &str = "telemetry_processing_time_seconds";
+    pub const TELEMETRY_VALIDATION_ERRORS_TOTAL: &str = "telemetry_validation_errors_total";
+
+    // Query Metrics
+    pub const QUERY_TOTAL: &str = "query_total";
+    pub const QUERY_EXECUTION_TIME_SECONDS: &str = "query_execution_time_seconds";
+    pub const QUERY_CACHE_HIT_RATE: &str = "query_cache_hit_rate";
+    pub const QUERY_RESULT_COUNT: &str = "query_result_count";
+
+    // System Metrics
+    pub const SYSTEM_UPTIME_SECONDS: &str = "system_uptime_seconds";
+}
+
+/// Metric label constants
+pub mod metric_labels {
+    // Common labels
+    pub const METHOD: &str = "method";
+    pub const PATH: &str = "path";
+    pub const STATUS_CODE: &str = "status_code";
+    pub const ERROR_TYPE: &str = "error_type";
+    pub const OPERATION: &str = "operation";
+    pub const SUCCESS: &str = "success";
+    pub const TYPE: &str = "type";
+    pub const CACHE_HIT: &str = "cache_hit";
+}
+
 /// API metrics collector
 #[derive(Debug, Clone)]
 pub struct ApiMetrics {
@@ -38,7 +77,6 @@ impl Default for ApiMetrics {
     }
 }
 
-/// TODO: standardize metric names into constants
 impl ApiMetrics {
     /// Create a new API metrics collector
     pub fn new() -> Self {
@@ -89,7 +127,15 @@ impl Default for RequestCounter {
 impl RequestCounter {
     /// Record a request
     pub fn record(&self, method: &str, path: &str, status_code: u16) {
-        counter!("api_requests_total", 1, "method" => method.to_string(), "path" => path.to_string(), "status_code" => status_code.to_string());
+        counter!(
+            metric_names::API_REQUESTS_TOTAL,
+            1,
+            &[
+                (metric_labels::METHOD, method.to_string()),
+                (metric_labels::PATH, path.to_string()),
+                (metric_labels::STATUS_CODE, status_code.to_string())
+            ]
+        );
     }
 }
 
@@ -106,7 +152,14 @@ impl Default for ResponseTimeHistogram {
 impl ResponseTimeHistogram {
     /// Record response time
     pub fn record(&self, method: &str, path: &str, duration: Duration) {
-        histogram!("api_response_time_seconds", duration.as_secs_f64(), "method" => method.to_string(), "path" => path.to_string());
+        histogram!(
+            metric_names::API_RESPONSE_TIME_SECONDS,
+            duration.as_secs_f64(),
+            &[
+                (metric_labels::METHOD, method.to_string()),
+                (metric_labels::PATH, path.to_string())
+            ]
+        );
     }
 }
 
@@ -123,7 +176,15 @@ impl Default for ErrorCounter {
 impl ErrorCounter {
     /// Record an error
     pub fn record(&self, error_type: &str, method: &str, path: &str) {
-        counter!("api_errors_total", 1, "error_type" => error_type.to_string(), "method" => method.to_string(), "path" => path.to_string());
+        counter!(
+            metric_names::API_ERRORS_TOTAL,
+            1,
+            &[
+                (metric_labels::ERROR_TYPE, error_type.to_string()),
+                (metric_labels::METHOD, method.to_string()),
+                (metric_labels::PATH, path.to_string())
+            ]
+        );
     }
 }
 
@@ -140,12 +201,12 @@ impl Default for ActiveConnectionsGauge {
 impl ActiveConnectionsGauge {
     /// Increment active connections
     pub fn increment(&self) {
-        gauge!("api_active_connections", 1.0);
+        gauge!(metric_names::API_ACTIVE_CONNECTIONS, 1.0);
     }
 
     /// Decrement active connections
     pub fn decrement(&self) {
-        gauge!("api_active_connections", -1.0);
+        gauge!(metric_names::API_ACTIVE_CONNECTIONS, -1.0);
     }
 }
 
@@ -162,8 +223,19 @@ impl Default for ProcessingMetrics {
 impl ProcessingMetrics {
     /// Record processing metrics
     pub fn record(&self, operation: &str, duration: Duration, success: bool) {
-        histogram!("api_processing_time_seconds", duration.as_secs_f64(), "operation" => operation.to_string());
-        counter!("api_processing_total", 1, "operation" => operation.to_string(), "success" => success.to_string());
+        histogram!(
+            metric_names::API_PROCESSING_TIME_SECONDS,
+            duration.as_secs_f64(),
+            &[(metric_labels::OPERATION, operation.to_string())]
+        );
+        counter!(
+            metric_names::API_PROCESSING_TOTAL,
+            1,
+            &[
+                (metric_labels::OPERATION, operation.to_string()),
+                (metric_labels::SUCCESS, success.to_string())
+            ]
+        );
     }
 }
 
@@ -257,7 +329,14 @@ impl Default for IngestionCounter {
 impl IngestionCounter {
     /// Record ingestion
     pub fn record(&self, telemetry_type: &str, success: bool) {
-        counter!("telemetry_ingestion_total", 1, "type" => telemetry_type.to_string(), "success" => success.to_string());
+        counter!(
+            metric_names::TELEMETRY_INGESTION_TOTAL,
+            1,
+            &[
+                (metric_labels::TYPE, telemetry_type.to_string()),
+                (metric_labels::SUCCESS, success.to_string())
+            ]
+        );
     }
 }
 
@@ -274,7 +353,11 @@ impl Default for BatchSizeHistogram {
 impl BatchSizeHistogram {
     /// Record batch size
     pub fn record(&self, telemetry_type: &str, batch_size: usize) {
-        histogram!("telemetry_batch_size", batch_size as f64, "type" => telemetry_type.to_string());
+        histogram!(
+            metric_names::TELEMETRY_BATCH_SIZE,
+            batch_size as f64,
+            &[(metric_labels::TYPE, telemetry_type.to_string())]
+        );
     }
 }
 
@@ -291,7 +374,11 @@ impl Default for ProcessingTimeHistogram {
 impl ProcessingTimeHistogram {
     /// Record processing time
     pub fn record(&self, telemetry_type: &str, duration: Duration) {
-        histogram!("telemetry_processing_time_seconds", duration.as_secs_f64(), "type" => telemetry_type.to_string());
+        histogram!(
+            metric_names::TELEMETRY_PROCESSING_TIME_SECONDS,
+            duration.as_secs_f64(),
+            &[(metric_labels::TYPE, telemetry_type.to_string())]
+        );
     }
 }
 
@@ -308,7 +395,11 @@ impl Default for ValidationErrorsCounter {
 impl ValidationErrorsCounter {
     /// Record validation errors
     pub fn record(&self, telemetry_type: &str, error_count: usize) {
-        counter!("telemetry_validation_errors_total", error_count as u64, "type" => telemetry_type.to_string());
+        counter!(
+            metric_names::TELEMETRY_VALIDATION_ERRORS_TOTAL,
+            error_count as u64,
+            &[(metric_labels::TYPE, telemetry_type.to_string())]
+        );
     }
 }
 
@@ -373,7 +464,14 @@ impl Default for QueryCounter {
 impl QueryCounter {
     /// Record query
     pub fn record(&self, query_type: &str, cache_hit: bool) {
-        counter!("query_total", 1, "type" => query_type.to_string(), "cache_hit" => cache_hit.to_string());
+        counter!(
+            metric_names::QUERY_TOTAL,
+            1,
+            &[
+                (metric_labels::TYPE, query_type.to_string()),
+                (metric_labels::CACHE_HIT, cache_hit.to_string())
+            ]
+        );
     }
 }
 
@@ -390,7 +488,11 @@ impl Default for QueryExecutionTimeHistogram {
 impl QueryExecutionTimeHistogram {
     /// Record execution time
     pub fn record(&self, query_type: &str, duration: Duration) {
-        histogram!("query_execution_time_seconds", duration.as_secs_f64(), "type" => query_type.to_string());
+        histogram!(
+            metric_names::QUERY_EXECUTION_TIME_SECONDS,
+            duration.as_secs_f64(),
+            &[(metric_labels::TYPE, query_type.to_string())]
+        );
     }
 }
 
@@ -408,7 +510,11 @@ impl CacheHitRateGauge {
     /// Record cache hit rate
     pub fn record(&self, query_type: &str, cache_hit: bool) {
         let value = if cache_hit { 1.0 } else { 0.0 };
-        gauge!("query_cache_hit_rate", value, "type" => query_type.to_string());
+        gauge!(
+            metric_names::QUERY_CACHE_HIT_RATE,
+            value,
+            &[(metric_labels::TYPE, query_type.to_string())]
+        );
     }
 }
 
@@ -425,7 +531,11 @@ impl Default for ResultCountHistogram {
 impl ResultCountHistogram {
     /// Record result count
     pub fn record(&self, query_type: &str, result_count: usize) {
-        histogram!("query_result_count", result_count as f64, "type" => query_type.to_string());
+        histogram!(
+            metric_names::QUERY_RESULT_COUNT,
+            result_count as f64,
+            &[(metric_labels::TYPE, query_type.to_string())]
+        );
     }
 }
 
@@ -447,40 +557,91 @@ pub fn get_metrics() -> String {
     let mut metrics_text = String::new();
 
     // Add request metrics
-    metrics_text.push_str("# HELP bridge_api_requests_total Total number of requests\n");
-    metrics_text.push_str("# TYPE bridge_api_requests_total counter\n");
-    metrics_text.push_str("bridge_api_requests_total 0\n");
+    metrics_text.push_str(&format!("# HELP {} Total number of requests\n", metric_names::API_REQUESTS_TOTAL));
+    metrics_text.push_str(&format!("# TYPE {} counter\n", metric_names::API_REQUESTS_TOTAL));
+    metrics_text.push_str(&format!("{} 0\n", metric_names::API_REQUESTS_TOTAL));
 
     // Add response time metrics
-    metrics_text.push_str("# HELP bridge_api_response_time_seconds Response time in seconds\n");
-    metrics_text.push_str("# TYPE bridge_api_response_time_seconds histogram\n");
-    metrics_text.push_str("bridge_api_response_time_seconds 0.0\n");
+    metrics_text.push_str(&format!("# HELP {} Response time in seconds\n", metric_names::API_RESPONSE_TIME_SECONDS));
+    metrics_text.push_str(&format!("# TYPE {} histogram\n", metric_names::API_RESPONSE_TIME_SECONDS));
+    metrics_text.push_str(&format!("{} 0.0\n", metric_names::API_RESPONSE_TIME_SECONDS));
 
     // Add active connections metric
-    metrics_text
-        .push_str("# HELP bridge_api_active_connections Current number of active connections\n");
-    metrics_text.push_str("# TYPE bridge_api_active_connections gauge\n");
-    metrics_text.push_str("bridge_api_active_connections 0\n");
+    metrics_text.push_str(&format!("# HELP {} Current number of active connections\n", metric_names::API_ACTIVE_CONNECTIONS));
+    metrics_text.push_str(&format!("# TYPE {} gauge\n", metric_names::API_ACTIVE_CONNECTIONS));
+    metrics_text.push_str(&format!("{} 0\n", metric_names::API_ACTIVE_CONNECTIONS));
 
     // Add error metrics
-    metrics_text.push_str("# HELP bridge_api_errors_total Total number of errors\n");
-    metrics_text.push_str("# TYPE bridge_api_errors_total counter\n");
-    metrics_text.push_str("bridge_api_errors_total 0\n");
+    metrics_text.push_str(&format!("# HELP {} Total number of errors\n", metric_names::API_ERRORS_TOTAL));
+    metrics_text.push_str(&format!("# TYPE {} counter\n", metric_names::API_ERRORS_TOTAL));
+    metrics_text.push_str(&format!("{} 0\n", metric_names::API_ERRORS_TOTAL));
 
     // Add system metrics
-    metrics_text.push_str("# HELP bridge_api_system_uptime_seconds System uptime in seconds\n");
-    metrics_text.push_str("# TYPE bridge_api_system_uptime_seconds gauge\n");
-    metrics_text.push_str("bridge_api_system_uptime_seconds 0\n");
+    metrics_text.push_str(&format!("# HELP {} System uptime in seconds\n", metric_names::SYSTEM_UPTIME_SECONDS));
+    metrics_text.push_str(&format!("# TYPE {} gauge\n", metric_names::SYSTEM_UPTIME_SECONDS));
+    metrics_text.push_str(&format!("{} 0\n", metric_names::SYSTEM_UPTIME_SECONDS));
 
     // Add query metrics
-    metrics_text.push_str("# HELP bridge_api_query_total Total number of queries\n");
-    metrics_text.push_str("# TYPE bridge_api_query_total counter\n");
-    metrics_text.push_str("bridge_api_query_total 0\n");
+    metrics_text.push_str(&format!("# HELP {} Total number of queries\n", metric_names::QUERY_TOTAL));
+    metrics_text.push_str(&format!("# TYPE {} counter\n", metric_names::QUERY_TOTAL));
+    metrics_text.push_str(&format!("{} 0\n", metric_names::QUERY_TOTAL));
 
     // Add cache metrics
-    metrics_text.push_str("# HELP bridge_api_cache_hit_rate Cache hit rate\n");
-    metrics_text.push_str("# TYPE bridge_api_cache_hit_rate gauge\n");
-    metrics_text.push_str("bridge_api_cache_hit_rate 0.0\n");
+    metrics_text.push_str(&format!("# HELP {} Cache hit rate\n", metric_names::QUERY_CACHE_HIT_RATE));
+    metrics_text.push_str(&format!("# TYPE {} gauge\n", metric_names::QUERY_CACHE_HIT_RATE));
+    metrics_text.push_str(&format!("{} 0.0\n", metric_names::QUERY_CACHE_HIT_RATE));
 
     metrics_text
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_metric_names_constants() {
+        // Test that all metric name constants are properly defined
+        assert_eq!(metric_names::API_REQUESTS_TOTAL, "api_requests_total");
+        assert_eq!(metric_names::API_RESPONSE_TIME_SECONDS, "api_response_time_seconds");
+        assert_eq!(metric_names::API_ACTIVE_CONNECTIONS, "api_active_connections");
+        assert_eq!(metric_names::API_ERRORS_TOTAL, "api_errors_total");
+        assert_eq!(metric_names::API_PROCESSING_TIME_SECONDS, "api_processing_time_seconds");
+        assert_eq!(metric_names::API_PROCESSING_TOTAL, "api_processing_total");
+        assert_eq!(metric_names::TELEMETRY_INGESTION_TOTAL, "telemetry_ingestion_total");
+        assert_eq!(metric_names::TELEMETRY_BATCH_SIZE, "telemetry_batch_size");
+        assert_eq!(metric_names::TELEMETRY_PROCESSING_TIME_SECONDS, "telemetry_processing_time_seconds");
+        assert_eq!(metric_names::TELEMETRY_VALIDATION_ERRORS_TOTAL, "telemetry_validation_errors_total");
+        assert_eq!(metric_names::QUERY_TOTAL, "query_total");
+        assert_eq!(metric_names::QUERY_EXECUTION_TIME_SECONDS, "query_execution_time_seconds");
+        assert_eq!(metric_names::QUERY_CACHE_HIT_RATE, "query_cache_hit_rate");
+        assert_eq!(metric_names::QUERY_RESULT_COUNT, "query_result_count");
+        assert_eq!(metric_names::SYSTEM_UPTIME_SECONDS, "system_uptime_seconds");
+    }
+
+    #[test]
+    fn test_metric_labels_constants() {
+        // Test that all metric label constants are properly defined
+        assert_eq!(metric_labels::METHOD, "method");
+        assert_eq!(metric_labels::PATH, "path");
+        assert_eq!(metric_labels::STATUS_CODE, "status_code");
+        assert_eq!(metric_labels::ERROR_TYPE, "error_type");
+        assert_eq!(metric_labels::OPERATION, "operation");
+        assert_eq!(metric_labels::SUCCESS, "success");
+        assert_eq!(metric_labels::TYPE, "type");
+        assert_eq!(metric_labels::CACHE_HIT, "cache_hit");
+    }
+
+    #[test]
+    fn test_get_metrics_uses_constants() {
+        let metrics_text = get_metrics();
+        
+        // Verify that the metrics text contains the standardized metric names
+        assert!(metrics_text.contains(metric_names::API_REQUESTS_TOTAL));
+        assert!(metrics_text.contains(metric_names::API_RESPONSE_TIME_SECONDS));
+        assert!(metrics_text.contains(metric_names::API_ACTIVE_CONNECTIONS));
+        assert!(metrics_text.contains(metric_names::API_ERRORS_TOTAL));
+        assert!(metrics_text.contains(metric_names::SYSTEM_UPTIME_SECONDS));
+        assert!(metrics_text.contains(metric_names::QUERY_TOTAL));
+        assert!(metrics_text.contains(metric_names::QUERY_CACHE_HIT_RATE));
+    }
 }

@@ -66,6 +66,7 @@ uuid = { version = "1.0", features = ["v4"] }
 chrono = { version = "0.4", features = ["serde"] }
 futures = "0.3"
 rand = "0.8"
+base64 = "0.21"
 
 # Metrics and monitoring
 prometheus = "0.13"

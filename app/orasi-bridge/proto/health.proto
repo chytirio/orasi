@@ -8,7 +8,7 @@ service Health {
   rpc Check(HealthCheckRequest) returns (HealthCheckResponse);
   
   // Watch health status changes
-  // rpc Watch(HealthCheckRequest) returns (stream HealthCheckResponse);
+  rpc Watch(HealthCheckRequest) returns (stream HealthCheckResponse);
 }
 
 // Health check request

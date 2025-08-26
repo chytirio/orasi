@@ -6,15 +6,19 @@ words:
   - cdylib
   - chrono
   - clippy
+  - dashmap
   - datafusion
   - datatypes
   - deltalake
+  - fastrand
+  - grpcio
   - healthcheck
   - hudi
   - ipynb
   - jdbc
   - jovyan
   - jsonschema
+  - jsonwebtoken
   - justfile
   - kubeconfig
   - lakehouse
@@ -27,6 +31,9 @@ words:
   - orasi
   - OTAP
   - prost
+  - protoc
+  - protos
+  - pushdown
   - rdkafka
   - reqwest
   - rlib
@@ -36,8 +43,9 @@ words:
   - serde
   - sqlx
   - stylesheet
+  - sysinfo
   - thiserror
   - trino
-  - UFIX
+  - utoipa
 ignoreWords: []
 import: []

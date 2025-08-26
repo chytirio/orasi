@@ -1,8 +1,40 @@
-//! B-tree index builder
+//! B-tree index builder with S3 support
+//! 
+//! This module provides functionality to build B-tree indexes from various data sources
+//! including local files and Amazon S3. The implementation supports:
+//! 
+//! - Reading data from S3 buckets (s3://bucket/key format)
+//! - Reading data from local files (file://path or direct path)
+//! - Support for JSON, JSONL, and CSV file formats
+//! - Writing index data back to S3 or local files
+//! - Comprehensive error handling and validation
+//! 
+//! ## S3 Integration
+//! 
+//! The S3 functionality requires AWS credentials to be configured via:
+//! - AWS CLI configuration
+//! - Environment variables (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
+//! - IAM roles (when running on EC2)
+//! - AWS SSO
+//! 
+//! ## Usage Example
+//! 
+//! ```rust
+//! use crate::processing::indexing::btree::BTreeIndexBuilder;
+//! use crate::config::AgentConfig;
+//! 
+//! let config = AgentConfig::default();
+//! let builder = BTreeIndexBuilder::new(config);
+//! 
+//! // Build index from S3 data
+//! let result = builder.build_index(&task).await?;
+//! ```
 
 use super::super::tasks::*;
 use crate::types::*;
 use crate::{config::AgentConfig, error::AgentError};
+use aws_config::BehaviorVersion;
+use aws_sdk_s3::{Client as S3Client, primitives::ByteStream};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{BTreeMap, HashMap};
@@ -101,25 +133,55 @@ impl BTreeIndexBuilder {
         &self,
         s3_location: &str,
     ) -> Result<Vec<HashMap<String, Value>>, AgentError> {
-        // TODO: Implement S3 data reading
-        // This would use AWS SDK or similar to read data from S3
-
         info!("Reading from S3: {}", s3_location);
 
-        // Mock implementation for now
-        let mut data = Vec::new();
-        for i in 0..1000 {
-            let mut record = HashMap::new();
-            record.insert("id".to_string(), Value::Number(serde_json::Number::from(i)));
-            record.insert("name".to_string(), Value::String(format!("record_{}", i)));
-            record.insert(
-                "value".to_string(),
-                Value::Number(serde_json::Number::from(i * 10)),
-            );
-            data.push(record);
-        }
+        // Parse S3 location (s3://bucket/key)
+        let (bucket, key) = self.parse_s3_location(s3_location)?;
 
-        Ok(data)
+        // Initialize AWS config and S3 client
+        let config = aws_config::defaults(BehaviorVersion::latest())
+            .load()
+            .await;
+        let s3_client = S3Client::new(&config);
+
+        info!("S3 client initialized for bucket: {}", bucket);
+
+        // Get object from S3
+        let response = s3_client
+            .get_object()
+            .bucket(bucket)
+            .key(&key)
+            .send()
+            .await
+            .map_err(|e| {
+                AgentError::IoError(format!("Failed to get object from S3: {}", e))
+            })?;
+
+        // Read object body
+        let body = response.body.collect().await.map_err(|e| {
+            AgentError::IoError(format!("Failed to read S3 object body: {}", e))
+        })?;
+
+        let content = String::from_utf8(body.into_bytes().to_vec())
+            .map_err(|e| AgentError::IoError(format!("Failed to decode S3 object content: {}", e)))?;
+
+        // Parse content based on file extension
+        if key.ends_with(".jsonl") {
+            info!("Parsing JSONL content from S3");
+            self.parse_jsonl(&content)
+        } else if key.ends_with(".csv") {
+            info!("Parsing CSV content from S3");
+            self.parse_csv(&content)
+        } else if key.ends_with(".json") {
+            info!("Parsing JSON content from S3");
+            serde_json::from_str(&content)
+                .map_err(|e| AgentError::Serialization(format!("Failed to parse JSON from S3: {}", e)))
+        } else {
+            // Assume JSON array for unknown extensions
+            info!("Parsing content as JSON array from S3 (unknown extension)");
+            serde_json::from_str(&content)
+                .map_err(|e| AgentError::Serialization(format!("Failed to parse JSON from S3: {}", e)))
+        }
     }
 
     /// Read data from local file
@@ -329,12 +391,36 @@ impl BTreeIndexBuilder {
 
     /// Write to S3
     async fn write_to_s3(&self, data: &str, s3_location: &str) -> Result<u64, AgentError> {
-        // TODO: Implement S3 writing
-        // This would use AWS SDK or similar to write data to S3
-
         info!("Writing to S3: {}", s3_location);
 
-        // Mock implementation
+        // Parse S3 location (s3://bucket/key)
+        let (bucket, key) = self.parse_s3_location(s3_location)?;
+
+        // Initialize AWS config and S3 client
+        let config = aws_config::defaults(BehaviorVersion::latest())
+            .load()
+            .await;
+        let s3_client = S3Client::new(&config);
+
+        info!("S3 client initialized for bucket: {}", bucket);
+
+        // Create byte stream from data
+        let body = ByteStream::from(data.as_bytes().to_vec());
+
+        // Upload object to S3
+        s3_client
+            .put_object()
+            .bucket(bucket)
+            .key(&key)
+            .body(body)
+            .content_type("application/json")
+            .send()
+            .await
+            .map_err(|e| {
+                AgentError::IoError(format!("Failed to upload object to S3: {}", e))
+            })?;
+
+        info!("Successfully uploaded index to S3: {}", s3_location);
         Ok(data.len() as u64)
     }
 
@@ -357,6 +443,56 @@ impl BTreeIndexBuilder {
 
         Ok(data.len() as u64)
     }
+
+    /// Parse S3 location into bucket and key
+    fn parse_s3_location(&self, s3_location: &str) -> Result<(String, String), AgentError> {
+        if !s3_location.starts_with("s3://") {
+            return Err(AgentError::InvalidInput(format!(
+                "Invalid S3 location format: {}. Expected format: s3://bucket/key",
+                s3_location
+            )));
+        }
+
+        let path = &s3_location[5..]; // Remove "s3://" prefix
+        
+        // Handle edge cases
+        if path.is_empty() {
+            return Err(AgentError::InvalidInput(format!(
+                "Invalid S3 location: path is empty after removing s3:// prefix. Location: {}",
+                s3_location
+            )));
+        }
+
+        let parts: Vec<&str> = path.splitn(2, '/').collect();
+
+        if parts.len() != 2 {
+            return Err(AgentError::InvalidInput(format!(
+                "Invalid S3 location format: {}. Expected format: s3://bucket/key",
+                s3_location
+            )));
+        }
+
+        let bucket = parts[0].to_string();
+        let key = parts[1].to_string();
+
+        if bucket.is_empty() || key.is_empty() {
+            return Err(AgentError::InvalidInput(format!(
+                "Invalid S3 location: bucket and key cannot be empty. Location: {}",
+                s3_location
+            )));
+        }
+
+        // Validate bucket name format (basic validation)
+        if !bucket.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '.') {
+            return Err(AgentError::InvalidInput(format!(
+                "Invalid S3 bucket name: {}. Bucket names can only contain lowercase letters, numbers, hyphens, and dots",
+                bucket
+            )));
+        }
+
+        info!("Parsed S3 location - Bucket: {}, Key: {}", bucket, key);
+        Ok((bucket, key))
+    }
 }
 
 /// B-tree index data structure
@@ -369,4 +505,71 @@ pub struct BTreeIndexData {
     pub optimization_level: String,
     pub index_type: String,
     pub created_at: u64,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::AgentConfig;
+
+    #[test]
+    fn test_parse_s3_location_valid() {
+        let config = AgentConfig::default();
+        let builder = BTreeIndexBuilder::new(config);
+        
+        let result = builder.parse_s3_location("s3://my-bucket/path/to/file.json");
+        assert!(result.is_ok());
+        
+        let (bucket, key) = result.unwrap();
+        assert_eq!(bucket, "my-bucket");
+        assert_eq!(key, "path/to/file.json");
+    }
+
+    #[test]
+    fn test_parse_s3_location_invalid_format() {
+        let config = AgentConfig::default();
+        let builder = BTreeIndexBuilder::new(config);
+        
+        let result = builder.parse_s3_location("invalid-format");
+        assert!(result.is_err());
+        
+        let error = result.unwrap_err();
+        assert!(error.to_string().contains("Invalid S3 location format"));
+    }
+
+    #[test]
+    fn test_parse_s3_location_empty_parts() {
+        let config = AgentConfig::default();
+        let builder = BTreeIndexBuilder::new(config);
+        
+        let result = builder.parse_s3_location("s3://");
+        assert!(result.is_err());
+        
+        let error = result.unwrap_err();
+        assert!(error.to_string().contains("path is empty"));
+    }
+
+    #[test]
+    fn test_parse_s3_location_missing_key() {
+        let config = AgentConfig::default();
+        let builder = BTreeIndexBuilder::new(config);
+        
+        let result = builder.parse_s3_location("s3://my-bucket");
+        assert!(result.is_err());
+        
+        let error = result.unwrap_err();
+        assert!(error.to_string().contains("Invalid S3 location format"));
+    }
+
+    #[test]
+    fn test_parse_s3_location_invalid_bucket_name() {
+        let config = AgentConfig::default();
+        let builder = BTreeIndexBuilder::new(config);
+        
+        let result = builder.parse_s3_location("s3://MY_BUCKET/file.json");
+        assert!(result.is_err());
+        
+        let error = result.unwrap_err();
+        assert!(error.to_string().contains("Invalid S3 bucket name"));
+    }
 }

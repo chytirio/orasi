@@ -8,7 +8,7 @@
 //! telemetry data in a lakehouse format.
 
 // Temporarily commented out to focus on core functionality
-// pub mod config;
+pub mod config;
 // pub mod connector;
 // pub mod error;
 // pub mod exporter;

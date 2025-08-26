@@ -10,7 +10,7 @@ use crate::{
     types::*,
 };
 use axum::{
-    body::Body,
+    body::{Body, to_bytes},
     extract::{Path, Query, State},
     http::{HeaderMap, HeaderValue, Request, Response, StatusCode},
     middleware,
@@ -23,6 +23,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, error, info};
+use base64::Engine;
 
 /// HTTP server for gateway
 pub struct HttpServer {
@@ -146,11 +147,52 @@ impl HttpServer {
     }
 
     /// Prometheus metrics endpoint
-    async fn prometheus_metrics(State(_server): State<Arc<Self>>) -> impl IntoResponse {
-        // TODO: Implement Prometheus metrics export
-        let metrics = "# HELP orasi_gateway_up Gateway is running\n";
-        let metrics = format!("{}# TYPE orasi_gateway_up gauge\n", metrics);
-        let metrics = format!("{}orasi_gateway_up 1\n", metrics);
+    async fn prometheus_metrics(State(server): State<Arc<Self>>) -> impl IntoResponse {
+        let gateway = server.gateway.read().await;
+        let metrics = gateway.get_metrics().await;
+        
+        // Build Prometheus metrics in the proper format
+        let mut prometheus_metrics = String::new();
+        
+        // Gateway up metric
+        prometheus_metrics.push_str("# HELP orasi_gateway_up Gateway is running\n");
+        prometheus_metrics.push_str("# TYPE orasi_gateway_up gauge\n");
+        prometheus_metrics.push_str("orasi_gateway_up 1\n");
+        
+        // Total requests metric
+        prometheus_metrics.push_str("# HELP orasi_gateway_requests_total Total number of requests\n");
+        prometheus_metrics.push_str("# TYPE orasi_gateway_requests_total counter\n");
+        prometheus_metrics.push_str(&format!("orasi_gateway_requests_total {}\n", metrics.total_requests));
+        
+        // Successful requests metric
+        prometheus_metrics.push_str("# HELP orasi_gateway_requests_successful_total Total number of successful requests\n");
+        prometheus_metrics.push_str("# TYPE orasi_gateway_requests_successful_total counter\n");
+        prometheus_metrics.push_str(&format!("orasi_gateway_requests_successful_total {}\n", metrics.successful_requests));
+        
+        // Failed requests metric
+        prometheus_metrics.push_str("# HELP orasi_gateway_requests_failed_total Total number of failed requests\n");
+        prometheus_metrics.push_str("# TYPE orasi_gateway_requests_failed_total counter\n");
+        prometheus_metrics.push_str(&format!("orasi_gateway_requests_failed_total {}\n", metrics.failed_requests));
+        
+        // Average response time metric
+        prometheus_metrics.push_str("# HELP orasi_gateway_response_time_average_ms Average response time in milliseconds\n");
+        prometheus_metrics.push_str("# TYPE orasi_gateway_response_time_average_ms gauge\n");
+        prometheus_metrics.push_str(&format!("orasi_gateway_response_time_average_ms {}\n", metrics.avg_response_time_ms));
+        
+        // Active connections metric
+        prometheus_metrics.push_str("# HELP orasi_gateway_active_connections Current number of active connections\n");
+        prometheus_metrics.push_str("# TYPE orasi_gateway_active_connections gauge\n");
+        prometheus_metrics.push_str(&format!("orasi_gateway_active_connections {}\n", metrics.active_connections));
+        
+        // Rate limit violations metric
+        prometheus_metrics.push_str("# HELP orasi_gateway_rate_limit_violations_total Total number of rate limit violations\n");
+        prometheus_metrics.push_str("# TYPE orasi_gateway_rate_limit_violations_total counter\n");
+        prometheus_metrics.push_str(&format!("orasi_gateway_rate_limit_violations_total {}\n", metrics.rate_limit_violations));
+        
+        // Circuit breaker trips metric
+        prometheus_metrics.push_str("# HELP orasi_gateway_circuit_breaker_trips_total Total number of circuit breaker trips\n");
+        prometheus_metrics.push_str("# TYPE orasi_gateway_circuit_breaker_trips_total counter\n");
+        prometheus_metrics.push_str(&format!("orasi_gateway_circuit_breaker_trips_total {}\n", metrics.circuit_breaker_trips));
 
         let mut headers = HeaderMap::new();
         headers.insert(
@@ -158,7 +200,7 @@ impl HttpServer {
             "text/plain; version=0.0.4; charset=utf-8".parse().unwrap(),
         );
 
-        (StatusCode::OK, headers, metrics)
+        (StatusCode::OK, headers, prometheus_metrics)
     }
 
     /// Gateway information endpoint
@@ -256,9 +298,34 @@ impl HttpServer {
 
     /// List endpoints endpoint
     async fn list_endpoints(State(server): State<Arc<Self>>) -> impl IntoResponse {
-        // TODO: Implement endpoint listing
+        // Get all services from gateway state
+        let gateway = server.gateway.read().await;
+        let services = gateway.get_state().await.read().await.get_services();
+        drop(gateway); // Release the lock early
+        
+        let mut all_endpoints = Vec::new();
+        let mut total_endpoints = 0;
+        
+        // Get endpoints for each service
+        for (service_name, _) in services.iter() {
+            let service_endpoints = server.load_balancer.get_endpoints(service_name).await;
+            total_endpoints += service_endpoints.len();
+            
+            for endpoint in service_endpoints {
+                all_endpoints.push(json!({
+                    "service": service_name,
+                    "url": endpoint.url,
+                    "weight": endpoint.weight,
+                    "health_status": endpoint.health_status,
+                    "metadata": endpoint.metadata
+                }));
+            }
+        }
+        
         let response = json!({
-            "endpoints": [],
+            "endpoints": all_endpoints,
+            "total_endpoints": total_endpoints,
+            "total_services": services.len(),
             "timestamp": chrono::Utc::now().to_rfc3339(),
         });
 
@@ -349,7 +416,7 @@ impl HttpServer {
         let method = request.method().clone();
         let uri = request.uri().clone();
         let headers = request.headers().clone();
-        let request_context = Self::create_request_context_from_parts(method, uri, headers).await;
+        let request_context = Self::create_request_context_from_parts(method, uri, headers, None).await;
 
         // Route request
         match server.router.route_request(request_context.clone()).await {
@@ -438,7 +505,26 @@ impl HttpServer {
         let method = request.method().clone();
         let uri = request.uri().clone();
         let headers = request.headers().clone();
-        Self::create_request_context_from_parts(method, uri, headers).await
+        
+        // Extract body if needed (for POST, PUT, PATCH requests)
+        let body = if matches!(method.as_str(), "POST" | "PUT" | "PATCH") {
+            // Clone the request to extract body
+            let (parts, body) = request.into_parts();
+            let body_bytes = match to_bytes(body, 1024 * 1024).await { // 1MB limit
+                Ok(bytes) => bytes,
+                Err(_) => axum::body::Bytes::new(),
+            };
+            
+            // Try to convert to string, fallback to base64 if not UTF-8
+            match String::from_utf8(body_bytes.to_vec()) {
+                Ok(body_str) => Some(body_str),
+                Err(_) => Some(base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &body_bytes)),
+            }
+        } else {
+            None
+        };
+        
+        Self::create_request_context_from_parts(method, uri, headers, body).await
     }
 
     /// Create request context from request parts
@@ -446,6 +532,7 @@ impl HttpServer {
         method: axum::http::Method,
         uri: axum::http::Uri,
         headers: HeaderMap,
+        body: Option<String>,
     ) -> RequestContext {
         let mut header_map = HashMap::new();
         for (name, value) in &headers {
@@ -475,7 +562,7 @@ impl HttpServer {
             path: uri.path().to_string(),
             headers: header_map,
             query_params,
-            body: None, // TODO: Extract body if needed
+            body,
             metadata: HashMap::new(),
         }
     }

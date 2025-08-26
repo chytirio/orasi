@@ -172,7 +172,7 @@ impl Default for CapabilitiesConfig {
             ingestion: true,
             indexing: true,
             processing: true,
-            query: false,
+            query: true, // Enable query capabilities by default
             max_concurrent_tasks: 10,
             supported_formats: vec![
                 "json".to_string(),
@@ -198,6 +198,9 @@ pub struct ProcessingConfig {
     /// Batch size for processing
     pub batch_size: usize,
 
+    /// Batch timeout in milliseconds
+    pub batch_timeout_ms: u64,
+
     /// Enable parallel processing
     pub parallel_processing: bool,
 
@@ -212,6 +215,7 @@ impl Default for ProcessingConfig {
             retry_attempts: 3,
             retry_delay: Duration::from_secs(5),
             batch_size: 1000,
+            batch_timeout_ms: 5000,
             parallel_processing: true,
             max_concurrent_tasks: 10,
         }
@@ -224,6 +228,12 @@ pub struct StorageConfig {
     /// Local storage path
     pub local_path: String,
 
+    /// Data directory for storing data files
+    pub data_directory: String,
+
+    /// Temporary directory for processing
+    pub temp_directory: String,
+
     /// Database URL for local state
     pub database_url: String,
 
@@ -232,15 +242,21 @@ pub struct StorageConfig {
 
     /// Cache size in bytes
     pub cache_size: usize,
+
+    /// Maximum disk usage in GB
+    pub max_disk_usage_gb: u64,
 }
 
 impl Default for StorageConfig {
     fn default() -> Self {
         Self {
             local_path: "/tmp/orasi-agent".to_string(),
+            data_directory: "/var/lib/orasi/agent".to_string(),
+            temp_directory: "/tmp/orasi/agent".to_string(),
             database_url: "sqlite:/tmp/orasi-agent/agent.db".to_string(),
             enable_cache: true,
             cache_size: 100 * 1024 * 1024, // 100MB
+            max_disk_usage_gb: 10,
         }
     }
 }

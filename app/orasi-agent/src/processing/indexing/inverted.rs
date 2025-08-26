@@ -16,6 +16,12 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{error, info, warn};
 
+// AWS SDK imports for S3 support
+use aws_config::BehaviorVersion;
+use aws_sdk_s3::config::Credentials;
+use aws_sdk_s3::Client as S3Client;
+use aws_sdk_s3::primitives::ByteStream;
+
 /// Inverted index builder
 pub struct InvertedIndexBuilder {
     config: AgentConfig,
@@ -128,27 +134,80 @@ impl InvertedIndexBuilder {
         &self,
         s3_location: &str,
     ) -> Result<Vec<HashMap<String, Value>>, AgentError> {
-        // TODO: Implement S3 data reading
         info!("Reading from S3: {}", s3_location);
 
-        // Mock implementation for now
-        let mut data = Vec::new();
-        for i in 0..1000 {
-            let mut record = HashMap::new();
-            record.insert("id".to_string(), Value::Number(serde_json::Number::from(i)));
-            record.insert(
-                "title".to_string(),
-                Value::String(format!("Document Title {}", i)),
-            );
-            record.insert("content".to_string(), Value::String(format!("This is the content of document {}. It contains various words and phrases for inverted indexing.", i)));
-            record.insert(
-                "tags".to_string(),
-                Value::String(format!("tag1,tag2,tag{}", i % 10)),
-            );
-            data.push(record);
+        // Parse S3 location (s3://bucket/key)
+        let (bucket, key) = self.parse_s3_location(s3_location)?;
+
+        // Initialize AWS config and S3 client
+        let aws_config = aws_config::defaults(BehaviorVersion::latest())
+            .load()
+            .await;
+
+        let s3_client = S3Client::new(&aws_config);
+
+        // Get object from S3
+        let response = s3_client
+            .get_object()
+            .bucket(bucket)
+            .key(key)
+            .send()
+            .await
+            .map_err(|e| {
+                AgentError::Storage(format!("Failed to get object from S3: {}", e))
+            })?;
+
+        // Read object body
+        let object_data = response.body.collect().await.map_err(|e| {
+            AgentError::Storage(format!("Failed to read S3 object body: {}", e))
+        })?;
+
+        let content = String::from_utf8(object_data.to_vec()).map_err(|e| {
+            AgentError::Storage(format!("Failed to convert S3 object to string: {}", e))
+        })?;
+
+        // Parse content based on file extension
+        if s3_location.ends_with(".jsonl") {
+            self.parse_jsonl(&content)
+        } else if s3_location.ends_with(".csv") {
+            self.parse_csv(&content)
+        } else {
+            // Assume JSON array
+            serde_json::from_str(&content)
+                .map_err(|e| AgentError::Serialization(format!("Failed to parse JSON from S3: {}", e)))
+        }
+    }
+
+    /// Parse S3 location to extract bucket and key
+    fn parse_s3_location(&self, s3_location: &str) -> Result<(String, String), AgentError> {
+        if !s3_location.starts_with("s3://") {
+            return Err(AgentError::InvalidInput(format!(
+                "Invalid S3 location format: {}",
+                s3_location
+            )));
         }
 
-        Ok(data)
+        let path = &s3_location[5..]; // Remove "s3://" prefix
+        let parts: Vec<&str> = path.splitn(2, '/').collect();
+
+        if parts.len() != 2 {
+            return Err(AgentError::InvalidInput(format!(
+                "Invalid S3 location format: {}",
+                s3_location
+            )));
+        }
+
+        let bucket = parts[0].to_string();
+        let key = parts[1].to_string();
+
+        if bucket.is_empty() || key.is_empty() {
+            return Err(AgentError::InvalidInput(format!(
+                "Invalid S3 location format: {}",
+                s3_location
+            )));
+        }
+
+        Ok((bucket, key))
     }
 
     /// Read data from local file
@@ -256,7 +315,7 @@ impl InvertedIndexBuilder {
         for (record_id, record) in data.iter().enumerate() {
             for field in fields {
                 if let Some(value) = record.get(field) {
-                    let terms = self.extract_terms(value)?;
+                    let terms = self.extract_terms(value).await?;
 
                     for term in terms {
                         unique_terms.insert(term.clone());
@@ -294,20 +353,17 @@ impl InvertedIndexBuilder {
     }
 
     /// Extract terms from a value
-    fn extract_terms(&self, value: &Value) -> Result<Vec<String>, AgentError> {
+    async fn extract_terms(&self, value: &Value) -> Result<Vec<String>, AgentError> {
         match value {
             Value::String(s) => {
-                // Tokenize string
-                // Note: tokenize_text is async but extract_terms is sync
-                // This is a simplified implementation
-                let terms = vec![s.to_string()];
-                Ok(terms)
+                // Tokenize string using the async tokenize_text method
+                self.tokenize_text(s).await
             }
             Value::Array(arr) => {
                 // Handle array of values
                 let mut all_terms = Vec::new();
                 for item in arr {
-                    let terms = self.extract_terms(item)?;
+                    let terms = Box::pin(self.extract_terms(item)).await?;
                     all_terms.extend(terms);
                 }
                 Ok(all_terms)
@@ -382,10 +438,34 @@ impl InvertedIndexBuilder {
 
     /// Write to S3
     async fn write_to_s3(&self, data: &str, s3_location: &str) -> Result<u64, AgentError> {
-        // TODO: Implement S3 writing
         info!("Writing to S3: {}", s3_location);
 
-        // Mock implementation
+        // Parse S3 location (s3://bucket/key)
+        let (bucket, key) = self.parse_s3_location(s3_location)?;
+
+        // Initialize AWS config and S3 client
+        let aws_config = aws_config::defaults(BehaviorVersion::latest())
+            .load()
+            .await;
+
+        let s3_client = S3Client::new(&aws_config);
+
+        // Create byte stream from data
+        let body = ByteStream::from(data.as_bytes().to_vec());
+
+        // Upload object to S3
+        s3_client
+            .put_object()
+            .bucket(bucket)
+            .key(key)
+            .body(body)
+            .content_type("application/json")
+            .send()
+            .await
+            .map_err(|e| {
+                AgentError::Storage(format!("Failed to upload object to S3: {}", e))
+            })?;
+
         Ok(data.len() as u64)
     }
 

@@ -20,15 +20,19 @@ bridge-core = { path = "../../crates/bridge-core" }
 ingestion = { path = "../../crates/ingestion" }
 streaming-processor = { path = "../../crates/streaming-processor" }
 schema-registry = { path = "../../crates/schema-registry" }
+query-engine = { path = "../../crates/query-engine" }
 
 # HTTP and gRPC dependencies
 axum = { workspace = true }
 tonic = { workspace = true }
 prost = { workspace = true }
-hyper = { version = "1.1", features = ["full"] }
+hyper = { workspace = true, features = ["full"] }
 tower = "0.5"
 tower-http = { workspace = true, features = ["cors", "trace", "compression-br"] }
 reqwest = { version = "0.11", features = ["json"] }
+
+# Email dependencies
+lettre = { version = "0.11", features = ["tokio1", "tokio1-native-tls"] }
 
 # Async runtime
 tokio = { workspace = true, features = ["full"] }
@@ -81,6 +85,10 @@ sysinfo = "0.30"
 # Database for local state
 sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "sqlite"] }
 
+# AWS SDK for S3 support
+aws-config = "1.0"
+aws-sdk-s3 = "1.0"
+
 # Time and scheduling
 tokio-cron-scheduler = "0.9"
 
@@ -89,7 +97,12 @@ tokio-test = "0.4"
 tempfile = "3.8"
 test-log = "0.2"
 mockall = "0.12"
+filetime = "0.2"
 
 [[example]]
 name = "basic_agent_example"
 path = "examples/basic_agent_example.rs"
+
+[[example]]
+name = "query_example"
+path = "examples/query_example.rs"

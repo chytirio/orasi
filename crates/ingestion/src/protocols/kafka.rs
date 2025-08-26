@@ -15,9 +15,9 @@ use bridge_core::{
     BridgeResult, TelemetryBatch,
 };
 use chrono::{DateTime, Utc};
-use opentelemetry_proto::tonic::common::v1::any_value::Value as AnyValueValue;
-use opentelemetry_proto::tonic::metrics::v1::metric::Data as OtlpMetricData;
-use opentelemetry_proto::tonic::metrics::v1::number_data_point::Value as NumberDataPointValue;
+use bridge_core::receivers::otlp::otlp::opentelemetry::proto::common::v1::any_value::Value as AnyValueValue;
+use bridge_core::receivers::otlp::otlp::opentelemetry::proto::metrics::v1::metric::Data as OtlpMetricData;
+use bridge_core::receivers::otlp::otlp::opentelemetry::proto::metrics::v1::number_data_point::Value as NumberDataPointValue;
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use std::collections::HashMap;
@@ -874,7 +874,7 @@ impl KafkaMessageHandler {
 
         // Try to decode as OTLP ExportMetricsServiceRequest
         if let Ok(request) =
-            opentelemetry_proto::tonic::collector::metrics::v1::ExportMetricsServiceRequest::decode(
+            bridge_core::receivers::otlp::otlp::opentelemetry::proto::collector::metrics::v1::ExportMetricsServiceRequest::decode(
                 payload,
             )
         {
@@ -998,7 +998,7 @@ impl KafkaMessageHandler {
 
         // Try to decode as OTLP ExportLogsServiceRequest
         if let Ok(request) =
-            opentelemetry_proto::tonic::collector::logs::v1::ExportLogsServiceRequest::decode(
+            bridge_core::receivers::otlp::otlp::opentelemetry::proto::collector::logs::v1::ExportLogsServiceRequest::decode(
                 payload,
             )
         {

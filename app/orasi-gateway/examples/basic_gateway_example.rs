@@ -5,7 +5,7 @@ use orasi_gateway::{
     config::GatewayConfig, error::GatewayError,
     gateway::rate_limiter::GatewayRateLimiter as RateLimiter, gateway::OrasiGateway,
     http::HttpServer, load_balancer::LoadBalancer, routing::proxy::Proxy, routing::Router,
-    types::*, GATEWAY_NAME, GATEWAY_VERSION,
+    types::{*, HealthStatus, HealthState}, GATEWAY_NAME, GATEWAY_VERSION,
 };
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -56,6 +56,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Demonstrate rate limiting
     demonstrate_rate_limiting(&rate_limiter).await?;
+
+    // Demonstrate health status
+    demonstrate_health_status(&gateway).await?;
 
     // Create HTTP server
     let http_server = HttpServer::new(
@@ -245,6 +248,44 @@ async fn demonstrate_rate_limiting(rate_limiter: &Arc<RateLimiter>) -> Result<()
     // Get rate limit statistics
     let stats = rate_limiter.get_stats().await;
     info!("Rate limit statistics: {:?}", stats);
+
+    Ok(())
+}
+
+/// Demonstrate health status functionality
+async fn demonstrate_health_status(gateway: &Arc<RwLock<OrasiGateway>>) -> Result<(), GatewayError> {
+    info!("Demonstrating health status functionality...");
+
+    // Get initial health status
+    let initial_health = gateway.read().await.get_health_status().await;
+    info!("Initial health status: {:?}", initial_health);
+
+    // Wait a bit for health checks to run
+    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+
+    // Get updated health status
+    let updated_health = gateway.read().await.get_health_status().await;
+    info!("Updated health status: {:?}", updated_health);
+
+    // Demonstrate manual health status update
+    let manual_health_status = HealthStatus {
+        service: "orasi-gateway".to_string(),
+        status: HealthState::Healthy,
+        details: {
+            let mut details = std::collections::HashMap::new();
+            details.insert("manual_check".to_string(), "true".to_string());
+            details.insert("timestamp".to_string(), chrono::Utc::now().to_rfc3339());
+            details
+        },
+        timestamp: orasi_gateway::types::current_timestamp(),
+    };
+
+    gateway.write().await.update_health_status(manual_health_status.clone()).await?;
+    info!("Manually updated health status: {:?}", manual_health_status);
+
+    // Get final health status
+    let final_health = gateway.read().await.get_health_status().await;
+    info!("Final health status: {:?}", final_health);
 
     Ok(())
 }

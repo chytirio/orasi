@@ -17,22 +17,72 @@ use crate::types::{
 };
 use async_trait::async_trait;
 use futures::StreamExt;
-use opentelemetry_proto::tonic::collector::logs::v1::logs_service_server::{
+// Generated OTLP protos
+pub mod otlp {
+    pub mod opentelemetry {
+        pub mod proto {
+            pub mod collector {
+                pub mod trace {
+                    pub mod v1 {
+                        tonic::include_proto!("opentelemetry.proto.collector.trace.v1");
+                    }
+                }
+                pub mod metrics {
+                    pub mod v1 {
+                        tonic::include_proto!("opentelemetry.proto.collector.metrics.v1");
+                    }
+                }
+                pub mod logs {
+                    pub mod v1 {
+                        tonic::include_proto!("opentelemetry.proto.collector.logs.v1");
+                    }
+                }
+            }
+            pub mod trace {
+                pub mod v1 {
+                    tonic::include_proto!("opentelemetry.proto.trace.v1");
+                }
+            }
+            pub mod metrics {
+                pub mod v1 {
+                    tonic::include_proto!("opentelemetry.proto.metrics.v1");
+                }
+            }
+            pub mod logs {
+                pub mod v1 {
+                    tonic::include_proto!("opentelemetry.proto.logs.v1");
+                }
+            }
+            pub mod common {
+                pub mod v1 {
+                    tonic::include_proto!("opentelemetry.proto.common.v1");
+                }
+            }
+            pub mod resource {
+                pub mod v1 {
+                    tonic::include_proto!("opentelemetry.proto.resource.v1");
+                }
+            }
+        }
+    }
+}
+
+use otlp::opentelemetry::proto::collector::logs::v1::logs_service_server::{
     LogsService, LogsServiceServer,
 };
-use opentelemetry_proto::tonic::collector::logs::v1::{
+use otlp::opentelemetry::proto::collector::logs::v1::{
     ExportLogsServiceRequest, ExportLogsServiceResponse,
 };
-use opentelemetry_proto::tonic::collector::metrics::v1::metrics_service_server::{
+use otlp::opentelemetry::proto::collector::metrics::v1::metrics_service_server::{
     MetricsService, MetricsServiceServer,
 };
-use opentelemetry_proto::tonic::collector::metrics::v1::{
+use otlp::opentelemetry::proto::collector::metrics::v1::{
     ExportMetricsServiceRequest, ExportMetricsServiceResponse,
 };
-use opentelemetry_proto::tonic::collector::trace::v1::trace_service_server::{
+use otlp::opentelemetry::proto::collector::trace::v1::trace_service_server::{
     TraceService, TraceServiceServer,
 };
-use opentelemetry_proto::tonic::collector::trace::v1::{
+use otlp::opentelemetry::proto::collector::trace::v1::{
     ExportTraceServiceRequest, ExportTraceServiceResponse,
 };
 use std::collections::HashMap;
@@ -41,6 +91,8 @@ use std::sync::Arc;
 use tokio::net::TcpListener;
 use tokio::sync::RwLock;
 use tonic::{transport::Server, Request, Response, Status};
+use tower::{Layer, Service};
+
 use tracing::{debug, error, info, warn};
 
 /// OTLP receiver configuration
@@ -182,6 +234,10 @@ impl OtlpReceiver {
             receiver: Arc::new(self.clone()),
         };
 
+        // let traces = TraceService {};
+        // let logs = LogsService {};
+        // let metrics = MetricsService {};
+
         // Start the gRPC server
         let server_handle = tokio::spawn(async move {
             let server = Server::builder()
@@ -243,8 +299,8 @@ struct OtlpService {
 impl TraceService for OtlpService {
     async fn export(
         &self,
-        request: Request<ExportTraceServiceRequest>,
-    ) -> Result<Response<ExportTraceServiceResponse>, Status> {
+        request: tonic::Request<ExportTraceServiceRequest>,
+    ) -> Result<tonic::Response<ExportTraceServiceResponse>, tonic::Status> {
         let request_data = request.into_inner();
 
         // Update statistics
@@ -291,24 +347,83 @@ impl TraceService for OtlpService {
             buffer.push(batch);
         }
 
-        // Update statistics
-        {
-            let mut stats = self.receiver.stats.write().await;
-            stats.total_records += 1;
-        }
-
-        Ok(Response::new(ExportTraceServiceResponse {
+        // Respond with an empty ExportTraceServiceResponse (success)
+        Ok(tonic::Response::new(ExportTraceServiceResponse {
             partial_success: None,
         }))
     }
 }
 
+// #[tonic::async_trait]
+// impl TraceService for OtlpService {
+//     async fn export(
+//         &self,
+//         request: tonic::Request<ExportTraceServiceRequest>,
+//     ) -> Result<tonic::Response<ExportTraceServiceResponse>, Status> {
+//         let request_data = request.into_inner();
+
+//         // Update statistics
+//         {
+//             let mut stats = self.receiver.stats.write().await;
+//             stats.total_requests += 1;
+//             stats.last_receive_time = Some(chrono::Utc::now());
+//         }
+
+//         // For now, just create a simple mock record
+//         let mock_record = TelemetryRecord::new(
+//             TelemetryType::Trace,
+//             crate::types::TelemetryData::Trace(TraceData {
+//                 trace_id: "mock_trace_id".to_string(),
+//                 span_id: "mock_span_id".to_string(),
+//                 parent_span_id: None,
+//                 name: "mock_span".to_string(),
+//                 kind: crate::types::traces::SpanKind::Internal,
+//                 start_time: chrono::Utc::now(),
+//                 end_time: None,
+//                 duration_ns: None,
+//                 status: crate::types::traces::SpanStatus {
+//                     code: crate::types::traces::StatusCode::Ok,
+//                     message: None,
+//                 },
+//                 attributes: HashMap::new(),
+//                 events: Vec::new(),
+//                 links: Vec::new(),
+//             }),
+//         );
+
+//         let batch = TelemetryBatch {
+//             id: uuid::Uuid::new_v4(),
+//             timestamp: chrono::Utc::now(),
+//             source: "otlp_traces".to_string(),
+//             size: 1,
+//             records: vec![mock_record],
+//             metadata: HashMap::new(),
+//         };
+
+//         // Add to buffer
+//         {
+//             let mut buffer = self.receiver.buffer.write().await;
+//             buffer.push(batch);
+//         }
+
+//         // Update statistics
+//         {
+//             let mut stats = self.receiver.stats.write().await;
+//             stats.total_records += 1;
+//         }
+
+//         Ok(Response::new(ExportTraceServiceResponse {
+//             partial_success: None,
+//         }))
+//     }
+// }
+
 #[tonic::async_trait]
 impl MetricsService for OtlpService {
     async fn export(
         &self,
-        request: Request<ExportMetricsServiceRequest>,
-    ) -> Result<Response<ExportMetricsServiceResponse>, Status> {
+        request: tonic::Request<ExportMetricsServiceRequest>,
+    ) -> Result<tonic::Response<ExportMetricsServiceResponse>, tonic::Status> {
         let request_data = request.into_inner();
 
         // Update statistics
@@ -353,7 +468,7 @@ impl MetricsService for OtlpService {
             stats.total_records += 1;
         }
 
-        Ok(Response::new(ExportMetricsServiceResponse {
+        Ok(tonic::Response::new(ExportMetricsServiceResponse {
             partial_success: None,
         }))
     }
@@ -363,8 +478,8 @@ impl MetricsService for OtlpService {
 impl LogsService for OtlpService {
     async fn export(
         &self,
-        request: Request<ExportLogsServiceRequest>,
-    ) -> Result<Response<ExportLogsServiceResponse>, Status> {
+        request: tonic::Request<ExportLogsServiceRequest>,
+    ) -> Result<tonic::Response<ExportLogsServiceResponse>, tonic::Status> {
         let request_data = request.into_inner();
 
         // Update statistics
@@ -409,7 +524,7 @@ impl LogsService for OtlpService {
             stats.total_records += 1;
         }
 
-        Ok(Response::new(ExportLogsServiceResponse {
+        Ok(tonic::Response::new(ExportLogsServiceResponse {
             partial_success: None,
         }))
     }

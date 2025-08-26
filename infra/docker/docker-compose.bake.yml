@@ -102,7 +102,7 @@ services:
     environment:
       - RUST_LOG=${RUST_LOG:-info}
       - RUST_BACKTRACE=${RUST_BACKTRACE:-1}
-      - PORT=8080
+      - PORT=8081
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/orasi
       - REDIS_URL=redis://redis:6379
     volumes:
@@ -123,6 +123,44 @@ services:
       retries: 3
     restart: unless-stopped
     command: ["/app/schema-registry", "serve", "--config", "/app/config/schema-registry.toml"]
+  
+  ballista-scheduler:
+    image: ghcr.io/apache/datafusion-ballista-scheduler:48.0.0
+    container_name: orasi-ballista-scheduler
+    command: "--bind-host 0.0.0.0"
+    ports:
+      - "50050:50050"
+    environment:
+      - RUST_LOG=ballista=info
+    volumes:
+      - ./benchmarks/data:/data
+    networks:
+      - orasi-network
+    healthcheck:
+      test: ["CMD", "nc", "-z", "ballista-scheduler", "50050"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+  
+  ballista-executor:
+    image: ghcr.io/apache/datafusion-ballista-executor:48.0.0
+    container_name: orasi-ballista-executor
+    command: "--bind-host 0.0.0.0 --scheduler-host ballista-scheduler --scheduler-connect-timeout-seconds 15"
+    deploy: { replicas: 1 }
+    restart: always
+    environment:
+      - RUST_LOG=ballista=info
+    volumes:
+      - ./benchmarks/data:/data
+    networks:
+      - orasi-network
+    depends_on:
+      - ballista-scheduler
+    healthcheck:
+      test: ["CMD", "nc", "-z", "ballista-executor", "50051"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   # Controller Service (Kubernetes controller)
   controller:

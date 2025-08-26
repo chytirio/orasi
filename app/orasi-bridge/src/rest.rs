@@ -118,10 +118,10 @@ fn create_api_v1_router() -> Router<AppState> {
         // Component management endpoints
         .route("/components", get(list_components_handler))
         .route(
-            "/components/:name/status",
+            "/components/{name}/status",
             get(get_component_status_handler),
         )
-        .route("/components/:name/restart", post(restart_component_handler))
+        .route("/components/{name}/restart", post(restart_component_handler))
         .route("/components/restart", post(restart_components_handler))
         // Plugin endpoints
         .route("/plugin/capabilities", get(plugin_capabilities_handler))
@@ -311,11 +311,11 @@ pub fn create_management_router(config: BridgeAPIConfig, metrics: ApiMetrics) ->
         .route("/api/v1/config", put(config_handler))
         .route("/api/v1/components", get(component_status_handler))
         .route(
-            "/api/v1/components/:name/status",
+            "/api/v1/components/{name}/status",
             get(component_status_handler),
         )
         .route(
-            "/api/v1/components/:name/restart",
+            "/api/v1/components/{name}/restart",
             post(component_restart_handler),
         )
         .route("/health/live", get(health_live_handler))

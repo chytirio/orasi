@@ -69,11 +69,11 @@ impl HttpServer {
             .route("/gateway/status", get(Self::gateway_status))
             .route("/gateway/routes", get(Self::list_routes))
             .route("/gateway/routes", post(Self::add_route))
-            .route("/gateway/routes/:path", delete(Self::remove_route))
+            .route("/gateway/routes/{path}", delete(Self::remove_route))
             // Load balancer endpoints
             .route("/loadbalancer/endpoints", get(Self::list_endpoints))
             .route(
-                "/loadbalancer/endpoints/:service",
+                "/loadbalancer/endpoints/{service}",
                 get(Self::get_service_endpoints),
             )
             .route("/loadbalancer/health", get(Self::loadbalancer_health))
